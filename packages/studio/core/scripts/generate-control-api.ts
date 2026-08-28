@@ -3,6 +3,7 @@ import * as path from "node:path"
 import * as ts from "typescript"
 import {fileURLToPath} from "node:url"
 import type {
+    BindingSpec,
     GeneratedManifest,
     OperationDescriptor,
     ParameterSpec,
@@ -60,14 +61,6 @@ const roots: ReadonlyArray<RootConfig> = [
         target: "address",
         transaction: "editing"
     },
-    {
-        sourceFile: path.join(coreDirectory, "src/project/ProjectResources.ts"),
-        className: "ProjectResources",
-        root: "resources",
-        idPrefix: "project.resources",
-        target: "singleton",
-        transaction: "none"
-    }
 ]
 
 class UnsupportedProjection extends Error {
@@ -149,9 +142,16 @@ const handleSpec = (checker: ts.TypeChecker, type: ts.Type,
                     handle: "address" | "box" | "field" | "pointerField" | "primitiveField" | "adapter" | "parameter",
                     name: string, constraintIndex?: number): TypeSpec => {
     const constraint = constraintIndex === undefined ? undefined : typeArguments(type)[constraintIndex]
-    return constraint === undefined
-        ? {kind: "handle", handle, name}
-        : {kind: "handle", handle, name, constraint: typeName(checker, constraint)}
+    if (constraint === undefined) {return {kind: "handle", handle, name}}
+    const constraintText = typeName(checker, constraint)
+    const members = constraint.isUnion() ? constraint.types.map(member => typeName(checker, member)) : [constraintText]
+    return {
+        kind: "handle",
+        handle,
+        name,
+        constraint: constraintText,
+        ...(members.length === 0 ? {} : {constraintMembers: members})
+    }
 }
 
 const isLiteral = (type: ts.Type): boolean => {
@@ -365,10 +365,27 @@ const projectType = (checker: ts.TypeChecker, type: ts.Type, fallback: ts.Node,
     throw new UnsupportedProjection(text, "no codec is registered for this type family")
 }
 
-const parameterName = (parameter: ts.ParameterDeclaration, index: number): {name: string, binding: "identifier" | "pattern"} => {
-    if (ts.isIdentifier(parameter.name)) {return {name: parameter.name.text, binding: "identifier"}}
-    if (ts.isObjectBindingPattern(parameter.name)) {return {name: `arg${index}`, binding: "pattern"}}
-    throw new Error("array binding patterns are not supported")
+const bindingPropertyName = (name: ts.PropertyName | ts.BindingName): string => {
+    if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {return name.text}
+    throw new Error("computed binding property names are not supported")
+}
+
+const bindingSpec = (name: ts.BindingName): BindingSpec => {
+    if (ts.isIdentifier(name)) {return {kind: "identifier", name: name.text}}
+    if (!ts.isObjectBindingPattern(name)) {throw new Error("array binding patterns are not supported")}
+    return {
+        kind: "object",
+        properties: name.elements.map(element => {
+            if (element.dotDotDotToken !== undefined) {
+                throw new Error("rest binding patterns are not supported")
+            }
+            return {
+                name: bindingPropertyName(element.propertyName ?? element.name),
+                optional: element.initializer !== undefined,
+                binding: bindingSpec(element.name)
+            }
+        })
+    }
 }
 
 const hasInitializerOrQuestion = (parameter: ts.ParameterDeclaration): boolean =>
@@ -434,11 +451,11 @@ const generateManifest = (program: ts.Program): GeneratedManifest => {
             try {
                 const parameterValueAllowed = root.root === "parameter"
                 const parameters: ParameterSpec[] = member.parameters.map((parameter, index) => {
-                    const named = parameterName(parameter, index)
+                    const binding = bindingSpec(parameter.name)
                     return {
-                        name: named.name,
+                        ...(binding.kind === "identifier" ? {name: binding.name} : {}),
                         optional: hasInitializerOrQuestion(parameter),
-                        binding: named.binding,
+                        binding,
                         type: projectType(checker, parameterTypes[index], parameter, 0, parameterValueAllowed)
                     }
                 })

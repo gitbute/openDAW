@@ -3,7 +3,6 @@ export type JsonValue = JsonPrimitive | ReadonlyArray<JsonValue> | JsonObject
 export type JsonObject = {readonly [key: string]: JsonValue}
 
 export type ControlHandle = {
-    readonly $type: string
     readonly $address: string
 }
 
@@ -23,7 +22,13 @@ export type TypeSpec =
     | {readonly kind: "option", readonly value: TypeSpec}
     | {readonly kind: "nullable", readonly value: TypeSpec}
     | {readonly kind: "union", readonly alternatives: ReadonlyArray<TypeSpec>}
-    | {readonly kind: "handle", readonly handle: HandleKind, readonly name: string, readonly constraint?: string}
+    | {
+        readonly kind: "handle"
+        readonly handle: HandleKind
+        readonly name: string
+        readonly constraint?: string
+        readonly constraintMembers?: ReadonlyArray<string>
+    }
     | {readonly kind: "factory", readonly factory: "instrument" | "effect"}
     | {readonly kind: "uuid"}
     | {readonly kind: "parameterValue"}
@@ -35,16 +40,26 @@ export type PropertySpec = {
     readonly type: TypeSpec
 }
 
-export type ParameterSpec = {
+export type BindingSpec =
+    | {readonly kind: "identifier", readonly name: string}
+    | {readonly kind: "object", readonly properties: ReadonlyArray<BindingPropertySpec>}
+
+export type BindingPropertySpec = {
     readonly name: string
     readonly optional: boolean
-    readonly binding?: "identifier" | "pattern"
+    readonly binding: BindingSpec
+}
+
+export type ParameterSpec = {
+    readonly name?: string
+    readonly optional: boolean
+    readonly binding: BindingSpec
     readonly type: TypeSpec
 }
 
 export type OperationDescriptor = {
     readonly id: string
-    readonly root: "project" | "modulation" | "transport" | "parameter" | "resources"
+    readonly root: "project" | "modulation" | "transport" | "parameter"
     readonly ownerType: string
     readonly method: string
     readonly target: "singleton" | "address"
@@ -73,101 +88,4 @@ export type ControlCall = {
     readonly arguments?: JsonObject
 }
 
-export type ControlSetRequest = {
-    readonly handle: ControlHandle
-    readonly value: JsonValue
-    readonly type?: "set"
-}
-
-export type ControlBatchItem = ControlCall | ControlSetRequest
-
-export type OperationSearchResult = {
-    readonly score: number
-    readonly operation: OperationDescriptor
-}
-
-export type ControlPrintValue = {
-    readonly value: string
-    readonly unit: string
-}
-
-export type ControlChoice = {
-    readonly value: JsonPrimitive
-    readonly label: string
-    readonly unit: string
-}
-
-export type ControlFieldInspection = {
-    readonly name: string
-    readonly handle: ControlHandle
-    readonly kind: "field" | "primitive" | "pointer"
-    readonly type: string
-    readonly context?: ResourceContext
-    readonly primitiveType?: string
-    readonly semantic?: string
-    readonly unit?: string
-    readonly constraints?: JsonValue
-    readonly choices?: ReadonlyArray<ControlChoice>
-    readonly value?: JsonValue
-    readonly pointerType?: string
-    readonly pointerTypes?: ReadonlyArray<string>
-    readonly target?: ControlHandle | null
-}
-
-export type ControlInspection = {
-    readonly kind: ResourceKind
-    readonly handle: ControlHandle
-    readonly name?: string
-    readonly type: string
-    readonly label?: string
-    readonly context?: ResourceContext
-    readonly box?: ControlHandle
-    readonly fields?: ReadonlyArray<ControlFieldInspection>
-    readonly field?: ControlHandle
-    readonly primitiveType?: string
-    readonly semantic?: string
-    readonly unit?: string
-    readonly value?: JsonValue
-    readonly rawValue?: JsonValue
-    readonly unitValue?: number
-    readonly printValue?: ControlPrintValue
-    readonly controlledValue?: JsonValue
-    readonly controlledPrintValue?: ControlPrintValue
-    readonly owner?: ControlHandle
-    readonly constraints?: JsonValue
-    readonly choices?: ReadonlyArray<ControlChoice>
-    readonly pointerType?: string
-    readonly pointerTypes?: ReadonlyArray<string>
-    readonly target?: ControlHandle | null
-}
-
-export type ControlSnapshotOptions = {
-    readonly boxes?: boolean
-    readonly parameters?: boolean
-    readonly type?: string
-    readonly query?: string
-}
-
-export type ControlSnapshot = {
-    readonly boxes: ReadonlyArray<ControlInspection>
-    readonly parameters: ReadonlyArray<ControlInspection>
-}
-
-export type ResourceContext = {
-    readonly box: ControlHandle
-    readonly boxType: string
-    readonly label?: string
-    readonly path?: string
-}
-
-export type ResourceKind = "box" | "field" | "pointerField" | "primitiveField" | "adapter" | "parameter"
-
-export type ResourceDescription = {
-    readonly kind: ResourceKind
-    readonly handle: ControlHandle
-    readonly name: string
-    readonly type: string
-    readonly label?: string
-    readonly context?: ResourceContext
-    readonly field?: ControlHandle
-}
+export type ControlBatchItem = ControlCall

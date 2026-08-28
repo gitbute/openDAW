@@ -15,7 +15,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "value",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "value"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number"
@@ -38,7 +41,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "factory",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "factory"
+                    },
                     "type": {
                         "kind": "factory",
                         "factory": "instrument"
@@ -136,7 +142,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "name",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "name"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "string"
@@ -145,7 +154,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "type",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "type"
+                    },
                     "type": {
                         "kind": "literal",
                         "values": [
@@ -173,7 +185,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "audioUnitBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "audioUnitBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -183,7 +198,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "target",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
                     "type": {
                         "kind": "nullable",
                         "value": {
@@ -210,7 +228,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "audioUnitBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "audioUnitBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -220,7 +241,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "targetBus",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "targetBus"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -230,7 +254,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "sendGain",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "sendGain"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number"
@@ -239,7 +266,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "sendPan",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "sendPan"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number"
@@ -248,7 +278,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "routing",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "routing"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -274,7 +307,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "send",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "send"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -298,7 +334,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "target",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
                     "type": {
                         "kind": "union",
                         "alternatives": [
@@ -318,7 +357,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "sample",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "sample"
+                    },
                     "type": {
                         "kind": "object",
                         "name": "SampleReference",
@@ -352,7 +394,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "slot",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "slot"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -376,7 +421,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "target",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
                     "type": {
                         "kind": "union",
                         "alternatives": [
@@ -396,7 +444,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "slot",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "slot"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -420,18 +471,28 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "field",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "field"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "field",
                         "name": "Field",
-                        "constraint": "EffectPointerType"
+                        "constraint": "EffectPointerType",
+                        "constraintMembers": [
+                            "Pointers.AudioEffectHost",
+                            "Pointers.MIDIEffectHost"
+                        ]
                     }
                 },
                 {
                     "name": "factory",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "factory"
+                    },
                     "type": {
                         "kind": "factory",
                         "factory": "effect"
@@ -440,7 +501,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "insertIndex",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "insertIndex"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -601,18 +665,28 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "targetField",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "targetField"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "field",
                         "name": "Field",
-                        "constraint": "EffectPointerType"
+                        "constraint": "EffectPointerType",
+                        "constraintMembers": [
+                            "Pointers.AudioEffectHost",
+                            "Pointers.MIDIEffectHost"
+                        ]
                     }
                 },
                 {
                     "name": "boxes",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "boxes"
+                    },
                     "type": {
                         "kind": "array",
                         "element": {
@@ -760,7 +834,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "insertIndex",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "insertIndex"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -784,7 +861,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "effect",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "effect"
+                    },
                     "type": {
                         "kind": "union",
                         "alternatives": [
@@ -943,7 +1023,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "effect",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "effect"
+                    },
                     "type": {
                         "kind": "union",
                         "alternatives": [
@@ -1088,18 +1171,28 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "targetField",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "targetField"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "field",
                         "name": "Field",
-                        "constraint": "EffectPointerType"
+                        "constraint": "EffectPointerType",
+                        "constraintMembers": [
+                            "Pointers.AudioEffectHost",
+                            "Pointers.MIDIEffectHost"
+                        ]
                     }
                 },
                 {
                     "name": "insertIndex",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "insertIndex"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -1123,7 +1216,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "audioUnitBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "audioUnitBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -1133,7 +1229,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "insertIndex",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "insertIndex"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -1159,7 +1258,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "audioUnitBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "audioUnitBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -1169,7 +1271,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "insertIndex",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "insertIndex"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -1195,7 +1300,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "audioUnitBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "audioUnitBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -1205,18 +1313,27 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "target",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "field",
                         "name": "Field",
-                        "constraint": "Pointers.Automation"
+                        "constraint": "Pointers.Automation",
+                        "constraintMembers": [
+                            "Pointers.Automation"
+                        ]
                     }
                 },
                 {
                     "name": "insertIndex",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "insertIndex"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -1242,7 +1359,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "audioUnitBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "audioUnitBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -1266,7 +1386,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "trackBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "trackBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -1276,7 +1399,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "clipIndex",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "clipIndex"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -1284,9 +1410,28 @@ export const generatedControlManifest: GeneratedManifest = {
                     }
                 },
                 {
-                    "name": "arg2",
                     "optional": true,
-                    "binding": "pattern",
+                    "binding": {
+                        "kind": "object",
+                        "properties": [
+                            {
+                                "name": "name",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "name"
+                                }
+                            },
+                            {
+                                "name": "hue",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "hue"
+                                }
+                            }
+                        ]
+                    },
                     "type": {
                         "kind": "object",
                         "name": "ClipRegionOptions",
@@ -1329,7 +1474,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "trackBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "trackBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -1339,7 +1487,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "audioFileBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "audioFileBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -1349,7 +1500,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "clipIndex",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "clipIndex"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -1359,7 +1513,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "duration",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "duration"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -1369,7 +1526,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "name",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "name"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "string"
@@ -1394,7 +1554,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "trackBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "trackBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -1404,7 +1567,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "audioFileBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "audioFileBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -1414,7 +1580,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "position",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "position"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -1424,7 +1593,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "duration",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "duration"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -1434,7 +1606,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "name",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "name"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "string"
@@ -1459,7 +1634,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "trackBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "trackBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -1483,7 +1661,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "trackBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "trackBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -1493,7 +1674,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "name",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "name"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "string"
@@ -1516,7 +1700,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "trackBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "trackBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -1526,7 +1713,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "delta",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "delta"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -1550,7 +1740,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "region",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "region"
+                    },
                     "type": {
                         "kind": "union",
                         "alternatives": [
@@ -1589,7 +1782,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "clip",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "clip"
+                    },
                     "type": {
                         "kind": "union",
                         "alternatives": [
@@ -1628,7 +1824,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "notes",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "notes"
+                    },
                     "type": {
                         "kind": "union",
                         "alternatives": [
@@ -1649,9 +1848,36 @@ export const generatedControlManifest: GeneratedManifest = {
                     }
                 },
                 {
-                    "name": "arg1",
                     "optional": false,
-                    "binding": "pattern",
+                    "binding": {
+                        "kind": "object",
+                        "properties": [
+                            {
+                                "name": "positionQuantisation",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "positionQuantisation"
+                                }
+                            },
+                            {
+                                "name": "durationQuantisation",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "durationQuantisation"
+                                }
+                            },
+                            {
+                                "name": "offset",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "offset"
+                                }
+                            }
+                        ]
+                    },
                     "type": {
                         "kind": "object",
                         "name": "QuantiseNotesOptions",
@@ -1703,7 +1929,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "trackBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "trackBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -1713,7 +1942,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "clipIndex",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "clipIndex"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -1721,9 +1953,28 @@ export const generatedControlManifest: GeneratedManifest = {
                     }
                 },
                 {
-                    "name": "arg2",
                     "optional": true,
-                    "binding": "pattern",
+                    "binding": {
+                        "kind": "object",
+                        "properties": [
+                            {
+                                "name": "name",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "name"
+                                }
+                            },
+                            {
+                                "name": "hue",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "hue"
+                                }
+                            }
+                        ]
+                    },
                     "type": {
                         "kind": "object",
                         "name": "ClipRegionOptions",
@@ -1764,9 +2015,92 @@ export const generatedControlManifest: GeneratedManifest = {
             "async": false,
             "parameters": [
                 {
-                    "name": "arg0",
                     "optional": false,
-                    "binding": "pattern",
+                    "binding": {
+                        "kind": "object",
+                        "properties": [
+                            {
+                                "name": "trackBox",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "trackBox"
+                                }
+                            },
+                            {
+                                "name": "position",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "position"
+                                }
+                            },
+                            {
+                                "name": "duration",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "duration"
+                                }
+                            },
+                            {
+                                "name": "loopOffset",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "loopOffset"
+                                }
+                            },
+                            {
+                                "name": "loopDuration",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "loopDuration"
+                                }
+                            },
+                            {
+                                "name": "eventOffset",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "eventOffset"
+                                }
+                            },
+                            {
+                                "name": "eventCollection",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "eventCollection"
+                                }
+                            },
+                            {
+                                "name": "mute",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "mute"
+                                }
+                            },
+                            {
+                                "name": "name",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "name"
+                                }
+                            },
+                            {
+                                "name": "hue",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "hue"
+                                }
+                            }
+                        ]
+                    },
                     "type": {
                         "kind": "object",
                         "name": "NoteRegionParams",
@@ -1883,7 +2217,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "trackBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "trackBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -1893,7 +2230,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "position",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "position"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -1903,7 +2243,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "duration",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "duration"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -1911,9 +2254,28 @@ export const generatedControlManifest: GeneratedManifest = {
                     }
                 },
                 {
-                    "name": "arg3",
                     "optional": true,
-                    "binding": "pattern",
+                    "binding": {
+                        "kind": "object",
+                        "properties": [
+                            {
+                                "name": "name",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "name"
+                                }
+                            },
+                            {
+                                "name": "hue",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "hue"
+                                }
+                            }
+                        ]
+                    },
                     "type": {
                         "kind": "object",
                         "name": "ClipRegionOptions",
@@ -1972,9 +2334,68 @@ export const generatedControlManifest: GeneratedManifest = {
             "async": false,
             "parameters": [
                 {
-                    "name": "arg0",
                     "optional": false,
-                    "binding": "pattern",
+                    "binding": {
+                        "kind": "object",
+                        "properties": [
+                            {
+                                "name": "owner",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "owner"
+                                }
+                            },
+                            {
+                                "name": "position",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "position"
+                                }
+                            },
+                            {
+                                "name": "duration",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "duration"
+                                }
+                            },
+                            {
+                                "name": "velocity",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "velocity"
+                                }
+                            },
+                            {
+                                "name": "pitch",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "pitch"
+                                }
+                            },
+                            {
+                                "name": "chance",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "chance"
+                                }
+                            },
+                            {
+                                "name": "cent",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "cent"
+                                }
+                            }
+                        ]
+                    },
                     "type": {
                         "kind": "object",
                         "name": "NoteEventParams",
@@ -2018,7 +2439,10 @@ export const generatedControlManifest: GeneratedManifest = {
                                                 "kind": "handle",
                                                 "handle": "field",
                                                 "name": "Field",
-                                                "constraint": "Pointers.NoteEventCollection"
+                                                "constraint": "Pointers.NoteEventCollection",
+                                                "constraintMembers": [
+                                                    "Pointers.NoteEventCollection"
+                                                ]
                                             }
                                         }
                                     ]
@@ -2073,18 +2497,27 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "collection",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "collection"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "field",
                         "name": "Field",
-                        "constraint": "Pointers.NoteEventCollection"
+                        "constraint": "Pointers.NoteEventCollection",
+                        "constraintMembers": [
+                            "Pointers.NoteEventCollection"
+                        ]
                     }
                 },
                 {
                     "name": "events",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "events"
+                    },
                     "type": {
                         "kind": "array",
                         "element": {
@@ -2179,7 +2612,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "events",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "events"
+                    },
                     "type": {
                         "kind": "array",
                         "element": {
@@ -2206,18 +2642,27 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "collection",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "collection"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "field",
                         "name": "Field",
-                        "constraint": "Pointers.ValueEventCollection"
+                        "constraint": "Pointers.ValueEventCollection",
+                        "constraintMembers": [
+                            "Pointers.ValueEventCollection"
+                        ]
                     }
                 },
                 {
                     "name": "events",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "events"
+                    },
                     "type": {
                         "kind": "array",
                         "element": {
@@ -2298,18 +2743,27 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "collection",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "collection"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "field",
                         "name": "Field",
-                        "constraint": "Pointers.ValueEventCollection"
+                        "constraint": "Pointers.ValueEventCollection",
+                        "constraintMembers": [
+                            "Pointers.ValueEventCollection"
+                        ]
                     }
                 },
                 {
                     "name": "events",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "events"
+                    },
                     "type": {
                         "kind": "array",
                         "element": {
@@ -2385,7 +2839,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "event",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "event"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -2395,7 +2852,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "position",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "position"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -2405,7 +2865,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "index",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "index"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -2415,7 +2878,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "value",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "value"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -2425,7 +2891,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "interpolation",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "interpolation"
+                    },
                     "type": {
                         "kind": "literal",
                         "values": [
@@ -2438,7 +2907,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "slope",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "slope"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -2462,7 +2934,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "events",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "events"
+                    },
                     "type": {
                         "kind": "array",
                         "element": {
@@ -2489,7 +2964,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "target",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
                     "type": {
                         "kind": "union",
                         "alternatives": [
@@ -2639,7 +3117,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "uuid",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "uuid"
+                    },
                     "type": {
                         "kind": "uuid"
                     }
@@ -2647,7 +3128,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "options",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "options"
+                    },
                     "type": {
                         "kind": "object",
                         "name": "PresetApplyOptions",
@@ -2725,7 +3209,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "audioUnitBox",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "audioUnitBox"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "box",
@@ -2749,7 +3236,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "notes",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "notes"
+                    },
                     "type": {
                         "kind": "array",
                         "element": {
@@ -2800,7 +3290,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "label",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "label"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "string"
@@ -2845,7 +3338,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "label",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "label"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "string"
@@ -2890,7 +3386,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "label",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "label"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "string"
@@ -2935,7 +3434,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "label",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "label"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "string"
@@ -2980,7 +3482,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "modulator",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "modulator"
+                    },
                     "type": {
                         "kind": "union",
                         "alternatives": [
@@ -3010,18 +3515,27 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "target",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
                     "type": {
                         "kind": "handle",
                         "handle": "field",
                         "name": "Field",
-                        "constraint": "Pointers.Modulation"
+                        "constraint": "Pointers.Modulation",
+                        "constraintMembers": [
+                            "Pointers.Modulation"
+                        ]
                     }
                 },
                 {
                     "name": "depth",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "depth"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -3047,7 +3561,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "modulator",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "modulator"
+                    },
                     "type": {
                         "kind": "union",
                         "alternatives": [
@@ -3113,7 +3630,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "modulators",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "modulators"
+                    },
                     "type": {
                         "kind": "array",
                         "element": {
@@ -3185,7 +3705,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "modulator",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "modulator"
+                    },
                     "type": {
                         "kind": "union",
                         "alternatives": [
@@ -3229,7 +3752,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "modulators",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "modulators"
+                    },
                     "type": {
                         "kind": "array",
                         "element": {
@@ -3276,7 +3802,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "modulators",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "modulators"
+                    },
                     "type": {
                         "kind": "array",
                         "element": {
@@ -3309,7 +3838,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "target",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
                     "type": {
                         "kind": "union",
                         "alternatives": [
@@ -3366,7 +3898,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "reset",
                     "optional": true,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "reset"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "boolean"
@@ -3389,7 +3924,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "position",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "position"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -3413,7 +3951,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "countIn",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "countIn"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "boolean"
@@ -3515,7 +4056,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "uuid",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "uuid"
+                    },
                     "type": {
                         "kind": "uuid"
                     }
@@ -3537,7 +4081,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "uuid",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "uuid"
+                    },
                     "type": {
                         "kind": "uuid"
                     }
@@ -3559,7 +4106,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "signal",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "signal"
+                    },
                     "type": {
                         "kind": "union",
                         "alternatives": [
@@ -3700,7 +4250,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "clipIds",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "clipIds"
+                    },
                     "type": {
                         "kind": "array",
                         "element": {
@@ -3725,7 +4278,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "trackIds",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "trackIds"
+                    },
                     "type": {
                         "kind": "array",
                         "element": {
@@ -3750,7 +4306,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "uuid",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "uuid"
+                    },
                     "type": {
                         "kind": "uuid"
                     }
@@ -3772,7 +4331,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "position",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "position"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -3822,7 +4384,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "value",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "value"
+                    },
                     "type": {
                         "kind": "parameterValue"
                     }
@@ -3844,7 +4409,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "value",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "value"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "number",
@@ -3975,7 +4543,10 @@ export const generatedControlManifest: GeneratedManifest = {
                 {
                     "name": "text",
                     "optional": false,
-                    "binding": "identifier",
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "text"
+                    },
                     "type": {
                         "kind": "primitive",
                         "type": "string"
@@ -3997,2344 +4568,6 @@ export const generatedControlManifest: GeneratedManifest = {
             "parameters": [],
             "result": {
                 "kind": "void"
-            }
-        },
-        {
-            "id": "project.resources.audioUnits",
-            "root": "resources",
-            "ownerType": "ProjectResources",
-            "method": "audioUnits",
-            "target": "singleton",
-            "transaction": "none",
-            "async": false,
-            "parameters": [],
-            "result": {
-                "kind": "array",
-                "element": {
-                    "kind": "object",
-                    "name": "ProjectAudioUnitResource",
-                    "properties": [
-                        {
-                            "name": "audioEffects",
-                            "optional": false,
-                            "type": {
-                                "kind": "array",
-                                "element": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "auxSends",
-                            "optional": false,
-                            "type": {
-                                "kind": "array",
-                                "element": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "icon",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "index",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "int"
-                            }
-                        },
-                        {
-                            "name": "label",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "midiEffects",
-                            "optional": false,
-                            "type": {
-                                "kind": "array",
-                                "element": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "mute",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "boolean"
-                            }
-                        },
-                        {
-                            "name": "output",
-                            "optional": false,
-                            "type": {
-                                "kind": "nullable",
-                                "value": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "panning",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number"
-                            }
-                        },
-                        {
-                            "name": "ref",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceRef",
-                                "properties": [
-                                    {
-                                        "name": "$address",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "$type",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "solo",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "boolean"
-                            }
-                        },
-                        {
-                            "name": "tracks",
-                            "optional": false,
-                            "type": {
-                                "kind": "array",
-                                "element": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "type",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "volume",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number"
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "id": "project.resources.buses",
-            "root": "resources",
-            "ownerType": "ProjectResources",
-            "method": "buses",
-            "target": "singleton",
-            "transaction": "none",
-            "async": false,
-            "parameters": [],
-            "result": {
-                "kind": "array",
-                "element": {
-                    "kind": "object",
-                    "name": "ProjectBusResource",
-                    "properties": [
-                        {
-                            "name": "audioEffects",
-                            "optional": false,
-                            "type": {
-                                "kind": "array",
-                                "element": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "auxSends",
-                            "optional": false,
-                            "type": {
-                                "kind": "array",
-                                "element": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "color",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "enabled",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "boolean"
-                            }
-                        },
-                        {
-                            "name": "icon",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "label",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "midiEffects",
-                            "optional": false,
-                            "type": {
-                                "kind": "array",
-                                "element": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "output",
-                            "optional": false,
-                            "type": {
-                                "kind": "nullable",
-                                "value": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "ref",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceRef",
-                                "properties": [
-                                    {
-                                        "name": "$address",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "$type",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "type",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "unit",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceRef",
-                                "properties": [
-                                    {
-                                        "name": "$address",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "$type",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    }
-                                ]
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "id": "project.resources.devices",
-            "root": "resources",
-            "ownerType": "ProjectResources",
-            "method": "devices",
-            "target": "singleton",
-            "transaction": "none",
-            "async": false,
-            "parameters": [],
-            "result": {
-                "kind": "array",
-                "element": {
-                    "kind": "object",
-                    "name": "ProjectDeviceResource",
-                    "properties": [
-                        {
-                            "name": "accepts",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "box",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceRef",
-                                "properties": [
-                                    {
-                                        "name": "$address",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "$type",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "enabled",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "boolean"
-                            }
-                        },
-                        {
-                            "name": "host",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceRef",
-                                "properties": [
-                                    {
-                                        "name": "$address",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "$type",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "index",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "int"
-                            }
-                        },
-                        {
-                            "name": "label",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "name",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "ref",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceRef",
-                                "properties": [
-                                    {
-                                        "name": "$address",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "$type",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "type",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "id": "project.resources.parameters",
-            "root": "resources",
-            "ownerType": "ProjectResources",
-            "method": "parameters",
-            "target": "singleton",
-            "transaction": "none",
-            "async": false,
-            "parameters": [],
-            "result": {
-                "kind": "array",
-                "element": {
-                    "kind": "object",
-                    "name": "ProjectParameterResource",
-                    "properties": [
-                        {
-                            "name": "choices",
-                            "optional": false,
-                            "type": {
-                                "kind": "array",
-                                "element": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceChoice",
-                                    "properties": [
-                                        {
-                                            "name": "label",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "unit",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "value",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "union",
-                                                "alternatives": [
-                                                    {
-                                                        "kind": "primitive",
-                                                        "type": "string"
-                                                    },
-                                                    {
-                                                        "kind": "primitive",
-                                                        "type": "number"
-                                                    },
-                                                    {
-                                                        "kind": "primitive",
-                                                        "type": "boolean"
-                                                    },
-                                                    {
-                                                        "kind": "primitive",
-                                                        "type": "boolean"
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "constraints",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceConstraint",
-                                "properties": [
-                                    {
-                                        "name": "kind",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "length",
-                                        "optional": true,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "number",
-                                            "semantic": "int"
-                                        }
-                                    },
-                                    {
-                                        "name": "max",
-                                        "optional": true,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "number"
-                                        }
-                                    },
-                                    {
-                                        "name": "mid",
-                                        "optional": true,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "number"
-                                        }
-                                    },
-                                    {
-                                        "name": "min",
-                                        "optional": true,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "number"
-                                        }
-                                    },
-                                    {
-                                        "name": "scaling",
-                                        "optional": true,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "values",
-                                        "optional": true,
-                                        "type": {
-                                            "kind": "array",
-                                            "element": {
-                                                "kind": "primitive",
-                                                "type": "number"
-                                            }
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "controlledPrintUnit",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "controlledPrintValue",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "controlledValue",
-                            "optional": false,
-                            "type": {
-                                "kind": "union",
-                                "alternatives": [
-                                    {
-                                        "kind": "literal",
-                                        "values": [
-                                            null
-                                        ]
-                                    },
-                                    {
-                                        "kind": "primitive",
-                                        "type": "string"
-                                    },
-                                    {
-                                        "kind": "primitive",
-                                        "type": "number"
-                                    },
-                                    {
-                                        "kind": "primitive",
-                                        "type": "boolean"
-                                    },
-                                    {
-                                        "kind": "primitive",
-                                        "type": "boolean"
-                                    },
-                                    {
-                                        "kind": "array",
-                                        "element": {
-                                            "kind": "primitive",
-                                            "type": "number"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "field",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceRef",
-                                "properties": [
-                                    {
-                                        "name": "$address",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "$type",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "name",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "owner",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceRef",
-                                "properties": [
-                                    {
-                                        "name": "$address",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "$type",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "path",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "primitiveType",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "printUnit",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "printValue",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "rawValue",
-                            "optional": false,
-                            "type": {
-                                "kind": "union",
-                                "alternatives": [
-                                    {
-                                        "kind": "literal",
-                                        "values": [
-                                            null
-                                        ]
-                                    },
-                                    {
-                                        "kind": "primitive",
-                                        "type": "string"
-                                    },
-                                    {
-                                        "kind": "primitive",
-                                        "type": "number"
-                                    },
-                                    {
-                                        "kind": "primitive",
-                                        "type": "boolean"
-                                    },
-                                    {
-                                        "kind": "primitive",
-                                        "type": "boolean"
-                                    },
-                                    {
-                                        "kind": "array",
-                                        "element": {
-                                            "kind": "primitive",
-                                            "type": "number"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "ref",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceRef",
-                                "properties": [
-                                    {
-                                        "name": "$address",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "$type",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "unit",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "unitValue",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "unitValue"
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "id": "project.resources.tracks",
-            "root": "resources",
-            "ownerType": "ProjectResources",
-            "method": "tracks",
-            "target": "singleton",
-            "transaction": "none",
-            "async": false,
-            "parameters": [],
-            "result": {
-                "kind": "array",
-                "element": {
-                    "kind": "object",
-                    "name": "ProjectTrackResource",
-                    "properties": [
-                        {
-                            "name": "clips",
-                            "optional": false,
-                            "type": {
-                                "kind": "array",
-                                "element": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "enabled",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "boolean"
-                            }
-                        },
-                        {
-                            "name": "index",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "int"
-                            }
-                        },
-                        {
-                            "name": "owner",
-                            "optional": false,
-                            "type": {
-                                "kind": "nullable",
-                                "value": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "ref",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceRef",
-                                "properties": [
-                                    {
-                                        "name": "$address",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "$type",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "regions",
-                            "optional": false,
-                            "type": {
-                                "kind": "array",
-                                "element": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "target",
-                            "optional": false,
-                            "type": {
-                                "kind": "nullable",
-                                "value": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "targetControlName",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "targetName",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "type",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "id": "project.resources.regions",
-            "root": "resources",
-            "ownerType": "ProjectResources",
-            "method": "regions",
-            "target": "singleton",
-            "transaction": "none",
-            "async": false,
-            "parameters": [],
-            "result": {
-                "kind": "array",
-                "element": {
-                    "kind": "object",
-                    "name": "ProjectRegionResource",
-                    "properties": [
-                        {
-                            "name": "duration",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "ppqn"
-                            }
-                        },
-                        {
-                            "name": "events",
-                            "optional": false,
-                            "type": {
-                                "kind": "nullable",
-                                "value": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "label",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "loopDuration",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "ppqn"
-                            }
-                        },
-                        {
-                            "name": "loopOffset",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "ppqn"
-                            }
-                        },
-                        {
-                            "name": "mute",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "boolean"
-                            }
-                        },
-                        {
-                            "name": "position",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "ppqn"
-                            }
-                        },
-                        {
-                            "name": "ref",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceRef",
-                                "properties": [
-                                    {
-                                        "name": "$address",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "$type",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "track",
-                            "optional": false,
-                            "type": {
-                                "kind": "nullable",
-                                "value": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "type",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "id": "project.resources.clips",
-            "root": "resources",
-            "ownerType": "ProjectResources",
-            "method": "clips",
-            "target": "singleton",
-            "transaction": "none",
-            "async": false,
-            "parameters": [],
-            "result": {
-                "kind": "array",
-                "element": {
-                    "kind": "object",
-                    "name": "ProjectClipResource",
-                    "properties": [
-                        {
-                            "name": "duration",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "ppqn"
-                            }
-                        },
-                        {
-                            "name": "events",
-                            "optional": false,
-                            "type": {
-                                "kind": "nullable",
-                                "value": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "index",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "int"
-                            }
-                        },
-                        {
-                            "name": "label",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "mute",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "boolean"
-                            }
-                        },
-                        {
-                            "name": "ref",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceRef",
-                                "properties": [
-                                    {
-                                        "name": "$address",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "$type",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "track",
-                            "optional": false,
-                            "type": {
-                                "kind": "nullable",
-                                "value": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "type",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "id": "project.resources.events",
-            "root": "resources",
-            "ownerType": "ProjectResources",
-            "method": "events",
-            "target": "singleton",
-            "transaction": "none",
-            "async": false,
-            "parameters": [],
-            "result": {
-                "kind": "array",
-                "element": {
-                    "kind": "object",
-                    "name": "ProjectEventResource",
-                    "properties": [
-                        {
-                            "name": "cent",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number"
-                            }
-                        },
-                        {
-                            "name": "chance",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "int"
-                            }
-                        },
-                        {
-                            "name": "duration",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "ppqn"
-                            }
-                        },
-                        {
-                            "name": "index",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "int"
-                            }
-                        },
-                        {
-                            "name": "interpolation",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "owner",
-                            "optional": false,
-                            "type": {
-                                "kind": "nullable",
-                                "value": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "pitch",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "int"
-                            }
-                        },
-                        {
-                            "name": "playCount",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "int"
-                            }
-                        },
-                        {
-                            "name": "position",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "ppqn"
-                            }
-                        },
-                        {
-                            "name": "ref",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceRef",
-                                "properties": [
-                                    {
-                                        "name": "$address",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "$type",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "type",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "value",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "unitValue"
-                            }
-                        },
-                        {
-                            "name": "velocity",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number"
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "id": "project.resources.playfieldSlots",
-            "root": "resources",
-            "ownerType": "ProjectResources",
-            "method": "playfieldSlots",
-            "target": "singleton",
-            "transaction": "none",
-            "async": false,
-            "parameters": [],
-            "result": {
-                "kind": "array",
-                "element": {
-                    "kind": "object",
-                    "name": "ProjectPlayfieldSlotResource",
-                    "properties": [
-                        {
-                            "name": "audioEffects",
-                            "optional": false,
-                            "type": {
-                                "kind": "array",
-                                "element": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "device",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceRef",
-                                "properties": [
-                                    {
-                                        "name": "$address",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "$type",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "file",
-                            "optional": false,
-                            "type": {
-                                "kind": "nullable",
-                                "value": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "fileName",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "index",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "int"
-                            }
-                        },
-                        {
-                            "name": "midiEffects",
-                            "optional": false,
-                            "type": {
-                                "kind": "array",
-                                "element": {
-                                    "kind": "object",
-                                    "name": "ProjectResourceRef",
-                                    "properties": [
-                                        {
-                                            "name": "$address",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        },
-                                        {
-                                            "name": "$type",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "primitive",
-                                                "type": "string"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "ref",
-                            "optional": false,
-                            "type": {
-                                "kind": "object",
-                                "name": "ProjectResourceRef",
-                                "properties": [
-                                    {
-                                        "name": "$address",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    },
-                                    {
-                                        "name": "$type",
-                                        "optional": false,
-                                        "type": {
-                                            "kind": "primitive",
-                                            "type": "string"
-                                        }
-                                    }
-                                ]
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "id": "project.resources.instrumentFactories",
-            "root": "resources",
-            "ownerType": "ProjectResources",
-            "method": "instrumentFactories",
-            "target": "singleton",
-            "transaction": "none",
-            "async": false,
-            "parameters": [],
-            "result": {
-                "kind": "array",
-                "element": {
-                    "kind": "object",
-                    "name": "ProjectFactoryResource",
-                    "properties": [
-                        {
-                            "name": "briefDescription",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "description",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "icon",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "key",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "kind",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "manualPage",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "name",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "trackType",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "id": "project.resources.midiEffectFactories",
-            "root": "resources",
-            "ownerType": "ProjectResources",
-            "method": "midiEffectFactories",
-            "target": "singleton",
-            "transaction": "none",
-            "async": false,
-            "parameters": [],
-            "result": {
-                "kind": "array",
-                "element": {
-                    "kind": "object",
-                    "name": "ProjectFactoryResource",
-                    "properties": [
-                        {
-                            "name": "briefDescription",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "description",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "icon",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "key",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "kind",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "manualPage",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "name",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "trackType",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "id": "project.resources.audioEffectFactories",
-            "root": "resources",
-            "ownerType": "ProjectResources",
-            "method": "audioEffectFactories",
-            "target": "singleton",
-            "transaction": "none",
-            "async": false,
-            "parameters": [],
-            "result": {
-                "kind": "array",
-                "element": {
-                    "kind": "object",
-                    "name": "ProjectFactoryResource",
-                    "properties": [
-                        {
-                            "name": "briefDescription",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "description",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "icon",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "key",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "kind",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "manualPage",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "name",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "trackType",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "id": "project.resources.samples",
-            "root": "resources",
-            "ownerType": "ProjectResources",
-            "method": "samples",
-            "target": "singleton",
-            "transaction": "none",
-            "async": true,
-            "parameters": [],
-            "result": {
-                "kind": "array",
-                "element": {
-                    "kind": "object",
-                    "name": "ProjectSampleResource",
-                    "properties": [
-                        {
-                            "name": "bpm",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number"
-                            }
-                        },
-                        {
-                            "name": "custom",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "duration",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number"
-                            }
-                        },
-                        {
-                            "name": "name",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "origin",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "sampleRate",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number"
-                            }
-                        },
-                        {
-                            "name": "uuid",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "id": "project.resources.soundfonts",
-            "root": "resources",
-            "ownerType": "ProjectResources",
-            "method": "soundfonts",
-            "target": "singleton",
-            "transaction": "none",
-            "async": true,
-            "parameters": [],
-            "result": {
-                "kind": "array",
-                "element": {
-                    "kind": "object",
-                    "name": "ProjectSoundfontResource",
-                    "properties": [
-                        {
-                            "name": "license",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "name",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "origin",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "size",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number",
-                                "semantic": "int"
-                            }
-                        },
-                        {
-                            "name": "url",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "uuid",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "id": "project.resources.presets",
-            "root": "resources",
-            "ownerType": "ProjectResources",
-            "method": "presets",
-            "target": "singleton",
-            "transaction": "none",
-            "async": true,
-            "parameters": [],
-            "result": {
-                "kind": "array",
-                "element": {
-                    "kind": "object",
-                    "name": "ProjectPresetResource",
-                    "properties": [
-                        {
-                            "name": "category",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "created",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number"
-                            }
-                        },
-                        {
-                            "name": "description",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "device",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "hasTimeline",
-                            "optional": true,
-                            "type": {
-                                "kind": "literal",
-                                "values": [
-                                    false,
-                                    true
-                                ]
-                            }
-                        },
-                        {
-                            "name": "instrument",
-                            "optional": true,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "modified",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "number"
-                            }
-                        },
-                        {
-                            "name": "name",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        },
-                        {
-                            "name": "uuid",
-                            "optional": false,
-                            "type": {
-                                "kind": "primitive",
-                                "type": "string"
-                            }
-                        }
-                    ]
-                }
             }
         }
     ],
