@@ -3,7 +3,14 @@ import {isDefined, Option, Terminable, UUID} from "@opendaw/lib-std"
 import {ProjectSkeleton} from "@opendaw/studio-adapters"
 import {generatedControlManifest} from "./generated"
 import type {ControlApi} from "./ControlApi"
-import type {ControlHandle, JsonObject, JsonValue, ResourceDescription} from "./types"
+import type {
+    ControlFieldInspection,
+    ControlHandle,
+    ControlInspection,
+    JsonObject,
+    JsonValue,
+    ResourceDescription
+} from "./types"
 import type {Project} from "../project/Project"
 import type {ProjectEnv} from "../project/ProjectEnv"
 
@@ -71,6 +78,12 @@ const resource = (resources: ReadonlyArray<ResourceDescription>, predicate: (res
     return result
 }
 
+const inspectedField = (inspection: ControlInspection, name: string): ControlFieldInspection => {
+    const result = inspection.fields?.find(field => field.name === name)
+    if (result === undefined) {throw new Error(`Expected inspected field ${name}`)}
+    return result
+}
+
 const operation = (id: string) => {
     const result = generatedControlManifest.operations.find(operation => operation.id === id)
     if (result === undefined) {throw new Error(`Missing generated operation ${id}`)}
@@ -105,6 +118,11 @@ describe("ControlApi", () => {
             }))
             const noteAdapter = resource(api.find("adapter", event.$address), entry =>
                 entry.type === "NoteEventBoxAdapter" && entry.context?.box.$address === event.$address)
+            expect(api.inspect(noteAdapter.handle)).toMatchObject({
+                kind: "adapter",
+                type: "NoteEventBoxAdapter",
+                box: event
+            })
             const duplicate = call(api, "project.duplicateNotes", {notes: [noteAdapter.handle]})
 
             expect(api.find("box", track.$address).some(entry => entry.type === "TrackBox")).toBe(true)
@@ -121,6 +139,8 @@ describe("ControlApi", () => {
         try {
             const volume = resource(api.find("parameter", "Volume"), entry => entry.name === "Volume")
             expect(volume.field).toBeDefined()
+            if (volume.field === undefined) {throw new Error("Parameter field is missing")}
+            expect(() => api.set(volume.field, -12)).toThrow(/parameter API/)
             const before = call(api, "parameter.getValue", {}, volume.handle)
             expect(project.editing.canUndo()).toBe(false)
 
@@ -187,6 +207,114 @@ describe("ControlApi", () => {
                 .toThrow(/AudioUnitBox|box/)
             expect(() => call(api, "parameter.getValue", {}, owner))
                 .toThrow(/parameter|field/i)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("supports a snapshot-driven inspect, set, and one-step batch workflow", async () => {
+        const {project, api} = await createProject()
+        try {
+            const product = asObject(call(api, "project.createAnyInstrument", {factory: "Vaporisateur"}))
+            const audioUnit = asHandle(product.audioUnitBox)
+            const track = asHandle(call(api, "project.createNoteTrack", {audioUnitBox: audioUnit}))
+            const region = asHandle(call(api, "project.createNoteRegion", {
+                arg0: {trackBox: track, position: 0, duration: 1920, name: "Snapshot Region"}
+            }))
+            const events = resource(api.find("pointerField", region.$address), entry =>
+                entry.name === "events" && entry.context?.box.$address === region.$address)
+            for (const [position, pitch] of [[0, 60], [480, 64], [960, 67]]) {
+                call(api, "project.createNoteEvent", {
+                    arg0: {
+                        owner: {events: events.handle},
+                        position,
+                        duration: 240,
+                        pitch
+                    }
+                })
+            }
+            const effectField = resource(api.find("field", "audioEffects"), entry =>
+                entry.name === "audioEffects" && entry.context?.box.$address === audioUnit.$address)
+            call(api, "project.insertEffect", {field: effectField.handle, factory: "Delay", insertIndex: 0})
+            const cutoff = resource(api.find("parameter", "Flt. Cutoff"), entry => entry.name === "Flt. Cutoff")
+            call(api, "parameter.setPrintValue", {text: "840 Hz"}, cutoff.handle)
+
+            // The consumer-facing part starts here. Setup handles above are not used after snapshot().
+            const snapshot = api.snapshot()
+            expect(() => JSON.stringify(snapshot)).not.toThrow()
+
+            const snapshotInstrument = snapshot.boxes.find(box => box.type === "VaporisateurDeviceBox")
+            const snapshotTrack = snapshot.boxes.find(box => box.type === "TrackBox")
+            const snapshotRegion = snapshot.boxes.find(box => box.type === "NoteRegionBox")
+            const snapshotEffect = snapshot.boxes.find(box => box.type === "DelayDeviceBox")
+            const snapshotCutoff = snapshot.parameters.find(parameter => parameter.name === "Flt. Cutoff")
+            if (snapshotInstrument === undefined || snapshotTrack === undefined || snapshotRegion === undefined
+                || snapshotEffect === undefined || snapshotCutoff === undefined) {
+                throw new Error("Snapshot is missing the seeded song resources")
+            }
+            expect(snapshotInstrument.context?.boxType).toBe("VaporisateurDeviceBox")
+            expect(snapshotTrack.handle.$type).toBe("TrackBox")
+            expect(snapshotCutoff.rawValue).toBeDefined()
+            expect(snapshotCutoff.printValue).toMatchObject({value: "840", unit: "Hz"})
+
+            const regionInspection = api.inspect(snapshotRegion.handle)
+            const eventsField = inspectedField(regionInspection, "events")
+            const eventCollection = eventsField.target
+            if (eventCollection === undefined || eventCollection === null) {
+                throw new Error("Snapshot region does not point to an event collection")
+            }
+            const eventCollectionOwner = api.inspect(eventCollection).context?.box.$address
+            if (eventCollectionOwner === undefined) {throw new Error("Event collection owner is missing")}
+            const noteInspections = snapshot.boxes
+                .filter(box => box.type === "NoteEventBox")
+                .map(box => api.inspect(box.handle))
+                .filter(note => {
+                    const target = inspectedField(note, "events").target
+                    return target !== undefined && target !== null
+                        && api.inspect(target).context?.box.$address === eventCollectionOwner
+                })
+            expect(noteInspections).toHaveLength(3)
+            expect(noteInspections.map(note => inspectedField(note, "pitch").value))
+                .toEqual(expect.arrayContaining([60, 64, 67]))
+            const firstNote = noteInspections.find(note => inspectedField(note, "pitch").value === 60)
+            if (firstNote === undefined) {throw new Error("Snapshot is missing the first seeded note")}
+            const secondNote = noteInspections.find(note => inspectedField(note, "pitch").value === 64)
+            if (secondNote === undefined) {throw new Error("Snapshot is missing the second seeded note")}
+            expect(inspectedField(firstNote, "position").value).toBe(0)
+            expect(inspectedField(firstNote, "duration").value).toBe(240)
+
+            const firstPitch = inspectedField(firstNote, "pitch")
+            const secondPitch = inspectedField(secondNote, "pitch")
+            api.set(firstPitch.handle, 62)
+            expect(inspectedField(api.inspect(firstNote.handle), "pitch").value).toBe(62)
+
+            const discoveredCutoff = resource(api.find("parameter", "Flt. Cutoff"), entry => entry.name === "Flt. Cutoff")
+            expect(discoveredCutoff.handle).toEqual(snapshotCutoff.handle)
+            call(api, "parameter.setPrintValue", {text: "1200 Hz"}, discoveredCutoff.handle)
+            expect(api.inspect(discoveredCutoff.handle).printValue).toMatchObject({value: "1200", unit: "Hz"})
+
+            const batch = api.batch([
+                {handle: secondPitch.handle, value: 65},
+                {operation: "project.createNoteEvent", arguments: {
+                    arg0: {owner: {events: eventsField.handle}, position: 1200, duration: 240, pitch: 69}
+                }},
+                {operation: "project.createNoteEvent", arguments: {
+                    arg0: {owner: {events: eventsField.handle}, position: 1440, duration: 240, pitch: 72}
+                }},
+                {operation: "project.createNoteEvent", arguments: {
+                    arg0: {owner: {events: eventsField.handle}, position: 1680, duration: 240, pitch: 76}
+                }}
+            ])
+            expect(batch).toHaveLength(4)
+            expect(inspectedField(api.inspect(secondNote.handle), "pitch").value).toBe(65)
+            expect(api.snapshot({parameters: false}).boxes.filter(box => box.type === "NoteEventBox"))
+                .toHaveLength(6)
+
+            expect(project.editing.undo()).toBe(true)
+            expect(inspectedField(api.inspect(secondNote.handle), "pitch").value).toBe(64)
+            expect(api.snapshot({parameters: false}).boxes.filter(box => box.type === "NoteEventBox"))
+                .toHaveLength(3)
+            expect(api.inspect(discoveredCutoff.handle).printValue).toMatchObject({value: "1200", unit: "Hz"})
         } finally {
             project.terminate()
         }

@@ -73,9 +73,73 @@ export type ControlCall = {
     readonly arguments?: JsonObject
 }
 
+export type ControlSetRequest = {
+    readonly handle: ControlHandle
+    readonly value: JsonValue
+    readonly type?: "set"
+}
+
+export type ControlBatchItem = ControlCall | ControlSetRequest
+
 export type OperationSearchResult = {
     readonly score: number
     readonly operation: OperationDescriptor
+}
+
+export type ControlPrintValue = {
+    readonly value: string
+    readonly unit: string
+}
+
+export type ControlFieldInspection = {
+    readonly name: string
+    readonly handle: ControlHandle
+    readonly kind: "field" | "primitive" | "pointer"
+    readonly type: string
+    readonly context?: ResourceContext
+    readonly primitiveType?: string
+    readonly semantic?: string
+    readonly unit?: string
+    readonly value?: JsonValue
+    readonly pointerType?: string
+    readonly pointerTypes?: ReadonlyArray<string>
+    readonly target?: ControlHandle | null
+}
+
+export type ControlInspection = {
+    readonly kind: ResourceKind
+    readonly handle: ControlHandle
+    readonly name?: string
+    readonly type: string
+    readonly label?: string
+    readonly context?: ResourceContext
+    readonly box?: ControlHandle
+    readonly fields?: ReadonlyArray<ControlFieldInspection>
+    readonly field?: ControlHandle
+    readonly primitiveType?: string
+    readonly semantic?: string
+    readonly unit?: string
+    readonly value?: JsonValue
+    readonly rawValue?: JsonValue
+    readonly unitValue?: number
+    readonly printValue?: ControlPrintValue
+    readonly controlledValue?: JsonValue
+    readonly controlledPrintValue?: ControlPrintValue
+    readonly pointerType?: string
+    readonly pointerTypes?: ReadonlyArray<string>
+    readonly target?: ControlHandle | null
+}
+
+export type ControlSnapshotOptions = {
+    readonly boxes?: boolean
+    readonly parameters?: boolean
+    readonly type?: string
+    readonly query?: string
+}
+
+export type ControlSnapshot = {
+    readonly boxes: ReadonlyArray<ControlInspection>
+    readonly parameters: ReadonlyArray<ControlInspection>
 }
 
 export type ResourceContext = {

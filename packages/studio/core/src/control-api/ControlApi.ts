@@ -1,12 +1,20 @@
-import {Address, Box, Field, PointerField, PrimitiveField, Vertex} from "@opendaw/lib-box"
-import type {BoxAdapter} from "@opendaw/studio-adapters"
+import {Address, Box, Field, PointerField, PrimitiveField, PrimitiveType, Vertex} from "@opendaw/lib-box"
+import {Pointers} from "@opendaw/studio-enums"
+import type {AutomatableParameterFieldAdapter, BoxAdapter} from "@opendaw/studio-adapters"
 import {Project} from "../project/Project"
 import {generatedControlManifest} from "./generated"
 import {decodeType, encodeType} from "./codec"
 import {
     ControlCall,
+    ControlBatchItem,
+    ControlFieldInspection,
     ControlHandle,
+    ControlInspection,
+    ControlPrintValue,
+    ControlSnapshot,
+    ControlSnapshotOptions,
     JsonObject,
+    JsonValue,
     OperationDescriptor,
     OperationSearchResult,
     ResourceDescription,
@@ -24,6 +32,16 @@ const isAnyBoxAdapter = (adapter: BoxAdapter): adapter is BoxAdapter => true
 
 const isMissingAdapterFactory = (error: unknown): boolean =>
     error instanceof Error && error.message.startsWith("Could not find factory for")
+
+const hasConstructorName = (value: object, name: string): boolean => {
+    let current: object | null = value
+    while (current !== null) {
+        const constructor = (current as {readonly constructor?: {readonly name?: string}}).constructor
+        if (constructor?.name === name) {return true}
+        current = Object.getPrototypeOf(current)
+    }
+    return false
+}
 
 const collectFields = (vertex: Vertex, result: Array<Field>): void => {
     vertex.fields().forEach(field => {
@@ -51,6 +69,143 @@ const contextFor = (box: Box, path?: string): ResourceContext => {
 
 const fieldHandleType = (kind: ResourceKind): "Field" | "PointerField" | "PrimitiveField" =>
     kind === "pointerField" ? "PointerField" : kind === "primitiveField" ? "PrimitiveField" : "Field"
+
+const fieldResourceKind = (field: Field): ResourceKind =>
+    field instanceof PointerField ? "pointerField" : field instanceof PrimitiveField ? "primitiveField" : "field"
+
+const fieldHandle = (field: Field): ControlHandle => handle(fieldHandleType(fieldResourceKind(field)), field.address)
+
+const vertexHandle = (vertex: Vertex): ControlHandle => {
+    if (vertex instanceof Box) {return handle(vertex.name, vertex.address)}
+    return vertex instanceof Field ? fieldHandle(vertex) : handle("Field", vertex.address)
+}
+
+const pointerTypeName = (value: unknown): string | undefined => {
+    if (typeof value === "string") {return value}
+    if (typeof value !== "number") {return undefined}
+    if (Number.isNaN(value)) {return "Deprecated"}
+    const entry = Object.entries(Pointers).find(([key, candidate]) =>
+        !/^\d+$/.test(key) && typeof candidate === "number" && candidate === value)
+    return entry?.[0] ?? String(value)
+}
+
+const pointerTypes = (field: Field): ReadonlyArray<string> => field.pointerRules.accepts
+    .map(pointerTypeName)
+    .filter((value): value is string => value !== undefined)
+
+const jsonValue = (value: unknown): JsonValue => {
+    if (value === null) {return null}
+    if (typeof value === "string" || typeof value === "boolean") {return value}
+    if (typeof value === "number") {return Number.isFinite(value) ? value : null}
+    if (ArrayBuffer.isView(value)) {return Array.from(value as unknown as ArrayLike<number>)}
+    if (Array.isArray(value)) {return value.map(jsonValue)}
+    return null
+}
+
+const printValue = (value: {readonly value: string, readonly unit: string}): ControlPrintValue => ({
+    value: value.value,
+    unit: value.unit
+})
+
+const fieldUnit = (field: PrimitiveField<any, any>): string | undefined => {
+    const unit = (field as PrimitiveField & {readonly unit?: unknown}).unit
+    return typeof unit === "string" ? unit : undefined
+}
+
+const primitiveValue = (field: PrimitiveField, value: JsonValue): boolean | number | string | Readonly<Int8Array> => {
+    switch (field.type) {
+        case PrimitiveType.Boolean:
+            if (typeof value === "boolean") {return value}
+            break
+        case PrimitiveType.Float32:
+        case PrimitiveType.Int32:
+            if (typeof value === "number" && Number.isFinite(value)) {return value}
+            break
+        case PrimitiveType.String:
+            if (typeof value === "string") {return value}
+            break
+        case PrimitiveType.Bytes:
+            if (Array.isArray(value) && value.every(element => typeof element === "number"
+                && Number.isInteger(element) && element >= -128 && element <= 127)) {
+                return new Int8Array(value)
+            }
+            break
+    }
+    throw new Error(`[ControlApi] value does not match ${field.type}`)
+}
+
+const inspectField = (field: Field): ControlFieldInspection => {
+    const primitive = field instanceof PrimitiveField
+    const pointer = field instanceof PointerField
+    const accepted = pointerTypes(field)
+    return {
+        name: field.fieldName,
+        handle: fieldHandle(field),
+        kind: pointer ? "pointer" : primitive ? "primitive" : "field",
+        type: field.constructor.name,
+        context: contextFor(field.box, field.debugPath),
+        ...(accepted.length === 0 ? {} : {pointerTypes: accepted}),
+        ...(primitive ? {
+            primitiveType: field.type,
+            ...(fieldUnit(field) === undefined ? {} : {unit: fieldUnit(field)}),
+            value: jsonValue(field.getValue())
+        } : {}),
+        ...(pointer ? {
+            ...(pointerTypeName(field.pointerType) === undefined ? {} : {pointerType: pointerTypeName(field.pointerType)}),
+            target: field.targetVertex.map(vertexHandle).unwrapOrNull()
+        } : {})
+    }
+}
+
+const inspectParameter = (parameter: AutomatableParameterFieldAdapter): ControlInspection => {
+    const field = parameter.field
+    const unit = fieldUnit(field)
+    const rawValue = jsonValue(parameter.getValue())
+    return {
+        kind: "parameter",
+        handle: handle("AutomatableParameterFieldAdapter", parameter.address),
+        name: parameter.name,
+        type: String(parameter.type),
+        field: fieldHandle(field),
+        context: contextFor(field.box, field.debugPath),
+        primitiveType: field.type,
+        ...(unit === undefined ? {} : {unit}),
+        value: rawValue,
+        rawValue,
+        unitValue: parameter.getUnitValue(),
+        printValue: printValue(parameter.getPrintValue()),
+        controlledValue: jsonValue(parameter.getControlledValue()),
+        controlledPrintValue: printValue(parameter.getControlledPrintValue())
+    }
+}
+
+const inspectBox = (box: Box): ControlInspection => {
+    const label = canonicalLabel(box)
+    return {
+        kind: "box",
+        handle: handle(box.name, box.address),
+        name: box.name,
+        type: box.name,
+        ...(label === undefined ? {} : {label}),
+        context: contextFor(box),
+        fields: box.fields().map(inspectField)
+    }
+}
+
+const inspectAdapter = (adapter: BoxAdapter): ControlInspection => {
+    const type = adapter.constructor.name
+    const label = canonicalLabel(adapter.box)
+    return {
+        kind: "adapter",
+        handle: handle(type, adapter.address),
+        name: type,
+        type,
+        ...(label === undefined ? {} : {label}),
+        box: handle(adapter.box.name, adapter.box.address),
+        context: contextFor(adapter.box),
+        fields: adapter.box.fields().map(inspectField)
+    }
+}
 
 export class ControlApi {
     readonly #project: Project
@@ -83,8 +238,7 @@ export class ControlApi {
     }
 
     call(request: ControlCall): ReturnType<typeof encodeType> {
-        const operation = this.#operations.get(request.operation)
-        if (operation === undefined) {throw new Error(`Unknown control operation '${request.operation}'`)}
+        const operation = this.#operation(request.operation)
         const input: JsonObject = request.arguments ?? {}
         const known = new Set(operation.parameters.map(parameter => parameter.name))
         Object.keys(input).forEach(name => {
@@ -101,6 +255,56 @@ export class ControlApi {
             ? this.#project.editing.modify(invoke).unwrapOrUndefined()
             : invoke()
         return encodeType(operation.result, value)
+    }
+
+    inspect(resource: ControlHandle): ControlInspection {
+        const resolved = this.#resolveInspectable(resource)
+        if (resolved instanceof Box) {return inspectBox(resolved)}
+        if (resolved instanceof Field) {
+            return {...inspectField(resolved), kind: fieldResourceKind(resolved)}
+        }
+        if (resource.$type === "AutomatableParameterFieldAdapter") {
+            return inspectParameter(resolved as AutomatableParameterFieldAdapter)
+        }
+        return inspectAdapter(resolved as BoxAdapter)
+    }
+
+    snapshot(options: ControlSnapshotOptions = {}): ControlSnapshot {
+        const type = options.type?.toLowerCase()
+        const matchesType = (resource: ResourceDescription): boolean => type === undefined
+            || resource.type.toLowerCase() === type
+            || resource.handle.$type.toLowerCase() === type
+        const query = options.query ?? ""
+        return {
+            boxes: options.boxes === false
+                ? []
+                : this.find("box", query).filter(matchesType).map(resource => this.inspect(resource.handle)),
+            parameters: options.parameters === false
+                ? []
+                : this.find("parameter", query).filter(matchesType).map(resource => this.inspect(resource.handle))
+        }
+    }
+
+    set(resource: ControlHandle, value: JsonValue): null {
+        const field = this.#resolvePrimitiveField(resource)
+        const next = primitiveValue(field, value)
+        this.#project.editing.modify(() => field.setValue(next))
+        return null
+    }
+
+    batch(calls: ReadonlyArray<ControlBatchItem>): ReadonlyArray<JsonValue> {
+        if (calls.length === 0) {return []}
+        const transactions = calls.map(call => this.#batchTransaction(call))
+        const transaction = transactions[0]
+        if (transactions.some(candidate => candidate !== transaction)) {
+            throw new Error("[ControlApi] mixed editing and non-editing batches are not supported")
+        }
+        const execute = (): ReadonlyArray<JsonValue> => calls.map(call =>
+            this.#isControlCall(call) ? this.call(call) : this.set(call.handle, call.value))
+        if (transaction === "editing") {
+            return this.#project.editing.modify(execute).unwrapOrUndefined() ?? []
+        }
+        return execute()
     }
 
     find(kind: ResourceKind, query: string = ""): ReadonlyArray<ResourceDescription> {
@@ -192,6 +396,74 @@ export class ControlApi {
     #resolveTarget(target: ControlHandle | undefined): object {
         if (target === undefined) {throw new Error("Address-targeted operation requires target")}
         return decodeType({kind: "handle", handle: "parameter", name: "AutomatableParameterFieldAdapter"}, target, this.#project) as object
+    }
+
+    #operation(id: string): OperationDescriptor {
+        const operation = this.#operations.get(id)
+        if (operation === undefined) {throw new Error(`Unknown control operation '${id}'`)}
+        return operation
+    }
+
+    #isControlCall(value: ControlBatchItem): value is ControlCall {
+        return typeof (value as ControlCall).operation === "string"
+    }
+
+    #batchTransaction(value: ControlBatchItem): "editing" | "none" {
+        if (!this.#isControlCall(value)) {return "editing"}
+        return this.#operation(value.operation).transaction
+    }
+
+    #resolveInspectable(resource: ControlHandle): Box | Field | BoxAdapter | AutomatableParameterFieldAdapter {
+        if (typeof resource.$type !== "string" || typeof resource.$address !== "string") {
+            throw new Error("[ControlApi] invalid control handle")
+        }
+        const address = Address.decode(resource.$address)
+        if (address.isBox()) {
+            const box = this.#project.boxGraph.findBox(address.uuid).unwrap(`No box at ${resource.$address}`)
+            if (resource.$type === "Box" || resource.$type === box.name) {return box}
+            const adapter = this.#project.boxAdapters.adapterFor(box, isAnyBoxAdapter)
+            if (resource.$type === "BoxAdapter" || hasConstructorName(adapter, resource.$type)) {return adapter}
+            throw new Error(`[ControlApi] handle type ${resource.$type} does not match ${box.name}`)
+        }
+
+        const vertex = this.#project.boxGraph.findVertex(address).unwrap(`No vertex at ${resource.$address}`)
+        if (resource.$type === "AutomatableParameterFieldAdapter") {
+            this.#project.boxAdapters.adapterFor(vertex.box, isAnyBoxAdapter)
+            return this.#project.parameterFieldAdapters.opt(address)
+                .unwrap(`No parameter at ${resource.$address}`)
+        }
+        if (!(vertex instanceof Field)) {
+            throw new Error(`[ControlApi] handle ${resource.$address} is not a field`)
+        }
+        if (resource.$type === "PointerField" && !(vertex instanceof PointerField)) {
+            throw new Error(`[ControlApi] handle ${resource.$address} is not a PointerField`)
+        }
+        if (resource.$type === "PrimitiveField" && !(vertex instanceof PrimitiveField)) {
+            throw new Error(`[ControlApi] handle ${resource.$address} is not a PrimitiveField`)
+        }
+        if (resource.$type !== "Field" && resource.$type !== "PointerField"
+            && resource.$type !== "PrimitiveField") {
+            throw new Error(`[ControlApi] handle type ${resource.$type} is not inspectable`)
+        }
+        return vertex
+    }
+
+    #resolvePrimitiveField(resource: ControlHandle): PrimitiveField {
+        if (resource.$type === "AutomatableParameterFieldAdapter") {
+            throw new Error("[ControlApi] use the parameter API for automatable parameters")
+        }
+        const resolved = this.#resolveInspectable(resource)
+        if (!(resolved instanceof PrimitiveField)) {
+            throw new Error(`[ControlApi] handle ${resource.$address} is not a PrimitiveField`)
+        }
+        if (resolved.deprecated) {
+            throw new Error(`[ControlApi] cannot set deprecated field ${resource.$address}`)
+        }
+        this.#adapters()
+        if (this.#project.parameterFieldAdapters.opt(resolved.address).nonEmpty()) {
+            throw new Error("[ControlApi] use the parameter API for automatable parameters")
+        }
+        return resolved
     }
 
     #resolveOwner(operation: OperationDescriptor, target: ControlHandle | undefined): object {
