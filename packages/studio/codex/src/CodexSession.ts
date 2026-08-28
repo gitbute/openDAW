@@ -412,6 +412,10 @@ export class CodexSession {
     }
 
     #onConnectionState(state: CodexTransportState): void {
+        if (state === "disconnected") {
+            this.#releaseThread()
+            this.#activeTurnId = undefined
+        }
         this.#emit({type: "connectionChanged", state})
         if (state === "disconnected") {
             this.#emit({type: "disconnected", error: this.#lastDisconnectError})

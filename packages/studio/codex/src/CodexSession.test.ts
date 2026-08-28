@@ -63,6 +63,8 @@ class FakeTransport implements CodexTransport {
         this.#messageListeners.forEach(listener => listener(message))
     }
 
+    disconnectUnexpectedly(): void {this.#setState("disconnected")}
+
     #setState(state: CodexTransportState): void {
         this.#state = state
         this.#stateListeners.forEach(listener => listener(state))
@@ -78,6 +80,8 @@ const requestWithMethod = (transport: FakeTransport, method: string): RpcRequest
 }
 
 const installServer = (transport: FakeTransport): void => {
+    let threadNumber = 0
+    let currentThreadId = "thread-1"
     transport.onSend = message => {
         if (!isRequest(message)) {return}
         switch (message.method) {
@@ -109,14 +113,15 @@ const installServer = (transport: FakeTransport): void => {
                 transport.emit(response(message, {}))
                 break
             case "thread/start":
+                currentThreadId = `thread-${++threadNumber}`
                 transport.emit({
                     method: "thread/started",
-                    params: {thread: {id: "thread-1", sessionId: "session-1"}}
+                    params: {thread: {id: currentThreadId, sessionId: `session-${threadNumber}`}}
                 })
-                transport.emit(response(message, {thread: {id: "thread-1", sessionId: "session-1"}}))
+                transport.emit(response(message, {thread: {id: currentThreadId, sessionId: `session-${threadNumber}`}}))
                 break
             case "thread/resume":
-                transport.emit(response(message, {thread: {id: "thread-1", sessionId: "session-1"}}))
+                transport.emit(response(message, {thread: {id: currentThreadId, sessionId: `session-${threadNumber}`}}))
                 break
             case "turn/start": {
                 const input = message.params as JsonObject
@@ -126,7 +131,7 @@ const installServer = (transport: FakeTransport): void => {
                 const id = `turn-${turnNumber}`
                 transport.emit({
                     method: "turn/started",
-                    params: {threadId: "thread-1", turn: {id}}
+                    params: {threadId: currentThreadId, turn: {id}}
                 })
                 transport.emit(response(message, {turn: {id}}))
                 break
@@ -313,6 +318,18 @@ describe("CodexSession", () => {
             expect(requestWithMethod(transport, "turn/interrupt").params).toEqual({
                 threadId: "thread-1", turnId: "turn-3"
             })
+
+            await session.startTurn("Connection loss test.")
+            expect(session.activeTurnId).toBe("turn-4")
+            transport.disconnectUnexpectedly()
+            expect(session.threadId).toBeUndefined()
+            expect(session.sessionId).toBeNull()
+            expect(session.activeTurnId).toBeUndefined()
+            expect(events.some(event => event.type === "disconnected")).toBe(true)
+
+            await session.connect()
+            const replacement = await session.startThread()
+            expect(replacement).toEqual({threadId: "thread-2", sessionId: "session-2"})
         } finally {
             await session.disconnect()
         }
