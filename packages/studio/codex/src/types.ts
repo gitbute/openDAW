@@ -135,6 +135,8 @@ export type CodexStartThreadOptions = {
 export type CodexStartTurnOptions = {
     readonly model?: string
     readonly effort?: string
+    /** App Server reasoning-summary request (for example, `auto`). */
+    readonly summary?: string
 }
 
 export type CodexSessionEvent =

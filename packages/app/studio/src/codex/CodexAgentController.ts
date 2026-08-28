@@ -277,6 +277,7 @@ export class CodexAgentController {
             if (!this.#isCurrent(generation, session)) {return true}
             const options: CodexStartTurnOptions = {
                 model,
+                summary: "auto",
                 ...(effort === null ? {} : {effort})
             }
             const turnId = await session.startTurn(text, options)

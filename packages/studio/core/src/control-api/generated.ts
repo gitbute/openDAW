@@ -152,12 +152,37 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
+                                "name": "CubedDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "TapeDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
                                 "name": "VaporisateurDeviceBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
                                 "name": "NeonDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "NanoDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "SoundfontDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "MIDIOutputDeviceBox"
                             }
                         ]
                     }

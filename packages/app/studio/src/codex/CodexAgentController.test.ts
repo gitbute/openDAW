@@ -174,7 +174,7 @@ describe("CodexAgentController", () => {
         expect(session.startedThreads).toEqual([{model: "model-alpha"}])
         expect(session.startedTurns).toEqual([{
             text: "Make a beat",
-            options: {model: "model-alpha", effort: "balanced"}
+            options: {model: "model-alpha", effort: "balanced", summary: "auto"}
         }])
 
         session.emit({

@@ -196,7 +196,12 @@ describe("Slice 2 control tools", () => {
         expect(instrumentMutation?.spec.exposure).toBe("deferred")
         expect(instrumentMutation?.spec.inputSchema.properties?.instrument?.anyOf
             ?.map(schema => schema.description)).toEqual(expect.arrayContaining([
+                "Handle to a CubedDeviceBox.",
+                "Handle to a MIDIOutputDeviceBox.",
+                "Handle to a NanoDeviceBox.",
                 "Handle to a NeonDeviceBox.",
+                "Handle to a SoundfontDeviceBox.",
+                "Handle to a TapeDeviceBox.",
                 "Handle to a VaporisateurDeviceBox."
             ]))
     })

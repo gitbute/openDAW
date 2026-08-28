@@ -1,9 +1,33 @@
 import {Box} from "@opendaw/lib-box"
-import {NeonDeviceBox, VaporisateurDeviceBox} from "@opendaw/studio-boxes"
+import {
+    CubedDeviceBox,
+    MIDIOutputDeviceBox,
+    NanoDeviceBox,
+    NeonDeviceBox,
+    SoundfontDeviceBox,
+    TapeDeviceBox,
+    VaporisateurDeviceBox
+} from "@opendaw/studio-boxes"
 import {Neon} from "../devices/instruments/NeonDeviceBoxAdapter"
 import {SemanticFieldSpec, SemanticFields} from "./SemanticFields"
 
-export type SupportedInstrumentBox = NeonDeviceBox | VaporisateurDeviceBox
+export type SupportedInstrumentBox =
+    | CubedDeviceBox
+    | MIDIOutputDeviceBox
+    | NanoDeviceBox
+    | NeonDeviceBox
+    | SoundfontDeviceBox
+    | TapeDeviceBox
+    | VaporisateurDeviceBox
+
+export type InstrumentSemanticType =
+    | "Cubed"
+    | "MIDIOutput"
+    | "Nano"
+    | "Neon"
+    | "Soundfont"
+    | "Tape"
+    | "Vaporisateur"
 
 export type InstrumentSemanticGroup = {
     readonly prefix: string
@@ -12,7 +36,7 @@ export type InstrumentSemanticGroup = {
 
 export type InstrumentSemantic = {
     /** Human-readable instrument identity, for example `Neon`. */
-    readonly type: "Neon" | "Vaporisateur"
+    readonly type: InstrumentSemanticType
     /** The original live box; semantic leaves point into this box. */
     readonly box: SupportedInstrumentBox
     /** Canonical nested semantic field mapping. */
@@ -22,7 +46,27 @@ export type InstrumentSemantic = {
     readonly groups: ReadonlyArray<InstrumentSemanticGroup>
 }
 
-export const SupportedInstrumentBoxNames = ["NeonDeviceBox", "VaporisateurDeviceBox"] as const
+export const SupportedInstrumentBoxNames = [
+    "CubedDeviceBox",
+    "MIDIOutputDeviceBox",
+    "NanoDeviceBox",
+    "NeonDeviceBox",
+    "SoundfontDeviceBox",
+    "TapeDeviceBox",
+    "VaporisateurDeviceBox"
+] as const
+
+const cubedSpec = (box: CubedDeviceBox): SemanticFieldSpec => ({
+    tuning: box.tuning,
+    cutoff: box.cutoff,
+    resonance: box.resonance,
+    envMod: box.envMod,
+    decay: box.decay,
+    accent: box.accent,
+    volume: box.volume,
+    waveform: box.waveform,
+    patternIndex: box.patternIndex
+})
 
 const neonSpec = (box: NeonDeviceBox): SemanticFieldSpec => ({
     lineSelect: box.lineSelect,
@@ -103,8 +147,28 @@ const vaporisateurSpec = (box: VaporisateurDeviceBox): SemanticFieldSpec => ({
     }
 })
 
+const nanoSpec = (box: NanoDeviceBox): SemanticFieldSpec => ({
+    volume: box.volume,
+    release: box.release
+})
+
+const tapeSpec = (box: TapeDeviceBox): SemanticFieldSpec => ({
+    flutter: box.flutter,
+    wow: box.wow,
+    noise: box.noise,
+    saturation: box.saturation
+})
+
+const soundfontSpec = (box: SoundfontDeviceBox): SemanticFieldSpec => ({
+    presetIndex: box.presetIndex
+})
+
+const midiOutputSpec = (box: MIDIOutputDeviceBox): SemanticFieldSpec => ({
+    channel: box.channel
+})
+
 const withFields = <BOX extends SupportedInstrumentBox>(
-    type: InstrumentSemantic["type"], box: BOX, spec: SemanticFieldSpec,
+    type: InstrumentSemanticType, box: BOX, spec: SemanticFieldSpec,
     groups: ReadonlyArray<InstrumentSemanticGroup> = []): InstrumentSemantic => ({
     type,
     box,
@@ -122,15 +186,41 @@ const boxGroups = (length: number,
     Array.from({length}, (_, index) => ({prefix: prefix(index), label: label(index)}))
 
 export const isSupportedInstrumentBox = (box: Box): box is SupportedInstrumentBox =>
-    box instanceof NeonDeviceBox || box instanceof VaporisateurDeviceBox
+    box instanceof CubedDeviceBox
+    || box instanceof MIDIOutputDeviceBox
+    || box instanceof NanoDeviceBox
+    || box instanceof NeonDeviceBox
+    || box instanceof SoundfontDeviceBox
+    || box instanceof TapeDeviceBox
+    || box instanceof VaporisateurDeviceBox
 
 /** Canonical semantic mappings for the supported instrument boxes. */
 export namespace InstrumentSemantics {
     /** Return a live semantic mapping for a real supported instrument box. */
     export const forBox = (box: Box): InstrumentSemantic | null => {
+        if (box instanceof CubedDeviceBox) {
+            const spec = cubedSpec(box)
+            return withFields("Cubed", box, spec)
+        }
+        if (box instanceof MIDIOutputDeviceBox) {
+            const spec = midiOutputSpec(box)
+            return withFields("MIDIOutput", box, spec)
+        }
+        if (box instanceof NanoDeviceBox) {
+            const spec = nanoSpec(box)
+            return withFields("Nano", box, spec)
+        }
         if (box instanceof NeonDeviceBox) {
             const spec = neonSpec(box)
             return withFields("Neon", box, spec, neonGroups())
+        }
+        if (box instanceof SoundfontDeviceBox) {
+            const spec = soundfontSpec(box)
+            return withFields("Soundfont", box, spec)
+        }
+        if (box instanceof TapeDeviceBox) {
+            const spec = tapeSpec(box)
+            return withFields("Tape", box, spec)
         }
         if (box instanceof VaporisateurDeviceBox) {
             const spec = vaporisateurSpec(box)

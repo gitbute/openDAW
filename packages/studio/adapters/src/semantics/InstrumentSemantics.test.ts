@@ -1,12 +1,24 @@
 import {describe, expect, it} from "vitest"
-import {InstrumentSemantics} from "./InstrumentSemantics"
+import {InstrumentSemantics, SupportedInstrumentBoxNames} from "./InstrumentSemantics"
 import {SemanticFields} from "./SemanticFields"
 import {AudioUnitFactory} from "../factories/AudioUnitFactory"
 import {InstrumentFactories} from "../factories/InstrumentFactories"
+import type {InstrumentBox} from "../factories/InstrumentBox"
+import type {InstrumentFactory} from "../factories/InstrumentFactory"
 import {NeonDeviceBox, VaporisateurDeviceBox} from "@opendaw/studio-boxes"
 import {AudioUnitType, IconSymbol} from "@opendaw/studio-enums"
 import {Option} from "@opendaw/lib-std"
 import {ProjectSkeleton} from "../project/ProjectSkeleton"
+
+const createInstrument = <ATTACHMENT, BOX extends InstrumentBox>(factory: InstrumentFactory<ATTACHMENT, BOX>): BOX => {
+    const skeleton = ProjectSkeleton.empty({createDefaultUser: false, createOutputMaximizer: false})
+    const {boxGraph} = skeleton
+    boxGraph.beginTransaction()
+    const audioUnit = AudioUnitFactory.create(skeleton, AudioUnitType.Instrument, Option.None)
+    const instrument = factory.create(boxGraph, audioUnit.input, factory.defaultName, factory.defaultIcon)
+    boxGraph.endTransaction()
+    return instrument
+}
 
 const createNeon = (): NeonDeviceBox => {
     const skeleton = ProjectSkeleton.empty({createDefaultUser: false, createOutputMaximizer: false})
@@ -74,6 +86,78 @@ describe("InstrumentSemantics", () => {
         expect(SemanticFields.resolve(semantics.spec, "oscillators.1.volume"))
             .toBe(vaporisateur.oscillators.fields()[1].volume)
         expect(SemanticFields.resolve(semantics.spec, "noise.release")).toBe(vaporisateur.noise.release)
+    })
+
+    it("covers every instrument with an existing canonical primitive mapping", () => {
+        const neon = createNeon()
+        const cases = [
+            {
+                name: "CubedDeviceBox",
+                box: createInstrument(InstrumentFactories.Cubed),
+                paths: ["tuning", "cutoff", "resonance", "envMod", "decay", "accent", "volume", "waveform", "patternIndex"]
+            },
+            {
+                name: "MIDIOutputDeviceBox",
+                box: createInstrument(InstrumentFactories.MIDIOutput),
+                paths: ["channel"]
+            },
+            {
+                name: "NanoDeviceBox",
+                box: createInstrument(InstrumentFactories.Nano),
+                paths: ["volume", "release"]
+            },
+            {
+                name: "NeonDeviceBox",
+                box: neon,
+                paths: InstrumentSemantics.paths(neon)
+            },
+            {
+                name: "SoundfontDeviceBox",
+                box: createInstrument(InstrumentFactories.Soundfont),
+                paths: ["presetIndex"]
+            },
+            {
+                name: "TapeDeviceBox",
+                box: createInstrument(InstrumentFactories.Tape),
+                paths: ["flutter", "wow", "noise", "saturation"]
+            },
+            {
+                name: "VaporisateurDeviceBox",
+                box: createVaporisateur(),
+                paths: [
+                    "cutoff", "resonance", "filterOrder", "attack", "decay", "sustain", "release",
+                    "filterEnvelope", "filterKeyboard", "voicingMode", "glideTime", "unisonCount",
+                    "unisonDetune", "unisonStereo", "lfo.waveform", "lfo.rate", "lfo.sync",
+                    "lfo.targetTune", "lfo.targetCutoff", "lfo.targetVolume", "oscillators.0.waveform",
+                    "oscillators.0.volume", "oscillators.0.octave", "oscillators.0.tune", "oscillators.1.waveform",
+                    "oscillators.1.volume", "oscillators.1.octave", "oscillators.1.tune", "noise.attack",
+                    "noise.hold", "noise.release", "noise.volume"
+                ]
+            }
+        ] as const
+
+        expect(SupportedInstrumentBoxNames).toEqual(cases.map(({name}) => name))
+        cases.forEach(({box, paths}) => {
+            const semantics = InstrumentSemantics.forBox(box)
+            expect(semantics).not.toBeNull()
+            expect(SemanticFields.paths(semantics!.spec)).toEqual(paths)
+        })
+    })
+
+    it("keeps every scripting Vaporisateur field path in the shared mapping", () => {
+        const vaporisateur = createVaporisateur()
+        const semantics = InstrumentSemantics.forBox(vaporisateur)
+        if (semantics === null) {throw new Error("Missing Vaporisateur semantics")}
+
+        const scriptingPaths = [
+            "cutoff", "resonance", "filterOrder", "filterEnvelope", "filterKeyboard", "attack", "decay",
+            "sustain", "release", "voicingMode", "glideTime", "unisonCount", "unisonDetune", "unisonStereo",
+            "lfo.waveform", "lfo.rate", "lfo.sync", "lfo.targetTune", "lfo.targetVolume", "lfo.targetCutoff",
+            "oscillators.0.waveform", "oscillators.0.volume", "oscillators.0.octave", "oscillators.0.tune",
+            "oscillators.1.waveform", "oscillators.1.volume", "oscillators.1.octave", "oscillators.1.tune",
+            "noise.attack", "noise.hold", "noise.release", "noise.volume"
+        ]
+        expect(scriptingPaths.every(path => SemanticFields.paths(semantics.spec).includes(path))).toBe(true)
     })
 
     it("shares primitive constraint validation without mutating fields", () => {

@@ -326,7 +326,8 @@ describe("CodexSession", () => {
             const firstTurn = await session.startTurn("Create a short pattern.")
             const secondTurn = await session.startTurn("Adjust the pattern.", {
                 model: "another-model",
-                effort: "another-effort"
+                effort: "another-effort",
+                summary: "auto"
             })
             expect(firstTurn).toBe("turn-1")
             expect(secondTurn).toBe("turn-2")
@@ -334,7 +335,8 @@ describe("CodexSession", () => {
                 .toBe("thread-1")
             expect(requestWithMethod(transport, "turn/start").params).toMatchObject({
                 model: "another-model",
-                effort: "another-effort"
+                effort: "another-effort",
+                summary: "auto"
             })
             expect(events.filter(event => event.type === "turnStarted")).toHaveLength(2)
 
@@ -475,6 +477,38 @@ describe("CodexSession", () => {
                     delta: "hidden raw reasoning"
                 }
             })
+            transport.emit({
+                method: "item/completed",
+                params: {
+                    threadId: "thread-1",
+                    turnId: "turn-1",
+                    item: {
+                        type: "reasoning",
+                        id: "reasoning-1",
+                        summary: [
+                            {type: "summaryText", text: "Inspecting the project…"},
+                            {type: "summaryText", text: "Choosing suitable samples…"}
+                        ],
+                        content: [{type: "reasoningText", text: "hidden completed reasoning"}]
+                    }
+                }
+            })
+            transport.emit({
+                method: "item/completed",
+                params: {
+                    threadId: "thread-1",
+                    turnId: "turn-1",
+                    item: {
+                        type: "reasoning",
+                        id: "reasoning-2",
+                        summary: [
+                            {type: "summaryText", text: "Inspecting existing state…"},
+                            {type: "summaryText", text: "Choosing a safe edit…"}
+                        ],
+                        content: [{type: "reasoningText", text: "hidden fallback reasoning"}]
+                    }
+                }
+            })
 
             expect(events.filter(event => event.type === "reasoningSummaryPartAdded")).toEqual([{
                 type: "reasoningSummaryPartAdded",
@@ -483,6 +517,20 @@ describe("CodexSession", () => {
                 itemId: "reasoning-1",
                 summaryIndex: 0,
                 text: ""
+            }, {
+                type: "reasoningSummaryPartAdded",
+                threadId: "thread-1",
+                turnId: "turn-1",
+                itemId: "reasoning-2",
+                summaryIndex: 0,
+                text: "Inspecting existing state…"
+            }, {
+                type: "reasoningSummaryPartAdded",
+                threadId: "thread-1",
+                turnId: "turn-1",
+                itemId: "reasoning-2",
+                summaryIndex: 1,
+                text: "Choosing a safe edit…"
             }])
             expect(events.filter(event => event.type === "reasoningSummaryDelta")).toEqual([
                 {
@@ -503,6 +551,10 @@ describe("CodexSession", () => {
                 }
             ])
             expect(events).not.toContainEqual(expect.objectContaining({text: "hidden raw reasoning"}))
+            expect(events).not.toContainEqual(expect.objectContaining({text: "hidden completed reasoning"}))
+            expect(events).not.toContainEqual(expect.objectContaining({text: "hidden fallback reasoning"}))
+            expect(events.filter(event => "itemId" in event && event.itemId === "reasoning-1"
+                && "text" in event && event.text !== "")).toHaveLength(2)
         } finally {
             await session.disconnect()
         }

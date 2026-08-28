@@ -63,6 +63,26 @@ const reasoningSummaryPartText = (value: Record<string, unknown>): string => {
     return isRecord(part) && typeof part.text === "string" ? part.text : ""
 }
 
+const reasoningSummaryIndex = (value: Record<string, unknown>, fallback: number): number | null =>
+    nullableIntegerAt(value, "summaryIndex") ?? nullableIntegerAt(value, "index") ?? fallback
+
+const reasoningSummaryParts = (item: Record<string, unknown>): ReadonlyArray<{
+    readonly summaryIndex: number | null
+    readonly text: string
+}> => {
+    const summary = item.summary
+    if (typeof summary === "string") {return [{summaryIndex: 0, text: summary}]}
+    if (isRecord(summary)) {
+        return [{summaryIndex: reasoningSummaryIndex(summary, 0), text: reasoningSummaryPartText(summary)}]
+    }
+    if (!Array.isArray(summary)) {return []}
+    return summary.map((part, index) => {
+        if (typeof part === "string") {return {summaryIndex: index, text: part}}
+        if (!isRecord(part)) {return {summaryIndex: index, text: ""}}
+        return {summaryIndex: reasoningSummaryIndex(part, index), text: reasoningSummaryPartText(part)}
+    })
+}
+
 const nullableStringAt = (value: Record<string, unknown>, name: string): string | null => {
     const result = value[name]
     return result === null || result === undefined ? null : typeof result === "string" ? result : null
@@ -141,6 +161,7 @@ export class CodexSession {
     #sessionId: string | null = null
     #activeTurnId: string | undefined
     #lastDisconnectError: string | null = null
+    readonly #reasoningSummaryTextByKey = new Map<string, string>()
 
     constructor(options: CodexSessionOptions) {
         const existing = sessionsByRpc.get(options.rpc)
@@ -249,7 +270,8 @@ export class CodexSession {
             threadId,
             input: [{type: "text", text, text_elements: []}],
             ...(options.model === undefined ? {} : {model: options.model}),
-            ...(options.effort === undefined ? {} : {effort: options.effort})
+            ...(options.effort === undefined ? {} : {effort: options.effort}),
+            ...(options.summary === undefined ? {} : {summary: options.summary})
         })
         const id = turnId(result, "turn/start response")
         this.#activeTurnId = id
@@ -287,6 +309,7 @@ export class CodexSession {
         }
         this.#threadId = undefined
         this.#sessionId = null
+        this.#reasoningSummaryTextByKey.clear()
     }
 
     async #handleToolCall(request: RpcRequest): Promise<RpcServerRequestResult> {
@@ -403,25 +426,33 @@ export class CodexSession {
 
     #onReasoningSummaryDelta(params: JsonValue | undefined): void {
         const value = asRecord(params, "item/reasoning/summaryTextDelta notification")
+        const itemId = stringAt(value, "itemId", "item/reasoning/summaryTextDelta notification")
+        const summaryIndex = nullableIntegerAt(value, "summaryIndex")
+        const text = stringAt(value, "delta", "item/reasoning/summaryTextDelta notification")
+        this.#rememberReasoningSummaryText(itemId, summaryIndex, text)
         this.#emit({
             type: "reasoningSummaryDelta",
             threadId: stringAt(value, "threadId", "item/reasoning/summaryTextDelta notification"),
             turnId: stringAt(value, "turnId", "item/reasoning/summaryTextDelta notification"),
-            itemId: stringAt(value, "itemId", "item/reasoning/summaryTextDelta notification"),
-            summaryIndex: nullableIntegerAt(value, "summaryIndex"),
-            text: stringAt(value, "delta", "item/reasoning/summaryTextDelta notification")
+            itemId,
+            summaryIndex,
+            text
         })
     }
 
     #onReasoningSummaryPartAdded(params: JsonValue | undefined): void {
         const value = asRecord(params, "item/reasoning/summaryPartAdded notification")
+        const itemId = stringAt(value, "itemId", "item/reasoning/summaryPartAdded notification")
+        const summaryIndex = nullableIntegerAt(value, "summaryIndex")
+        const text = reasoningSummaryPartText(value)
+        this.#rememberReasoningSummaryText(itemId, summaryIndex, text)
         this.#emit({
             type: "reasoningSummaryPartAdded",
             threadId: stringAt(value, "threadId", "item/reasoning/summaryPartAdded notification"),
             turnId: stringAt(value, "turnId", "item/reasoning/summaryPartAdded notification"),
-            itemId: stringAt(value, "itemId", "item/reasoning/summaryPartAdded notification"),
-            summaryIndex: nullableIntegerAt(value, "summaryIndex"),
-            text: reasoningSummaryPartText(value)
+            itemId,
+            summaryIndex,
+            text
         })
     }
 
@@ -442,6 +473,26 @@ export class CodexSession {
 
     #onItemCompleted(params: JsonValue | undefined): void {
         const value = asRecord(params, "item/completed notification")
+        const completedItem = value.item
+        if (isRecord(completedItem) && completedItem.type === "reasoning") {
+            const itemId = completedItem.id
+            if (typeof itemId !== "string") {return}
+            const threadId = stringAt(value, "threadId", "item/completed notification")
+            const turnId = stringAt(value, "turnId", "item/completed notification")
+            reasoningSummaryParts(completedItem).forEach(({summaryIndex, text}) => {
+                const unseenText = this.#unseenReasoningSummaryText(itemId, summaryIndex, text)
+                if (unseenText.length === 0) {return}
+                this.#emit({
+                    type: "reasoningSummaryPartAdded",
+                    threadId,
+                    turnId,
+                    itemId,
+                    summaryIndex,
+                    text: unseenText
+                })
+            })
+            return
+        }
         const item = dynamicToolItem(value.item)
         if (item === undefined) {return}
         this.#emit({
@@ -454,6 +505,31 @@ export class CodexSession {
             success: item.success,
             contentItems: item.contentItems
         })
+    }
+
+    #reasoningSummaryKey(itemId: string, summaryIndex: number | null): string {
+        return `${itemId}\u0000${summaryIndex === null ? "null" : summaryIndex}`
+    }
+
+    #rememberReasoningSummaryText(itemId: string, summaryIndex: number | null, text: string): void {
+        if (text.length === 0) {return}
+        const key = this.#reasoningSummaryKey(itemId, summaryIndex)
+        this.#reasoningSummaryTextByKey.set(key, (this.#reasoningSummaryTextByKey.get(key) ?? "") + text)
+    }
+
+    #unseenReasoningSummaryText(itemId: string, summaryIndex: number | null, text: string): string {
+        if (text.length === 0) {return ""}
+        const key = this.#reasoningSummaryKey(itemId, summaryIndex)
+        const received = this.#reasoningSummaryTextByKey.get(key)
+        if (received === undefined) {
+            this.#reasoningSummaryTextByKey.set(key, text)
+            return text
+        }
+        if (text === received) {return ""}
+        if (!text.startsWith(received)) {return ""}
+        const unseen = text.slice(received.length)
+        if (unseen.length > 0) {this.#reasoningSummaryTextByKey.set(key, text)}
+        return unseen
     }
 
     #onTurnCompleted(params: JsonValue | undefined): void {
