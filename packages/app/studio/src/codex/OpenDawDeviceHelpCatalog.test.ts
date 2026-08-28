@@ -4,6 +4,10 @@ import {fileURLToPath} from "node:url"
 import {DeviceManualUrls} from "@opendaw/studio-adapters"
 import starterPrompt from "@/ui/devices/instruments/apparat-starter-prompt.txt?raw"
 import {ApparatExamples} from "@/ui/devices/instruments/apparat-examples"
+import werkstattStarterPrompt from "@/ui/devices/audio-effects/werkstatt-starter-prompt.txt?raw"
+import {WerkstattExamples} from "@/ui/devices/audio-effects/werkstatt-examples"
+import spielwerkStarterPrompt from "@/ui/devices/midi-effects/spielwerk-starter-prompt.txt?raw"
+import {SpielwerkExamples} from "@/ui/devices/midi-effects/spielwerk-examples"
 import {OpenDawDeviceHelpCatalog} from "./OpenDawDeviceHelpCatalog"
 
 afterEach(() => vi.unstubAllGlobals())
@@ -36,6 +40,21 @@ describe("OpenDawDeviceHelpCatalog", () => {
         expect(content).toEqual({manualMarkdown: manual})
         expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining(
             "manuals/devices/audio/compressor.md"))
+    })
+
+    it("reuses the existing Werkstatt and Spielwerk programming guides and examples", async () => {
+        const fetchMock = vi.fn(async () => new Response("# Script device", {status: 200}))
+        vi.stubGlobal("fetch", fetchMock)
+        const catalog = new OpenDawDeviceHelpCatalog()
+
+        const werkstatt = await catalog.read(DeviceManualUrls.Werkstatt)
+        expect(werkstatt.programmingGuide).toBe(werkstattStarterPrompt)
+        expect(werkstatt.examples).toEqual(WerkstattExamples.map(({name, code}) => ({name, code})))
+
+        const spielwerk = await catalog.read(DeviceManualUrls.Spielwerk)
+        expect(spielwerk.programmingGuide).toBe(spielwerkStarterPrompt)
+        expect(spielwerk.examples).toEqual(SpielwerkExamples.map(({name, code}) => ({name, code})))
+        expect(fetchMock).toHaveBeenCalledTimes(2)
     })
 
     it("reports missing manual assets clearly", async () => {

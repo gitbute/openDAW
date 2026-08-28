@@ -131,24 +131,29 @@ export const generatedControlManifest: GeneratedManifest = {
             }
         },
         {
-            "id": "project.setInstrumentProperties",
+            "id": "project.setDeviceProperties",
             "root": "project",
             "ownerType": "ProjectApi",
-            "method": "setInstrumentProperties",
+            "method": "setDeviceProperties",
             "target": "singleton",
             "transaction": "editing",
             "async": false,
             "parameters": [
                 {
-                    "name": "instrument",
+                    "name": "device",
                     "optional": false,
                     "binding": {
                         "kind": "identifier",
-                        "name": "instrument"
+                        "name": "device"
                     },
                     "type": {
                         "kind": "union",
                         "alternatives": [
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "ApparatDeviceBox"
+                            },
                             {
                                 "kind": "handle",
                                 "handle": "box",
@@ -177,12 +182,142 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
+                                "name": "PlayfieldDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
                                 "name": "SoundfontDeviceBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
                                 "name": "MIDIOutputDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "ArpeggioDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "PitchDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "SpielwerkDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "VelocityDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "ZeitgeistDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "AudioEffectCompositeBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "StereoCompositeBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "FrequencySplitBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "AutotuneDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "CompressorDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "ConvolverDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "CrusherDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "DattorroReverbDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "DelayDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "FoldDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "ReverbDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "GateDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "MaximizerDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "RevampDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "StereoToolDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "TidalDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "NeuralAmpDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "VocoderDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "WaveshaperDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "WerkstattDeviceBox"
                             }
                         ]
                     }
@@ -198,7 +333,7 @@ export const generatedControlManifest: GeneratedManifest = {
                         "kind": "array",
                         "element": {
                             "kind": "object",
-                            "name": "InstrumentPropertyChange",
+                            "name": "DevicePropertyChange",
                             "properties": [
                                 {
                                     "name": "path",
@@ -241,7 +376,7 @@ export const generatedControlManifest: GeneratedManifest = {
             "result": {
                 "kind": "void"
             },
-            "description": "Set semantic instrument properties discovered with `daw_resources.inspect_instrument`.\nPaths are canonical instrument property paths, not raw field addresses. Multiple changes\nare applied together; use the returned paths exactly when making subsequent edits."
+            "description": "Set semantic device properties discovered with `daw_resources.inspect_device`.\nPaths are canonical device property paths, not raw field addresses. Multiple changes\nare applied together; use the returned paths exactly when making subsequent edits.\nOrdinary automatable controls remain available through the generic parameter API."
         },
         {
             "id": "project.createAudioBus",
@@ -789,6 +924,144 @@ export const generatedControlManifest: GeneratedManifest = {
             "description": "Compile and install JavaScript source for an Apparat instrument using openDAW's canonical script\ncompiler. Use device help for the authoritative Processor contract."
         },
         {
+            "id": "project.readWerkstattSource",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "readWerkstattSource",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "target",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
+                    "type": {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "WerkstattDeviceBox"
+                    }
+                }
+            ],
+            "result": {
+                "kind": "primitive",
+                "type": "string"
+            },
+            "description": "Read a Werkstatt's user source without exposing the compiler's private version header."
+        },
+        {
+            "id": "project.programWerkstatt",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "programWerkstatt",
+            "target": "singleton",
+            "transaction": "none",
+            "async": true,
+            "parameters": [
+                {
+                    "name": "target",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
+                    "type": {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "WerkstattDeviceBox"
+                    }
+                },
+                {
+                    "name": "source",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "source"
+                    },
+                    "type": {
+                        "kind": "primitive",
+                        "type": "string"
+                    }
+                }
+            ],
+            "result": {
+                "kind": "void"
+            },
+            "description": "Compile and install JavaScript source for a Werkstatt audio effect."
+        },
+        {
+            "id": "project.readSpielwerkSource",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "readSpielwerkSource",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "target",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
+                    "type": {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "SpielwerkDeviceBox"
+                    }
+                }
+            ],
+            "result": {
+                "kind": "primitive",
+                "type": "string"
+            },
+            "description": "Read a Spielwerk's user source without exposing the compiler's private version header."
+        },
+        {
+            "id": "project.programSpielwerk",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "programSpielwerk",
+            "target": "singleton",
+            "transaction": "none",
+            "async": true,
+            "parameters": [
+                {
+                    "name": "target",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
+                    "type": {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "SpielwerkDeviceBox"
+                    }
+                },
+                {
+                    "name": "source",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "source"
+                    },
+                    "type": {
+                        "kind": "primitive",
+                        "type": "string"
+                    }
+                }
+            ],
+            "result": {
+                "kind": "void"
+            },
+            "description": "Compile and install JavaScript source for a Spielwerk MIDI effect."
+        },
+        {
             "id": "project.assignApparatSample",
             "root": "project",
             "ownerType": "ProjectApi",
@@ -1010,6 +1283,11 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
+                        "name": "SpielwerkDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
                         "name": "VelocityDeviceBox"
                     },
                     {
@@ -1020,17 +1298,37 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "UnknownMidiEffectDeviceBox"
+                        "name": "AudioEffectCompositeBox"
                     },
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "SpielwerkDeviceBox"
+                        "name": "StereoCompositeBox"
                     },
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "MaximizerDeviceBox"
+                        "name": "AutotuneDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "CompressorDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ConvolverDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "CrusherDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "DattorroReverbDeviceBox"
                     },
                     {
                         "kind": "handle",
@@ -1040,7 +1338,22 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
+                        "name": "FoldDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
                         "name": "ReverbDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "GateDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "MaximizerDeviceBox"
                     },
                     {
                         "kind": "handle",
@@ -1056,51 +1369,6 @@ export const generatedControlManifest: GeneratedManifest = {
                         "kind": "handle",
                         "handle": "box",
                         "name": "TidalDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "ModularDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "UnknownAudioEffectDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "CompressorDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "GateDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "AutotuneDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "ConvolverDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "CrusherDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "FoldDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "DattorroReverbDeviceBox"
                     },
                     {
                         "kind": "handle",
@@ -1125,12 +1393,17 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "AudioEffectCompositeBox"
+                        "name": "UnknownMidiEffectDeviceBox"
                     },
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "StereoCompositeBox"
+                        "name": "ModularDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "UnknownAudioEffectDeviceBox"
                     }
                 ]
             }
@@ -1187,6 +1460,11 @@ export const generatedControlManifest: GeneratedManifest = {
                                 {
                                     "kind": "handle",
                                     "handle": "box",
+                                    "name": "SpielwerkDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
                                     "name": "VelocityDeviceBox"
                                 },
                                 {
@@ -1197,17 +1475,37 @@ export const generatedControlManifest: GeneratedManifest = {
                                 {
                                     "kind": "handle",
                                     "handle": "box",
-                                    "name": "UnknownMidiEffectDeviceBox"
+                                    "name": "AudioEffectCompositeBox"
                                 },
                                 {
                                     "kind": "handle",
                                     "handle": "box",
-                                    "name": "SpielwerkDeviceBox"
+                                    "name": "StereoCompositeBox"
                                 },
                                 {
                                     "kind": "handle",
                                     "handle": "box",
-                                    "name": "MaximizerDeviceBox"
+                                    "name": "AutotuneDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "CompressorDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "ConvolverDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "CrusherDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "DattorroReverbDeviceBox"
                                 },
                                 {
                                     "kind": "handle",
@@ -1217,7 +1515,22 @@ export const generatedControlManifest: GeneratedManifest = {
                                 {
                                     "kind": "handle",
                                     "handle": "box",
+                                    "name": "FoldDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
                                     "name": "ReverbDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "GateDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "MaximizerDeviceBox"
                                 },
                                 {
                                     "kind": "handle",
@@ -1233,51 +1546,6 @@ export const generatedControlManifest: GeneratedManifest = {
                                     "kind": "handle",
                                     "handle": "box",
                                     "name": "TidalDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "ModularDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "UnknownAudioEffectDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "CompressorDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "GateDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "AutotuneDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "ConvolverDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "CrusherDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "FoldDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "DattorroReverbDeviceBox"
                                 },
                                 {
                                     "kind": "handle",
@@ -1302,12 +1570,17 @@ export const generatedControlManifest: GeneratedManifest = {
                                 {
                                     "kind": "handle",
                                     "handle": "box",
-                                    "name": "AudioEffectCompositeBox"
+                                    "name": "UnknownMidiEffectDeviceBox"
                                 },
                                 {
                                     "kind": "handle",
                                     "handle": "box",
-                                    "name": "StereoCompositeBox"
+                                    "name": "ModularDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "UnknownAudioEffectDeviceBox"
                                 }
                             ]
                         }
@@ -1363,6 +1636,11 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
+                                "name": "SpielwerkDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
                                 "name": "VelocityDeviceBox"
                             },
                             {
@@ -1373,17 +1651,37 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "UnknownMidiEffectDeviceBox"
+                                "name": "AudioEffectCompositeBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "SpielwerkDeviceBox"
+                                "name": "StereoCompositeBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "MaximizerDeviceBox"
+                                "name": "AutotuneDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "CompressorDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "ConvolverDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "CrusherDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "DattorroReverbDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -1393,7 +1691,22 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
+                                "name": "FoldDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
                                 "name": "ReverbDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "GateDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "MaximizerDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -1409,51 +1722,6 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "kind": "handle",
                                 "handle": "box",
                                 "name": "TidalDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ModularDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "UnknownAudioEffectDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "CompressorDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "GateDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "AutotuneDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ConvolverDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "CrusherDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "FoldDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "DattorroReverbDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -1478,12 +1746,17 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "AudioEffectCompositeBox"
+                                "name": "UnknownMidiEffectDeviceBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "StereoCompositeBox"
+                                "name": "ModularDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "UnknownAudioEffectDeviceBox"
                             }
                         ]
                     }
@@ -1525,6 +1798,11 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
+                                "name": "SpielwerkDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
                                 "name": "VelocityDeviceBox"
                             },
                             {
@@ -1535,17 +1813,37 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "UnknownMidiEffectDeviceBox"
+                                "name": "AudioEffectCompositeBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "SpielwerkDeviceBox"
+                                "name": "StereoCompositeBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "MaximizerDeviceBox"
+                                "name": "AutotuneDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "CompressorDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "ConvolverDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "CrusherDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "DattorroReverbDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -1555,7 +1853,22 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
+                                "name": "FoldDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
                                 "name": "ReverbDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "GateDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "MaximizerDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -1571,51 +1884,6 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "kind": "handle",
                                 "handle": "box",
                                 "name": "TidalDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ModularDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "UnknownAudioEffectDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "CompressorDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "GateDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "AutotuneDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ConvolverDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "CrusherDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "FoldDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "DattorroReverbDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -1640,12 +1908,17 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "AudioEffectCompositeBox"
+                                "name": "UnknownMidiEffectDeviceBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "StereoCompositeBox"
+                                "name": "ModularDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "UnknownAudioEffectDeviceBox"
                             }
                         ]
                     }
@@ -2024,7 +2297,8 @@ export const generatedControlManifest: GeneratedManifest = {
                 "kind": "handle",
                 "handle": "box",
                 "name": "AudioClipBox"
-            }
+            },
+            "description": "Duration is expressed in openDAW musical pulses: 960 pulses are one quarter note, independent of BPM."
         },
         {
             "id": "project.createAudioRegion",
@@ -2104,7 +2378,8 @@ export const generatedControlManifest: GeneratedManifest = {
                 "kind": "handle",
                 "handle": "box",
                 "name": "AudioRegionBox"
-            }
+            },
+            "description": "Position and duration are openDAW musical pulses: 960 pulses are one quarter note, independent of BPM."
         },
         {
             "id": "project.deleteTrack",
@@ -2704,7 +2979,160 @@ export const generatedControlManifest: GeneratedManifest = {
                 "handle": "box",
                 "name": "NoteRegionBox"
             },
-            "description": "Create a note region on a TrackBox of type TrackType.Notes.\nWhen eventOwner is supplied, it may be a NoteRegionBox, NoteClipBox, or NoteEventCollectionBox;\nthe supplied owner's note-event collection is reused."
+            "description": "Create a note region on a TrackBox of type TrackType.Notes.\nPosition and duration are openDAW musical pulses: 960 pulses are one quarter note, independent of BPM.\nWhen eventOwner is supplied, it may be a NoteRegionBox, NoteClipBox, or NoteEventCollectionBox;\nthe supplied owner's note-event collection is reused."
+        },
+        {
+            "id": "project.createMusicalNoteRegion",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "createMusicalNoteRegion",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "trackBox",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "trackBox"
+                    },
+                    "type": {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "TrackBox"
+                    }
+                },
+                {
+                    "name": "position",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "position"
+                    },
+                    "type": {
+                        "kind": "object",
+                        "name": "MusicalPosition",
+                        "properties": [
+                            {
+                                "name": "bar",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            },
+                            {
+                                "name": "beat",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            },
+                            {
+                                "name": "sixteenth",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            },
+                            {
+                                "name": "ticks",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            }
+                        ],
+                        "description": "One-based musical position. `beat` follows the active signature's\ndenominator unit; `sixteenth` is the one-based sixteenth-note subdivision\ninside that beat. `ticks` is the remaining openDAW pulse offset."
+                    }
+                },
+                {
+                    "name": "duration",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "duration"
+                    },
+                    "type": {
+                        "kind": "literal",
+                        "values": [
+                            "bar",
+                            "whole",
+                            "half",
+                            "quarter",
+                            "eighth",
+                            "sixteenth",
+                            "dotted-half",
+                            "dotted-quarter",
+                            "dotted-eighth",
+                            "triplet-half",
+                            "triplet-quarter",
+                            "triplet-eighth"
+                        ],
+                        "description": "A musical note length resolved through the canonical project signature/PPQN helpers."
+                    }
+                },
+                {
+                    "optional": true,
+                    "binding": {
+                        "kind": "object",
+                        "properties": [
+                            {
+                                "name": "name",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "name"
+                                }
+                            },
+                            {
+                                "name": "hue",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "hue"
+                                }
+                            }
+                        ]
+                    },
+                    "type": {
+                        "kind": "object",
+                        "name": "ClipRegionOptions",
+                        "properties": [
+                            {
+                                "name": "hue",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number"
+                                }
+                            },
+                            {
+                                "name": "name",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "string"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ],
+            "result": {
+                "kind": "handle",
+                "handle": "box",
+                "name": "NoteRegionBox"
+            },
+            "description": "Create a note region using one-based musical bars/beats and a named\nmusical duration. Position and duration are resolved with the canonical\nPPQN/signature adapters; callers do not need to calculate pulses."
         },
         {
             "id": "project.createTrackRegion",
@@ -2824,7 +3252,7 @@ export const generatedControlManifest: GeneratedManifest = {
                     ]
                 }
             },
-            "description": "Create a region on a track. On a TrackType.Value track this creates the normal timeline\nValueRegionBox automation region and automatically seeds it with the initial held/current value."
+            "description": "Create a region on a track. On a TrackType.Value track this creates the normal timeline\nValueRegionBox automation region and automatically seeds it with the initial held/current value.\nPosition and duration are openDAW musical pulses: 960 pulses are one quarter note, independent of BPM."
         },
         {
             "id": "project.createAutomationRegion",
@@ -2991,7 +3419,7 @@ export const generatedControlManifest: GeneratedManifest = {
                 "handle": "box",
                 "name": "ValueRegionBox"
             },
-            "description": "Create a timeline automation region on a TrackType.Value track and add its local value events.\nThe region is created through createTrackRegion, so its initial held/current value is preserved;\na supplied (0, 0) event updates that seed through the canonical value-event collection."
+            "description": "Create a timeline automation region on a TrackType.Value track and add its local value events.\nPosition and duration are openDAW musical pulses: 960 pulses are one quarter note, independent of BPM.\nThe region is created through createTrackRegion, so its initial held/current value is preserved;\na supplied (0, 0) event updates that seed through the canonical value-event collection."
         },
         {
             "id": "project.createNoteEvent",
@@ -3155,7 +3583,7 @@ export const generatedControlManifest: GeneratedManifest = {
                 "handle": "box",
                 "name": "NoteEventBox"
             },
-            "description": "Create one note event in the owner's underlying note-event collection.\nPass the semantic owner box directly: the NoteRegionBox, NoteClipBox, or NoteEventCollectionBox itself;\ndo not pass an events field handle."
+            "description": "Create one note event in the owner's underlying note-event collection.\nPosition and duration are openDAW musical pulses: 960 pulses are one quarter note, independent of BPM.\nPass the semantic owner box directly: the NoteRegionBox, NoteClipBox, or NoteEventCollectionBox itself;\ndo not pass an events field handle."
         },
         {
             "id": "project.createNoteEvents",
@@ -3282,7 +3710,400 @@ export const generatedControlManifest: GeneratedManifest = {
                     "name": "NoteEventBox"
                 }
             },
-            "description": "Create note events in the owner's underlying note-event collection.\nPass the semantic owner box directly; do not pass an events field handle or field address.\nAll events are added to that owner."
+            "description": "Create note events in the owner's underlying note-event collection.\nEach position and duration is expressed in openDAW musical pulses: 960 pulses are one quarter note,\nindependent of BPM.\nPass the semantic owner box directly; do not pass an events field handle or field address.\nAll events are added to that owner."
+        },
+        {
+            "id": "project.createMusicalNoteEvent",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "createMusicalNoteEvent",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "optional": false,
+                    "binding": {
+                        "kind": "object",
+                        "properties": [
+                            {
+                                "name": "owner",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "owner"
+                                }
+                            },
+                            {
+                                "name": "position",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "position"
+                                }
+                            },
+                            {
+                                "name": "duration",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "duration"
+                                }
+                            },
+                            {
+                                "name": "velocity",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "velocity"
+                                }
+                            },
+                            {
+                                "name": "pitch",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "pitch"
+                                }
+                            },
+                            {
+                                "name": "chance",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "chance"
+                                }
+                            },
+                            {
+                                "name": "cent",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "cent"
+                                }
+                            }
+                        ]
+                    },
+                    "type": {
+                        "kind": "object",
+                        "name": "MusicalNoteEventParams",
+                        "properties": [
+                            {
+                                "name": "cent",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number"
+                                }
+                            },
+                            {
+                                "name": "chance",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            },
+                            {
+                                "name": "duration",
+                                "optional": false,
+                                "type": {
+                                    "kind": "literal",
+                                    "values": [
+                                        "bar",
+                                        "whole",
+                                        "half",
+                                        "quarter",
+                                        "eighth",
+                                        "sixteenth",
+                                        "dotted-half",
+                                        "dotted-quarter",
+                                        "dotted-eighth",
+                                        "triplet-half",
+                                        "triplet-quarter",
+                                        "triplet-eighth"
+                                    ],
+                                    "description": "A musical note length resolved through the canonical project signature/PPQN helpers."
+                                }
+                            },
+                            {
+                                "name": "owner",
+                                "optional": false,
+                                "type": {
+                                    "kind": "union",
+                                    "alternatives": [
+                                        {
+                                            "kind": "handle",
+                                            "handle": "box",
+                                            "name": "NoteClipBox"
+                                        },
+                                        {
+                                            "kind": "handle",
+                                            "handle": "box",
+                                            "name": "NoteRegionBox"
+                                        },
+                                        {
+                                            "kind": "handle",
+                                            "handle": "box",
+                                            "name": "NoteEventCollectionBox"
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "name": "pitch",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            },
+                            {
+                                "name": "position",
+                                "optional": false,
+                                "type": {
+                                    "kind": "object",
+                                    "name": "MusicalPosition",
+                                    "properties": [
+                                        {
+                                            "name": "bar",
+                                            "optional": false,
+                                            "type": {
+                                                "kind": "primitive",
+                                                "type": "number",
+                                                "semantic": "int"
+                                            }
+                                        },
+                                        {
+                                            "name": "beat",
+                                            "optional": true,
+                                            "type": {
+                                                "kind": "primitive",
+                                                "type": "number",
+                                                "semantic": "int"
+                                            }
+                                        },
+                                        {
+                                            "name": "sixteenth",
+                                            "optional": true,
+                                            "type": {
+                                                "kind": "primitive",
+                                                "type": "number",
+                                                "semantic": "int"
+                                            }
+                                        },
+                                        {
+                                            "name": "ticks",
+                                            "optional": true,
+                                            "type": {
+                                                "kind": "primitive",
+                                                "type": "number",
+                                                "semantic": "int"
+                                            }
+                                        }
+                                    ],
+                                    "description": "One-based musical position. `beat` follows the active signature's\ndenominator unit; `sixteenth` is the one-based sixteenth-note subdivision\ninside that beat. `ticks` is the remaining openDAW pulse offset."
+                                }
+                            },
+                            {
+                                "name": "velocity",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "float"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ],
+            "result": {
+                "kind": "handle",
+                "handle": "box",
+                "name": "NoteEventBox"
+            },
+            "description": "Create one note event from a one-based musical position and named\nduration. The position is relative to the owner's note collection; bar\n1, beat 1 is the collection start. Signature changes use the active\nproject signature at that owner."
+        },
+        {
+            "id": "project.createMusicalNoteEvents",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "createMusicalNoteEvents",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "owner",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "owner"
+                    },
+                    "type": {
+                        "kind": "union",
+                        "alternatives": [
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "NoteClipBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "NoteRegionBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "NoteEventCollectionBox"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "events",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "events"
+                    },
+                    "type": {
+                        "kind": "array",
+                        "element": {
+                            "kind": "object",
+                            "name": "MusicalNoteEventInput",
+                            "properties": [
+                                {
+                                    "name": "cent",
+                                    "optional": true,
+                                    "type": {
+                                        "kind": "primitive",
+                                        "type": "number"
+                                    }
+                                },
+                                {
+                                    "name": "chance",
+                                    "optional": true,
+                                    "type": {
+                                        "kind": "primitive",
+                                        "type": "number",
+                                        "semantic": "int"
+                                    }
+                                },
+                                {
+                                    "name": "duration",
+                                    "optional": false,
+                                    "type": {
+                                        "kind": "literal",
+                                        "values": [
+                                            "bar",
+                                            "whole",
+                                            "half",
+                                            "quarter",
+                                            "eighth",
+                                            "sixteenth",
+                                            "dotted-half",
+                                            "dotted-quarter",
+                                            "dotted-eighth",
+                                            "triplet-half",
+                                            "triplet-quarter",
+                                            "triplet-eighth"
+                                        ],
+                                        "description": "A musical note length resolved through the canonical project signature/PPQN helpers."
+                                    }
+                                },
+                                {
+                                    "name": "pitch",
+                                    "optional": false,
+                                    "type": {
+                                        "kind": "primitive",
+                                        "type": "number",
+                                        "semantic": "int"
+                                    }
+                                },
+                                {
+                                    "name": "playCount",
+                                    "optional": true,
+                                    "type": {
+                                        "kind": "primitive",
+                                        "type": "number",
+                                        "semantic": "int"
+                                    }
+                                },
+                                {
+                                    "name": "position",
+                                    "optional": false,
+                                    "type": {
+                                        "kind": "object",
+                                        "name": "MusicalPosition",
+                                        "properties": [
+                                            {
+                                                "name": "bar",
+                                                "optional": false,
+                                                "type": {
+                                                    "kind": "primitive",
+                                                    "type": "number",
+                                                    "semantic": "int"
+                                                }
+                                            },
+                                            {
+                                                "name": "beat",
+                                                "optional": true,
+                                                "type": {
+                                                    "kind": "primitive",
+                                                    "type": "number",
+                                                    "semantic": "int"
+                                                }
+                                            },
+                                            {
+                                                "name": "sixteenth",
+                                                "optional": true,
+                                                "type": {
+                                                    "kind": "primitive",
+                                                    "type": "number",
+                                                    "semantic": "int"
+                                                }
+                                            },
+                                            {
+                                                "name": "ticks",
+                                                "optional": true,
+                                                "type": {
+                                                    "kind": "primitive",
+                                                    "type": "number",
+                                                    "semantic": "int"
+                                                }
+                                            }
+                                        ],
+                                        "description": "One-based musical position. `beat` follows the active signature's\ndenominator unit; `sixteenth` is the one-based sixteenth-note subdivision\ninside that beat. `ticks` is the remaining openDAW pulse offset."
+                                    }
+                                },
+                                {
+                                    "name": "velocity",
+                                    "optional": true,
+                                    "type": {
+                                        "kind": "primitive",
+                                        "type": "number",
+                                        "semantic": "float"
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            ],
+            "result": {
+                "kind": "array",
+                "element": {
+                    "kind": "handle",
+                    "handle": "box",
+                    "name": "NoteEventBox"
+                }
+            },
+            "description": "Create note events from one-based musical positions and named durations.\nPositions are relative to the owner's note collection, so a regular\nfour-on-the-floor pattern uses beats 1, 2, 3, and 4 directly."
         },
         {
             "id": "project.deleteNoteEvents",
@@ -3674,6 +4495,11 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
+                                "name": "SpielwerkDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
                                 "name": "VelocityDeviceBox"
                             },
                             {
@@ -3684,17 +4510,37 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "UnknownMidiEffectDeviceBox"
+                                "name": "AudioEffectCompositeBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "SpielwerkDeviceBox"
+                                "name": "StereoCompositeBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "MaximizerDeviceBox"
+                                "name": "AutotuneDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "CompressorDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "ConvolverDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "CrusherDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "DattorroReverbDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -3704,7 +4550,22 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
+                                "name": "FoldDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
                                 "name": "ReverbDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "GateDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "MaximizerDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -3720,51 +4581,6 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "kind": "handle",
                                 "handle": "box",
                                 "name": "TidalDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ModularDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "UnknownAudioEffectDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "CompressorDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "GateDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "AutotuneDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ConvolverDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "CrusherDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "FoldDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "DattorroReverbDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -3789,12 +4605,17 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "AudioEffectCompositeBox"
+                                "name": "UnknownMidiEffectDeviceBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "StereoCompositeBox"
+                                "name": "ModularDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "UnknownAudioEffectDeviceBox"
                             }
                         ]
                     }
@@ -5181,7 +6002,8 @@ export const generatedControlManifest: GeneratedManifest = {
                             "type": "string"
                         }
                     }
-                ]
+                ],
+                "description": "Make all properties in T readonly"
             }
         },
         {
@@ -5213,7 +6035,8 @@ export const generatedControlManifest: GeneratedManifest = {
                             "type": "string"
                         }
                     }
-                ]
+                ],
+                "description": "Make all properties in T readonly"
             }
         },
         {

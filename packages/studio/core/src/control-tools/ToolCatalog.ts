@@ -9,11 +9,14 @@ import type {
 } from "./types"
 import {
     operationInputSchema,
-    instrumentInspectInputSchema,
+    deviceCatalogQueryInputSchema,
+    deviceDefinitionInspectInputSchema,
+    deviceInspectInputSchema,
     deviceHelpInspectInputSchema,
     resourceInspectInputSchema,
     resourceQueryInputSchema,
-    sampleQueryInputSchema
+    sampleQueryInputSchema,
+    timingInspectInputSchema
 } from "./ToolSchema"
 
 const namespacesForRoots = {
@@ -28,10 +31,10 @@ const namespaceDescriptions: Readonly<Record<string, string>> = {
     daw_modulation: "Create and connect canonical openDAW modulators.",
     daw_transport: "Control playback and transport state.",
     daw_parameter: "Read and edit discovered automatable parameters.",
-    daw_resources: "Discover and inspect live project resources, handles, samples, and device help."
+    daw_resources: "Discover live project resources, samples, available device definitions, device help, and project timing."
 }
 
-const resourceTools: ReadonlyArray<{readonly name: "query_resources" | "inspect_resource" | "query_samples" | "inspect_instrument" | "inspect_device_help", readonly schema: FunctionToolSpec["inputSchema"], readonly description: string}> = [
+const resourceTools: ReadonlyArray<{readonly name: "query_resources" | "inspect_resource" | "query_samples" | "query_device_catalog" | "inspect_device_definition" | "inspect_device" | "inspect_device_help" | "inspect_timing", readonly schema: FunctionToolSpec["inputSchema"], readonly description: string}> = [
     {
         name: "query_resources",
         schema: resourceQueryInputSchema,
@@ -43,19 +46,34 @@ const resourceTools: ReadonlyArray<{readonly name: "query_resources" | "inspect_
         description: "Inspect all generic live-project views available for one handle."
     },
     {
-        name: "inspect_instrument",
-        schema: instrumentInspectInputSchema,
-        description: "Inspect the semantic properties and control context of a supported instrument."
-    },
-    {
         name: "query_samples",
         schema: sampleQueryInputSchema,
         description: "Search the canonical sample catalog without loading sample audio."
     },
     {
+        name: "query_device_catalog",
+        schema: deviceCatalogQueryInputSchema,
+        description: "Search the public canonical instrument, MIDI effect, and audio effect definitions before creating a device."
+    },
+    {
+        name: "inspect_device_definition",
+        schema: deviceDefinitionInspectInputSchema,
+        description: "Inspect canonical factory metadata and authoritative help for a public device definition without creating it."
+    },
+    {
+        name: "inspect_device",
+        schema: deviceInspectInputSchema,
+        description: "Inspect semantic properties and generic automatable parameters for a live public device."
+    },
+    {
         name: "inspect_device_help",
         schema: deviceHelpInspectInputSchema,
         description: "Read the authoritative openDAW manual for a live device. Apparat help also includes its programming contract and bundled examples when available."
+    },
+    {
+        name: "inspect_timing",
+        schema: timingInspectInputSchema,
+        description: "Inspect canonical project tempo, signature context, musical pulse resolution, and note lengths."
     }
 ]
 

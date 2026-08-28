@@ -5,8 +5,8 @@ import {AudioBusBox, AudioUnitBox, AuxSendBox, TrackBox, VaporisateurDeviceBox} 
 import {
     AudioUnitFactory,
     CaptureBox,
+    DeviceSemantics,
     InstrumentFactories,
-    InstrumentSemantics,
     ProjectSkeleton,
     SemanticFields
 } from "@opendaw/studio-adapters"
@@ -150,7 +150,7 @@ export namespace AudioUnitBoxFactory {
     }
 
     const createVaporisateurWrapper = (box: VaporisateurDeviceBox): Vaporisateur => {
-        const semantics = InstrumentSemantics.forBox(box)
+        const semantics = DeviceSemantics.forBox(box)
         if (semantics === null) {throw new Error("No shared semantics for Vaporisateur")}
         const fieldAt = <T extends PrimitiveValues>(path: string): PrimitiveField<T> => {
             const field = SemanticFields.resolve(semantics.spec, path)

@@ -36,14 +36,23 @@ export class ToolExecutor {
             if (binding.resource === "inspect_resource") {
                 return {ok: true, value: this.#resources.inspect(input) as unknown as JsonValue}
             }
-            if (binding.resource === "inspect_instrument") {
-                return {ok: true, value: this.#resources.inspectInstrument(input) as unknown as JsonValue}
-            }
             if (binding.resource === "query_samples") {
                 return {ok: true, value: await this.#resources.querySamples(input) as unknown as JsonValue}
             }
+            if (binding.resource === "query_device_catalog") {
+                return {ok: true, value: this.#resources.queryDeviceCatalog(input) as unknown as JsonValue}
+            }
+            if (binding.resource === "inspect_device_definition") {
+                return {ok: true, value: await this.#resources.inspectDeviceDefinition(input) as unknown as JsonValue}
+            }
+            if (binding.resource === "inspect_device") {
+                return {ok: true, value: this.#resources.inspectDevice(input) as unknown as JsonValue}
+            }
             if (binding.resource === "inspect_device_help") {
                 return {ok: true, value: await this.#resources.inspectDeviceHelp(input) as unknown as JsonValue}
+            }
+            if (binding.resource === "inspect_timing") {
+                return {ok: true, value: this.#resources.inspectTiming(input) as unknown as JsonValue}
             }
             const operation = binding.operation
             if (operation === undefined) {throw new Error("Tool has no executable binding")}

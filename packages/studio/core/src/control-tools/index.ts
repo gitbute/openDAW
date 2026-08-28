@@ -1,5 +1,13 @@
 export type {
     FunctionToolSpec,
+    DeviceCatalogCategory,
+    DeviceCatalogEntry,
+    DeviceCatalogQuery,
+    DeviceCatalogQueryResult,
+    DeviceDefinitionInspectionResult,
+    DeviceInspectionResult,
+    DeviceParameterInspection,
+    DevicePropertyInspection,
     DeviceHelpCatalog,
     DeviceHelpContent,
     DeviceHelpExample,
@@ -14,6 +22,7 @@ export type {
     SampleCatalog,
     SampleQuery,
     SampleQueryResult,
+    TimingInspectionResult,
     ToolBinding,
     ToolCatalogSpec,
     ToolExposure,
@@ -28,8 +37,12 @@ export {
     typeSpecToJsonSchema,
     operationInputSchema,
     sampleQueryInputSchema,
+    deviceCatalogQueryInputSchema,
+    deviceDefinitionInspectInputSchema,
+    deviceInspectInputSchema,
     instrumentInspectInputSchema,
-    deviceHelpInspectInputSchema
+    deviceHelpInspectInputSchema,
+    timingInspectInputSchema
 } from "./ToolSchema"
 export {ToolCatalog, toToolName} from "./ToolCatalog"
 export {ResourceTools} from "./ResourceTools"

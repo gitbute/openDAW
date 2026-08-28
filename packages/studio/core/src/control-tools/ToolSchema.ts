@@ -1,4 +1,4 @@
-import {InstrumentFactories, SupportedInstrumentBoxNames} from "@opendaw/studio-adapters"
+import {InstrumentFactories, SupportedDeviceBoxNames, SupportedInstrumentBoxNames} from "@opendaw/studio-adapters"
 import {EffectFactories} from "../EffectFactories"
 import type {OperationDescriptor, ParameterSpec, PropertySpec, TypeSpec} from "../control-api/types"
 import type {JsonSchema} from "./types"
@@ -56,6 +56,25 @@ const handleSchema = (spec?: HandleSpec): JsonSchema => ({
     ...(spec === undefined ? {} : {description: handleDescription(spec)})
 })
 
+const semanticDescription = (semantic: string): string => {
+    switch (semantic) {
+        case "ppqn":
+            return "Semantic type: ppqn — openDAW musical pulses; 960 pulses equal one quarter note and pulse distances are independent of BPM."
+        case "bpm":
+            return "Semantic type: bpm — beats per minute; tempo changes elapsed time, not musical pulse distances."
+        case "unitValue":
+            return "Semantic type: unitValue — normalized unit value, normally in the range 0..1."
+        case "seconds":
+            return "Semantic type: seconds — elapsed time in seconds."
+        case "samples":
+            return "Semantic type: samples — audio sample frames."
+        case "byte":
+            return "Semantic type: byte — signed byte value in the range -128..127."
+        default:
+            return `Semantic type: ${semantic}`
+    }
+}
+
 const instrumentOptionsSchema = (): JsonSchema => strictObject({
     name: {type: "string"},
     icon: {type: "number"},
@@ -89,10 +108,13 @@ export const typeSpecToJsonSchema = (spec: TypeSpec): JsonSchema => {
         case "primitive":
             return {
                 type: spec.type,
-                ...(spec.semantic === undefined ? {} : {description: `Semantic type: ${spec.semantic}`})
+                ...(spec.semantic === undefined ? {} : {description: semanticDescription(spec.semantic)})
             }
         case "literal":
-            return literalSchema(spec.values)
+            return {
+                ...literalSchema(spec.values),
+                ...(spec.description === undefined ? {} : {description: spec.description})
+            }
         case "array":
             return {type: "array", items: typeSpecToJsonSchema(spec.element)}
         case "tuple":
@@ -108,15 +130,20 @@ export const typeSpecToJsonSchema = (spec: TypeSpec): JsonSchema => {
                 property.name, typeSpecToJsonSchema(property.type)
             ]))
             const required = spec.properties.filter(property => !property.optional).map(property => property.name)
-            return strictObject(properties, required)
+            return {
+                ...strictObject(properties, required),
+                ...(spec.description === undefined ? {} : {description: spec.description})
+            }
         }
         case "option":
         case "nullable":
             return {anyOf: [{type: "null"}, typeSpecToJsonSchema(spec.value)]}
         case "union":
-            return spec.alternatives.length === 1
-                ? typeSpecToJsonSchema(spec.alternatives[0])
-                : {anyOf: spec.alternatives.map(typeSpecToJsonSchema)}
+            if (spec.alternatives.length === 1) {return typeSpecToJsonSchema(spec.alternatives[0])}
+            return {
+                anyOf: spec.alternatives.map(typeSpecToJsonSchema),
+                ...(spec.description === undefined ? {} : {description: spec.description})
+            }
         case "handle":
             return handleSchema(spec)
         case "factory":
@@ -196,6 +223,27 @@ export const resourceInspectInputSchema: JsonSchema = strictObject({
     handle: handleSchema()
 }, ["handle"])
 
+export const deviceCatalogQueryInputSchema: JsonSchema = strictObject({
+    category: literalSchema(["instrument", "midi-effect", "audio-effect"]),
+    text: {type: "string"},
+    limit: {type: "integer", minimum: 0, maximum: 50},
+    offset: {type: "integer", minimum: 0}
+}, [])
+
+export const deviceDefinitionInspectInputSchema: JsonSchema = strictObject({
+    category: literalSchema(["instrument", "midi-effect", "audio-effect"]),
+    factory: {type: "string"}
+}, ["category", "factory"])
+
+export const deviceInspectInputSchema: JsonSchema = strictObject({
+    device: {
+        anyOf: SupportedDeviceBoxNames.map(name => handleSchema({
+            kind: "handle", handle: "box", name
+        }))
+    }
+}, ["device"])
+
+/** @deprecated Use deviceInspectInputSchema. */
 export const instrumentInspectInputSchema: JsonSchema = strictObject({
     instrument: {
         anyOf: SupportedInstrumentBoxNames.map(name => handleSchema({
@@ -207,3 +255,10 @@ export const instrumentInspectInputSchema: JsonSchema = strictObject({
 export const deviceHelpInspectInputSchema: JsonSchema = strictObject({
     device: handleSchema()
 }, ["device"])
+
+export const timingInspectInputSchema: JsonSchema = strictObject({
+    positionPulses: {
+        type: "number",
+        description: "OpenDAW musical pulses at which to inspect the current signature and tempo; 960 pulses equal one quarter note and pulse distances are independent of BPM."
+    }
+}, [])

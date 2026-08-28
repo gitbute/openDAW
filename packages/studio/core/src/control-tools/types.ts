@@ -81,7 +81,38 @@ export type ResourceQuery = {
 }
 
 export type ResourceToolName = "query_resources" | "inspect_resource"
-    | "query_samples" | "inspect_instrument" | "inspect_device_help"
+    | "query_samples" | "query_device_catalog" | "inspect_device_definition"
+    | "inspect_device" | "inspect_device_help" | "inspect_timing"
+
+export type DeviceCatalogCategory = "instrument" | "midi-effect" | "audio-effect"
+
+export type DeviceCatalogEntry = {
+    readonly category: DeviceCatalogCategory
+    readonly factory: string
+    readonly name: string
+    readonly briefDescription: string
+    readonly description: string
+    readonly manualPage: string
+    readonly trackType?: string
+    readonly effectType?: "midi" | "audio"
+    readonly external?: boolean
+}
+
+export type DeviceCatalogQuery = {
+    readonly category?: DeviceCatalogCategory
+    readonly text?: string
+    readonly limit?: number
+    readonly offset?: number
+}
+
+export type DeviceCatalogQueryResult = {
+    readonly devices: ReadonlyArray<DeviceCatalogEntry>
+    readonly total: number
+    readonly limit: number
+    readonly offset: number
+}
+
+export type DeviceDefinitionInspectionResult = DeviceCatalogEntry & DeviceHelpContent
 
 export type SampleQuery = {
     readonly text?: string
@@ -147,10 +178,56 @@ export type InstrumentPropertyInspection = {
     readonly printValue?: JsonObject
 }
 
+export type DevicePropertyInspection = InstrumentPropertyInspection
+
+export type DeviceParameterInspection = {
+    readonly handle: ControlHandle
+    readonly name: string
+    readonly type: string
+    readonly owner: ControlHandle
+    readonly field: ControlHandle
+    readonly printValue: JsonObject
+    readonly value?: JsonValue
+}
+
+export type DeviceInspectionResult = {
+    readonly handle: ControlHandle
+    readonly category: DeviceCatalogCategory
+    readonly type: string
+    readonly label: string
+    readonly properties: ReadonlyArray<DevicePropertyInspection>
+    readonly parameters: ReadonlyArray<DeviceParameterInspection>
+    readonly groups: ReadonlyArray<{readonly prefix: string, readonly label: string}>
+}
+
 export type InstrumentInspectionResult = {
     readonly handle: ControlHandle
     readonly type: string
     readonly label: string
     readonly properties: ReadonlyArray<InstrumentPropertyInspection>
     readonly groups: ReadonlyArray<{readonly prefix: string, readonly label: string}>
+}
+
+export type TimingSignatureEvent = {
+    readonly index: number
+    readonly positionPulses: number
+    readonly bar: number
+    readonly nominator: number
+    readonly denominator: number
+}
+
+export type TimingInspectionResult = {
+    readonly positionPulses: number
+    readonly tempo: number
+    readonly signature: {readonly nominator: number, readonly denominator: number}
+    readonly pulsesPerBar: number
+    readonly quarterNotePulses: number
+    readonly noteLengths: {
+        readonly whole: number
+        readonly half: number
+        readonly quarter: number
+        readonly eighth: number
+        readonly sixteenth: number
+    }
+    readonly signatureEvents: ReadonlyArray<TimingSignatureEvent>
 }

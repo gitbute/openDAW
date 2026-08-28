@@ -319,7 +319,14 @@ const projectType = (checker: ts.TypeChecker, type: ts.Type, fallback: ts.Node,
     if ((type.flags & ts.TypeFlags.StringLike) !== 0) {return primitiveSpec(type, "string", fallback)}
     if ((type.flags & ts.TypeFlags.NumberLike) !== 0) {return primitiveSpec(type, "number", fallback)}
     if ((type.flags & ts.TypeFlags.BooleanLike) !== 0) {return primitiveSpec(type, "boolean", fallback)}
-    if (isLiteral(type)) {return {kind: "literal", values: [literalValue(type)]}}
+    if (isLiteral(type)) {
+        const description = typeDocumentation(checker, type)
+        return {
+            kind: "literal",
+            values: [literalValue(type)],
+            ...(description === undefined ? {} : {description})
+        }
+    }
 
     if (type.isUnion()) {
         const defined = type.types.filter(member => (member.flags & ts.TypeFlags.Undefined) === 0)
@@ -329,18 +336,29 @@ const projectType = (checker: ts.TypeChecker, type: ts.Type, fallback: ts.Node,
         if (nullMembers.length > 0 && nonNull.length === 1) {
             return {kind: "nullable", value: projectType(checker, nonNull[0], fallback, depth + 1, parameterValueAllowed)}
         }
+        const description = typeDocumentation(checker, type)
         if (defined.every(isLiteral)) {
-            return {kind: "literal", values: defined.map(literalValue)}
+            return {
+                kind: "literal",
+                values: defined.map(literalValue),
+                ...(description === undefined ? {} : {description})
+            }
         }
         const alternatives = defined.map(member => projectType(checker, member, fallback, depth + 1, parameterValueAllowed))
-        return alternatives.length === 1 ? alternatives[0] : {kind: "union", alternatives}
+        return alternatives.length === 1 ? alternatives[0] : {
+            kind: "union",
+            alternatives,
+            ...(description === undefined ? {} : {description})
+        }
     }
 
     if (type.isIntersection()) {
+        const description = typeDocumentation(checker, type)
         return {
             kind: "object",
             name: name === "__type" ? undefined : name,
-            properties: objectProperties(checker, type, fallback, () => true, parameterValueAllowed)
+            properties: objectProperties(checker, type, fallback, () => true, parameterValueAllowed),
+            ...(description === undefined ? {} : {description})
         }
     }
 
@@ -359,7 +377,13 @@ const projectType = (checker: ts.TypeChecker, type: ts.Type, fallback: ts.Node,
         }
         const properties = objectProperties(checker, type, fallback, () => true, parameterValueAllowed)
         if (properties.length === 0) {throw new UnsupportedProjection(text, "empty object type")}
-        return {kind: "object", name: name === "__type" ? undefined : name, properties}
+        const description = typeDocumentation(checker, type)
+        return {
+            kind: "object",
+            name: name === "__type" ? undefined : name,
+            properties,
+            ...(description === undefined ? {} : {description})
+        }
     }
 
     throw new UnsupportedProjection(text, "no codec is registered for this type family")
@@ -395,6 +419,13 @@ const isLifecycleMethod = (name: string): boolean => name === "terminate" || /wo
 
 const documentation = (checker: ts.TypeChecker, method: ts.MethodDeclaration): string | undefined => {
     const symbol = checker.getSymbolAtLocation(method.name)
+    if (symbol === undefined) {return undefined}
+    const text = ts.displayPartsToString(symbol.getDocumentationComment(checker)).trim()
+    return text.length === 0 ? undefined : text
+}
+
+const typeDocumentation = (checker: ts.TypeChecker, type: ts.Type): string | undefined => {
+    const symbol = type.aliasSymbol ?? type.getSymbol()
     if (symbol === undefined) {return undefined}
     const text = ts.displayPartsToString(symbol.getDocumentationComment(checker)).trim()
     return text.length === 0 ? undefined : text

@@ -1,28 +1,42 @@
 import {Address, Box, Field, Float32Field, Int32Field, PointerField, PrimitiveField} from "@opendaw/lib-box"
+import {PPQN} from "@opendaw/lib-dsp"
 import {
     AutomatableParameterFieldAdapter,
     BoxAdapter,
     Devices,
-    InstrumentSemantics,
+    DeviceSemantics,
+    InstrumentFactories,
     ParameterOwner,
     SemanticFields,
-    isSupportedInstrumentBox
+    TimelineBoxAdapter,
+    TrackType
 } from "@opendaw/studio-adapters"
 import type {Sample} from "@opendaw/studio-adapters"
 import {ControlResolver} from "../control-api/ControlResolver"
 import type {JsonObject, JsonValue} from "../control-api/types"
+import {EffectFactories} from "../EffectFactories"
+import type {EffectFactory} from "../EffectFactory"
+import type {InstrumentFactory} from "@opendaw/studio-adapters"
 import type {
+    DeviceCatalogCategory,
+    DeviceCatalogEntry,
+    DeviceCatalogQuery,
+    DeviceCatalogQueryResult,
+    DeviceDefinitionInspectionResult,
+    DeviceHelpContent,
+    DeviceInspectionResult,
+    DeviceParameterInspection,
+    DevicePropertyInspection,
     ResourceInspectionResult,
     ResourceKind,
     ResourceQuery,
     ResourceQueryResult,
-    InstrumentInspectionResult,
-    InstrumentPropertyInspection,
     DeviceHelpCatalog,
     DeviceHelpInspectionResult,
     SampleCatalog,
     SampleQuery,
-    SampleQueryResult
+    SampleQueryResult,
+    TimingInspectionResult
 } from "./types"
 
 type ResourceEntry = {
@@ -51,7 +65,10 @@ const kindOrder: Readonly<Record<ResourceKind, number>> = {box: 0, field: 1, ada
 const defaultLimit = 100
 const sampleDefaultLimit = 50
 const sampleMaxLimit = 50
+const deviceDefaultLimit = 50
+const deviceMaxLimit = 50
 const sampleOrigins: ReadonlyArray<Sample["origin"]> = ["openDAW", "recording", "import"]
+const deviceCategories: ReadonlyArray<DeviceCatalogCategory> = ["instrument", "midi-effect", "audio-effect"]
 
 const asJsonValue = (value: unknown): JsonValue | undefined => {
     if (value === null || typeof value === "boolean" || typeof value === "string") {return value}
@@ -214,7 +231,7 @@ const parameterView = (resolver: ControlResolver,
 }
 
 const semanticPropertyView = (path: string, field: PrimitiveField,
-                              parameter: AutomatableParameterFieldAdapter | undefined): InstrumentPropertyInspection => {
+                              parameter: AutomatableParameterFieldAdapter | undefined): DevicePropertyInspection => {
     const constraints = field instanceof Float32Field || field instanceof Int32Field
         ? asJsonValue(field.constraints) ?? null
         : null
@@ -230,6 +247,55 @@ const semanticPropertyView = (path: string, field: PrimitiveField,
         })
     }
 }
+
+type CanonicalDeviceDefinition = {
+    readonly entry: DeviceCatalogEntry
+    readonly factory: InstrumentFactory<any, any> | EffectFactory
+}
+
+const deviceDefinitions = (): ReadonlyArray<CanonicalDeviceDefinition> => {
+    const instruments = (Object.entries(InstrumentFactories.Named) as Array<[
+        string, InstrumentFactory<any, any>
+    ]>).map(([factory, definition]) => ({
+        entry: {
+            category: "instrument" as const,
+            factory,
+            name: definition.defaultName,
+            briefDescription: definition.briefDescription,
+            description: definition.description,
+            manualPage: definition.manualPage,
+            trackType: TrackType.toLabelString(definition.trackType)
+        },
+        factory: definition
+    }))
+    const effects = (Object.entries({
+        ...EffectFactories.MidiNamed,
+        ...EffectFactories.AudioNamed
+    }) as Array<[string, EffectFactory]>).map(([factory, definition]) => ({
+        entry: {
+            category: definition.type === "midi" ? "midi-effect" as const : "audio-effect" as const,
+            factory,
+            name: definition.defaultName,
+            briefDescription: definition.briefDescription,
+            description: definition.description,
+            manualPage: definition.manualPage,
+            effectType: definition.type,
+            external: definition.external
+        },
+        factory: definition
+    }))
+    return [...instruments, ...effects]
+}
+
+const deviceEntrySearchText = (definition: CanonicalDeviceDefinition): string =>
+    (`${definition.entry.factory} ${definition.entry.name} ${definition.entry.briefDescription} `
+    + `${definition.entry.description}`).toLocaleLowerCase()
+
+const deviceCatalogEntry = (definition: CanonicalDeviceDefinition): DeviceCatalogEntry => definition.entry
+
+const parameterInspectionView = (resolver: ControlResolver,
+                                 parameter: AutomatableParameterFieldAdapter): DeviceParameterInspection =>
+    parameterView(resolver, parameter) as unknown as DeviceParameterInspection
 
 const entrySearchText = (view: JsonObject, extra: ReadonlyArray<string> = []): string =>
     `${JSON.stringify(view)} ${extra.join(" ")}`.toLocaleLowerCase()
@@ -262,6 +328,23 @@ const optionalString = (value: JsonObject, name: string): string | undefined => 
     if (candidate === undefined) {return undefined}
     if (typeof candidate !== "string") {throw new Error(`${name} must be a string`)}
     return candidate
+}
+
+const requiredString = (value: JsonObject, name: string, context: string): string => {
+    const candidate = value[name]
+    if (typeof candidate !== "string" || candidate.length === 0) {
+        throw new Error(`${name} must be a non-empty string for ${context}`)
+    }
+    return candidate
+}
+
+const optionalDeviceCategory = (value: JsonObject): DeviceCatalogCategory | undefined => {
+    const candidate = value.category
+    if (candidate === undefined) {return undefined}
+    if (typeof candidate !== "string" || !deviceCategories.includes(candidate as DeviceCatalogCategory)) {
+        throw new Error("category must be one of instrument, midi-effect, audio-effect")
+    }
+    return candidate as DeviceCatalogCategory
 }
 
 const optionalNonNegativeInteger = (value: JsonObject, name: string): number | undefined => {
@@ -375,6 +458,39 @@ export class ResourceTools {
         }
     }
 
+    queryDeviceCatalog(input: DeviceCatalogQuery | JsonObject = {}): DeviceCatalogQueryResult {
+        const value = assertRecord(input, "query_device_catalog input")
+        assertKnownProperties(value, ["category", "text", "limit", "offset"], "query_device_catalog input")
+        const category = optionalDeviceCategory(value)
+        const text = optionalString(value, "text")?.trim().toLocaleLowerCase()
+        const requestedLimit = optionalNonNegativeInteger(value, "limit") ?? deviceDefaultLimit
+        const limit = Math.min(requestedLimit, deviceMaxLimit)
+        const offset = optionalNonNegativeInteger(value, "offset") ?? 0
+        const matching = deviceDefinitions()
+            .filter(definition => category === undefined || definition.entry.category === category)
+            .filter(definition => text === undefined || deviceEntrySearchText(definition).includes(text))
+        return {
+            devices: matching.slice(offset, offset + limit).map(deviceCatalogEntry),
+            total: matching.length,
+            limit,
+            offset
+        }
+    }
+
+    async inspectDeviceDefinition(input: JsonObject): Promise<DeviceDefinitionInspectionResult> {
+        const value = assertRecord(input, "inspect_device_definition input")
+        assertKnownProperties(value, ["category", "factory"], "inspect_device_definition input")
+        const category = optionalDeviceCategory(value)
+        if (category === undefined) {throw new Error("Missing argument 'category'")}
+        const factory = requiredString(value, "factory", "inspect_device_definition input")
+        const definition = deviceDefinitions().find(candidate =>
+            candidate.entry.category === category && candidate.entry.factory === factory)
+        if (definition === undefined) {
+            throw new Error(`Unknown ${category} factory '${factory}'.`)
+        }
+        return {...definition.entry, ...await this.#readDeviceHelp(definition.entry.manualPage)}
+    }
+
     inspect(input: JsonObject): ResourceInspectionResult {
         const value = assertRecord(input, "inspect_resource input")
         assertKnownProperties(value, ["handle"], "inspect_resource input")
@@ -391,18 +507,17 @@ export class ResourceTools {
         return {handle: this.#resolver.handle(resolved), views}
     }
 
-    inspectInstrument(input: JsonObject): InstrumentInspectionResult {
-        const value = assertRecord(input, "inspect_instrument input")
-        assertKnownProperties(value, ["instrument"], "inspect_instrument input")
-        const handle = value.instrument
-        if (handle === undefined) {throw new Error("Missing argument 'instrument'")}
+    inspectDevice(input: JsonObject): DeviceInspectionResult {
+        const value = assertRecord(input, "inspect_device input")
+        assertKnownProperties(value, ["device"], "inspect_device input")
+        const handle = value.device
+        if (handle === undefined) {throw new Error("Missing argument 'device'")}
         const resolved = this.#resolver.resolve(boxSpec, handle)
-        if (!(resolved instanceof Box)) {throw new Error("instrument must be a box handle")}
-        if (!isSupportedInstrumentBox(resolved)) {
-            throw new Error(`Unsupported instrument '${resolved.name}'.`)
+        if (!(resolved instanceof Box)) {throw new Error("device must be a box handle")}
+        const semantics = DeviceSemantics.forBox(resolved)
+        if (semantics === null) {
+            throw new Error(`Unsupported device '${resolved.name}'.`)
         }
-        const semantics = InstrumentSemantics.forBox(resolved)
-        if (semantics === null) {throw new Error(`Unsupported instrument '${resolved.name}'.`)}
         const parameters = this.#resolver.parameters()
         const properties = SemanticFields.paths(semantics.spec).map(path => {
             const field = SemanticFields.resolve(semantics.spec, path)
@@ -410,13 +525,26 @@ export class ResourceTools {
             const parameter = parameters.find(candidate => candidate.field.address.equals(field.address))
             return semanticPropertyView(path, field, parameter)
         })
+        const deviceParameters = parameters
+            .filter(parameter => ParameterOwner.ownerBoxOf(parameter.field) === resolved)
+            .map(parameter => parameterInspectionView(this.#resolver, parameter))
         return {
             handle: this.#resolver.handle(resolved),
+            category: semantics.category,
             type: resolved.name,
             label: labelOf(resolved) ?? resolved.name,
             properties,
+            parameters: deviceParameters,
             groups: semantics.groups
         }
+    }
+
+    /** @deprecated Use inspectDevice; kept as an internal compatibility adapter. */
+    inspectInstrument(input: JsonObject): DeviceInspectionResult {
+        const value = assertRecord(input, "inspect_instrument input")
+        assertKnownProperties(value, ["instrument"], "inspect_instrument input")
+        if (value.instrument === undefined) {throw new Error("Missing argument 'instrument'")}
+        return this.inspectDevice({device: value.instrument})
     }
 
     async inspectDeviceHelp(input: JsonObject): Promise<DeviceHelpInspectionResult> {
@@ -430,11 +558,9 @@ export class ResourceTools {
         if (adapter === undefined || !Devices.isAny(adapter)) {
             throw new Error("Device help target must address a device.")
         }
-        const catalog = this.#deviceHelpCatalog
-        if (catalog === undefined) {throw new Error("Device help catalog is unavailable.")}
         const manualUrl = adapter.manualUrl
         if (manualUrl.length === 0) {throw new Error(`Device '${resolved.name}' has no manual URL.`)}
-        const content = await catalog.read(manualUrl)
+        const content = await this.#readDeviceHelp(manualUrl)
         const label = adapter.labelField.getValue()
         return {
             handle: this.#resolver.handle(resolved),
@@ -443,6 +569,47 @@ export class ResourceTools {
             manualUrl,
             ...content
         }
+    }
+
+    inspectTiming(input: JsonObject = {}): TimingInspectionResult {
+        const value = assertRecord(input, "inspect_timing input")
+        assertKnownProperties(value, ["positionPulses"], "inspect_timing input")
+        const positionPulses = optionalFiniteNumber(value, "positionPulses") ?? 0
+        if (positionPulses < 0) {throw new Error("positionPulses must be non-negative")}
+        const adapter = this.#resolver.adapters().find(candidate => candidate instanceof TimelineBoxAdapter)
+        if (!(adapter instanceof TimelineBoxAdapter)) {throw new Error("Project timeline is unavailable.")}
+        const [nominator, denominator] = adapter.signatureTrack.signatureAt(positionPulses)
+        const tempo = adapter.tempoTrackEvents.mapOr(
+            collection => collection.valueAt(positionPulses, adapter.box.bpm.getValue()),
+            adapter.box.bpm.getValue()
+        )
+        const signatureEvents = Array.from(adapter.signatureTrack.iterateAll()).map(event => ({
+            index: event.index,
+            positionPulses: event.accumulatedPpqn,
+            bar: event.accumulatedBars + 1,
+            nominator: event.nominator,
+            denominator: event.denominator
+        }))
+        return {
+            positionPulses,
+            tempo,
+            signature: {nominator, denominator},
+            pulsesPerBar: PPQN.fromSignature(nominator, denominator),
+            quarterNotePulses: PPQN.Crotchet,
+            noteLengths: {
+                whole: PPQN.Whole,
+                half: PPQN.Half,
+                quarter: PPQN.Crotchet,
+                eighth: PPQN.Quaver,
+                sixteenth: PPQN.SemiQuaver
+            },
+            signatureEvents
+        }
+    }
+
+    async #readDeviceHelp(manualUrl: string): Promise<DeviceHelpContent> {
+        if (this.#deviceHelpCatalog === undefined) {throw new Error("Device help catalog is unavailable.")}
+        return this.#deviceHelpCatalog.read(manualUrl)
     }
 
     #entries(): ReadonlyArray<ResourceEntry> {

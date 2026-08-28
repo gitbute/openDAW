@@ -15,13 +15,22 @@ export type LiteralValue = null | boolean | number | string
 export type TypeSpec =
     | {readonly kind: "void"}
     | {readonly kind: "primitive", readonly type: PrimitiveType, readonly semantic?: string}
-    | {readonly kind: "literal", readonly values: ReadonlyArray<LiteralValue>}
+    | {readonly kind: "literal", readonly values: ReadonlyArray<LiteralValue>, readonly description?: string}
     | {readonly kind: "array", readonly element: TypeSpec}
     | {readonly kind: "tuple", readonly elements: ReadonlyArray<TypeSpec>}
-    | {readonly kind: "object", readonly name?: string, readonly properties: ReadonlyArray<PropertySpec>}
+    | {
+        readonly kind: "object"
+        readonly name?: string
+        readonly properties: ReadonlyArray<PropertySpec>
+        readonly description?: string
+    }
     | {readonly kind: "option", readonly value: TypeSpec}
     | {readonly kind: "nullable", readonly value: TypeSpec}
-    | {readonly kind: "union", readonly alternatives: ReadonlyArray<TypeSpec>}
+    | {
+        readonly kind: "union"
+        readonly alternatives: ReadonlyArray<TypeSpec>
+        readonly description?: string
+    }
     | {
         readonly kind: "handle"
         readonly handle: HandleKind

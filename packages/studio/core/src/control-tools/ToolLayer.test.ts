@@ -10,7 +10,9 @@ import {
     NanoDeviceBox,
     NoteEventBox,
     PlayfieldDeviceBox,
+    SpielwerkDeviceBox,
     PlayfieldSampleBox,
+    WerkstattDeviceBox,
     WerkstattSampleBox
 } from "@opendaw/studio-boxes"
 import {Project} from "../project/Project"
@@ -141,7 +143,10 @@ describe("Slice 2 control tools", () => {
         expect(JSON.stringify(generated)).not.toMatch(/\b(?:arg|param)\d+\b/)
         expect(generated.every(tool => tool.exposure === "deferred")).toBe(true)
         expect(first.tools.filter(tool => tool.exposure === "eager").map(tool => tool.name))
-            .toEqual(["query_resources", "inspect_resource", "inspect_instrument", "query_samples", "inspect_device_help"])
+            .toEqual([
+                "query_resources", "inspect_resource", "query_samples", "query_device_catalog",
+                "inspect_device_definition", "inspect_device", "inspect_device_help", "inspect_timing"
+            ])
         const sampleQuery = first.get("daw_resources", "query_samples")?.spec.inputSchema
         expect(sampleQuery?.properties?.origin?.enum).toEqual(["openDAW", "recording", "import"])
         expect(sampleQuery?.properties?.limit?.maximum).toBe(50)
@@ -175,6 +180,52 @@ describe("Slice 2 control tools", () => {
         expect(effect?.enum).toEqual(Object.keys(EffectFactories.MergedNamed))
         const options = catalog.get("daw_project", "create_note_region")?.spec.inputSchema
         expect(JSON.stringify(options)).not.toContain("attachment")
+    })
+
+    it("derives the empty-project device catalog and definition help from public registries", async () => {
+        const read = vi.fn(async (manualUrl: string) => ({
+            manualMarkdown: `manual:${manualUrl}`,
+            programmingGuide: manualUrl.includes("apparat") ? "programming" : undefined
+        }))
+        const {project, executor} = createLayer(undefined, {read})
+        try {
+            const catalog = objectValue(await run(executor, "daw_resources", "query_device_catalog", {
+                limit: 100
+            }))
+            const devices = arrayValue(catalog.devices).map(objectValue)
+            const expectedCount = Object.keys(InstrumentFactories.Named).length
+                + Object.keys(EffectFactories.MidiNamed).length
+                + Object.keys(EffectFactories.AudioNamed).length
+            expect(catalog.total).toBe(expectedCount)
+            expect(catalog.limit).toBe(50)
+            expect(devices.map(device => device.factory)).toEqual([
+                ...Object.keys(InstrumentFactories.Named),
+                ...Object.keys(EffectFactories.MidiNamed),
+                ...Object.keys(EffectFactories.AudioNamed)
+            ])
+            expect(devices.some(device => device.factory === "Modular")).toBe(false)
+
+            const apparat = devices.find(device => device.factory === "Apparat")!
+            expect(apparat).toMatchObject({
+                category: "instrument",
+                name: InstrumentFactories.Apparat.defaultName,
+                briefDescription: InstrumentFactories.Apparat.briefDescription,
+                description: InstrumentFactories.Apparat.description,
+                manualPage: InstrumentFactories.Apparat.manualPage,
+                trackType: "Note"
+            })
+            const definition = objectValue(await run(executor, "daw_resources", "inspect_device_definition", {
+                category: "instrument", factory: "Apparat"
+            }))
+            expect(definition).toMatchObject({
+                ...apparat,
+                manualMarkdown: `manual:${InstrumentFactories.Apparat.manualPage}`,
+                programmingGuide: "programming"
+            })
+            expect(read).toHaveBeenCalledWith(InstrumentFactories.Apparat.manualPage)
+        } finally {
+            project.terminate()
+        }
     })
 
     it("describes handles from generic TypeSpec metadata and exposes semantic note owners", () => {
@@ -217,19 +268,24 @@ describe("Slice 2 control tools", () => {
         }
 
         const generatedOperation = generatedControlManifest.operations
-            .find(operation => operation.method === "setInstrumentProperties")
+            .find(operation => operation.method === "setDeviceProperties")
         expect(generatedOperation).toBeDefined()
-        const instrumentMutation = catalog.get("daw_project", "set_instrument_properties")
-        expect(instrumentMutation?.spec.exposure).toBe("deferred")
-        expect(instrumentMutation?.spec.inputSchema.properties?.instrument?.anyOf
+        const deviceMutation = catalog.get("daw_project", "set_device_properties")
+        expect(deviceMutation?.spec.exposure).toBe("deferred")
+        expect(deviceMutation?.spec.inputSchema.properties?.device?.anyOf
             ?.map(schema => schema.description)).toEqual(expect.arrayContaining([
+                "Handle to an ApparatDeviceBox.",
                 "Handle to a CubedDeviceBox.",
                 "Handle to a MIDIOutputDeviceBox.",
                 "Handle to a NanoDeviceBox.",
                 "Handle to a NeonDeviceBox.",
+                "Handle to a PlayfieldDeviceBox.",
                 "Handle to a SoundfontDeviceBox.",
                 "Handle to a TapeDeviceBox.",
-                "Handle to a VaporisateurDeviceBox."
+                "Handle to a VaporisateurDeviceBox.",
+                "Handle to an ArpeggioDeviceBox.",
+                "Handle to a NeuralAmpDeviceBox.",
+                "Handle to a WerkstattDeviceBox."
             ]))
     })
 
@@ -261,6 +317,77 @@ describe("Slice 2 control tools", () => {
             const description = catalog.get("daw_project", name)?.spec.description
             expect(description).toContain("semantic owner box directly")
             expect(description).toContain("do not pass an events field handle")
+        }
+    })
+
+    it("describes canonical project timing and creates notes in musical time", async () => {
+        const {project, controlApi, catalog, executor} = createLayer()
+        try {
+            const timing120 = objectValue(await run(executor, "daw_resources", "inspect_timing"))
+            expect(timing120).toMatchObject({
+                tempo: 120,
+                quarterNotePulses: 960,
+                pulsesPerBar: 3840,
+                noteLengths: {whole: 3840, half: 1920, quarter: 960, eighth: 480, sixteenth: 240}
+            })
+            await run(executor, "daw_project", "set_bpm", {value: 145})
+            const timing145 = objectValue(await run(executor, "daw_resources", "inspect_timing"))
+            expect(timing145).toMatchObject({
+                tempo: 145,
+                quarterNotePulses: timing120.quarterNotePulses,
+                noteLengths: timing120.noteLengths
+            })
+
+            const product = objectValue(await run(executor, "daw_project", "create_any_instrument", {
+                factory: "Neon"
+            }))
+            const track = handleValue(await run(executor, "daw_project", "create_note_track", {
+                audioUnitBox: handleValue(product.audioUnitBox)
+            }))
+            const region = handleValue(await run(executor, "daw_project", "create_musical_note_region", {
+                trackBox: track,
+                position: {bar: 1, beat: 1},
+                duration: "bar",
+                name: "Kick"
+            }))
+            const events = arrayValue(await run(executor, "daw_project", "create_musical_note_events", {
+                owner: region,
+                events: [1, 2, 3, 4].map(beat => ({
+                    position: {bar: 1, beat},
+                    duration: "sixteenth",
+                    pitch: 36
+                }))
+            }))
+            const positions = events.map(event => {
+                const box = controlApi.resolver.resolve({
+                    kind: "handle", handle: "box", name: "NoteEventBox"
+                }, handleValue(event))
+                return (box as NoteEventBox).position.getValue()
+            })
+            expect(positions).toEqual([0, 960, 1920, 2880])
+            expect(events.every(event => stringValue(handleValue(event).$address).length > 0)).toBe(true)
+
+            const triplet = handleValue(await run(executor, "daw_project", "create_musical_note_event", {
+                owner: region,
+                position: {bar: 1, beat: 1, sixteenth: 2},
+                duration: "triplet-eighth",
+                pitch: 40
+            }))
+            const tripletBox = controlApi.resolver.resolve({
+                kind: "handle", handle: "box", name: "NoteEventBox"
+            }, triplet) as NoteEventBox
+            expect(tripletBox.position.getValue()).toBe(240)
+            expect(tripletBox.duration.getValue()).toBe(320)
+
+            const musicalRegion = catalog.get("daw_project", "create_musical_note_region")
+            expect(musicalRegion?.spec.inputSchema.properties?.position?.description)
+                .toContain("One-based musical position")
+            expect(musicalRegion?.spec.inputSchema.properties?.duration?.description)
+                .toContain("canonical project signature/PPQN helpers")
+            expect(catalog.get("daw_resources", "inspect_timing")?.spec.inputSchema.properties
+                ?.positionPulses?.description).toContain("960 pulses")
+        } finally {
+            project.terminate()
         }
     })
 
@@ -450,6 +577,76 @@ describe("Slice 2 control tools", () => {
         }
     })
 
+    it("programs Apparat, Werkstatt, and Spielwerk through shared script compiler configs", async () => {
+        const {project, controlApi, executor} = createLayer(undefined, undefined,
+            createAudioWorklets(async () => {}))
+        try {
+            const instrument = objectValue(await run(executor, "daw_project", "create_any_instrument", {
+                factory: "Apparat"
+            }))
+            const apparat = handleValue(instrument.instrumentBox)
+            const apparatSource = "class Processor { noteOn() {} noteOff() {} reset() {} process() {} }"
+            await run(executor, "daw_project", "program_apparat", {target: apparat, source: apparatSource})
+            expect(await run(executor, "daw_project", "read_apparat_source", {target: apparat}))
+                .toBe(apparatSource)
+            const apparatBox = controlApi.resolver.resolve({
+                kind: "handle", handle: "box", name: "ApparatDeviceBox"
+            }, apparat)
+            expect((apparatBox as ApparatDeviceBox).code.getValue()).toContain("// @apparat js 1 1\n")
+
+            const audioUnit = handleValue(instrument.audioUnitBox)
+            const fieldFor = async (name: "audioEffects" | "midiEffects"): Promise<JsonObject> => {
+                const resources = objectValue(await run(executor, "daw_resources", "query_resources", {
+                    kind: "field", owner: audioUnit, text: name, limit: 10
+                }))
+                const field = arrayValue(resources.resources).map(objectValue)[0]
+                if (field === undefined) {throw new Error(`Missing ${name} field`)}
+                return field
+            }
+            const effectFor = async (name: "audioEffects" | "midiEffects", factory: "Werkstatt" | "Spielwerk") =>
+                handleValue(await run(executor, "daw_project", "insert_effect", {
+                    field: handleValue((await fieldFor(name)).handle), factory, insertIndex: 0
+                }))
+
+            const werkstatt = await effectFor("audioEffects", "Werkstatt")
+            const werkstattSource = "class Processor { process() {} }"
+            await run(executor, "daw_project", "program_werkstatt", {
+                target: werkstatt, source: werkstattSource
+            })
+            expect(await run(executor, "daw_project", "read_werkstatt_source", {target: werkstatt}))
+                .toBe(werkstattSource)
+            const werkstattBox = controlApi.resolver.resolve({
+                kind: "handle", handle: "box", name: "WerkstattDeviceBox"
+            }, werkstatt)
+            expect((werkstattBox as WerkstattDeviceBox).code.getValue()).toContain("// @werkstatt js 1 1\n")
+
+            const spielwerk = await effectFor("midiEffects", "Spielwerk")
+            const spielwerkSource = "class Processor { noteOn() {} noteOff() {} }"
+            await run(executor, "daw_project", "program_spielwerk", {
+                target: spielwerk, source: spielwerkSource
+            })
+            expect(await run(executor, "daw_project", "read_spielwerk_source", {target: spielwerk}))
+                .toBe(spielwerkSource)
+            const spielwerkBox = controlApi.resolver.resolve({
+                kind: "handle", handle: "box", name: "SpielwerkDeviceBox"
+            }, spielwerk)
+            expect((spielwerkBox as SpielwerkDeviceBox).code.getValue()).toContain("// @spielwerk js 1 1\n")
+
+            for (const [name, target] of [
+                ["program_apparat", apparat],
+                ["program_werkstatt", werkstatt],
+                ["program_spielwerk", spielwerk]
+            ] as const) {
+                await expect(executor.execute({
+                    namespace: "daw_project", name,
+                    arguments: {target, source: "class Processor {"}
+                })).resolves.toMatchObject({ok: false, error: expect.any(String)})
+            }
+        } finally {
+            project.terminate()
+        }
+    })
+
     it("resolves generic device help from the live adapter manual URL", async () => {
         const read = vi.fn(async (manualUrl: string) => ({manualMarkdown: `manual:${manualUrl}`}))
         const deviceHelpCatalog: DeviceHelpCatalog = {read}
@@ -574,8 +771,9 @@ describe("Slice 2 control tools", () => {
             // Creation itself is a separate producer mutation; start this focused assertion with a clean history.
             const boxEditing = project.editing as BoxEditing
             boxEditing.clear()
-            const inspection = objectValue(await run(executor, "daw_resources", "inspect_instrument", {instrument}))
+            const inspection = objectValue(await run(executor, "daw_resources", "inspect_device", {device: instrument}))
             expect(inspection.type).toBe("NeonDeviceBox")
+            expect(inspection.category).toBe("instrument")
             expect(inspection.label).toBe("Neon")
 
             const properties = arrayValue(inspection.properties).map(objectValue)
@@ -613,8 +811,8 @@ describe("Slice 2 control tools", () => {
             const originalVibratoRate = neon.vibrato.rate.getValue()
             expect(project.editing.canUndo()).toBe(false)
 
-            await run(executor, "daw_project", "set_instrument_properties", {
-                instrument,
+            await run(executor, "daw_project", "set_device_properties", {
+                device: instrument,
                 changes: [
                     {path: "envelopes.0.rate1", value: 73},
                     {path: "vibrato.rate", value: 12}
@@ -629,16 +827,16 @@ describe("Slice 2 control tools", () => {
             expect(project.editing.canUndo()).toBe(false)
 
             await expect(executor.execute({
-                namespace: "daw_project", name: "set_instrument_properties", arguments: {
-                    instrument, changes: [{path: "envelopes.9.foo", value: 1}]
+                namespace: "daw_project", name: "set_device_properties", arguments: {
+                    device: instrument, changes: [{path: "envelopes.9.foo", value: 1}]
                 }
             })).resolves.toMatchObject({
                 ok: false,
                 error: expect.stringContaining("'envelopes.9.foo' is not a semantic property of Neon")
             })
             await expect(executor.execute({
-                namespace: "daw_project", name: "set_instrument_properties", arguments: {
-                    instrument, changes: [{path: "envelopes.0.rate1", value: 100}]
+                namespace: "daw_project", name: "set_device_properties", arguments: {
+                    device: instrument, changes: [{path: "envelopes.0.rate1", value: 100}]
                 }
             })).resolves.toMatchObject({
                 ok: false,
@@ -647,7 +845,7 @@ describe("Slice 2 control tools", () => {
             expect(neon.envelopes.fields()[0].rate1.getValue()).toBe(originalRate)
             expect(project.editing.canUndo()).toBe(false)
 
-            const mutationTool = catalog.get("daw_project", "set_instrument_properties")
+            const mutationTool = catalog.get("daw_project", "set_device_properties")
             expect(mutationTool?.spec.exposure).toBe("deferred")
             expect(catalog.get("daw_project", "set_neon_envelope")).toBeUndefined()
         } finally {
