@@ -1,8 +1,9 @@
 import {Address, Field, PointerField, PrimitiveField} from "@opendaw/lib-box"
-import {Option} from "@opendaw/lib-std"
+import {Option, UUID} from "@opendaw/lib-std"
 import {EffectFactories} from "../EffectFactories"
 import {Project} from "../project/Project"
 import {InstrumentFactories} from "@opendaw/studio-adapters"
+import type {BoxAdapter} from "@opendaw/studio-adapters"
 import {
     ControlHandle,
     JsonObject,
@@ -31,6 +32,8 @@ const hasConstructorName = (value: object, name: string): boolean => {
     }
     return false
 }
+
+const isAnyBoxAdapter = (adapter: BoxAdapter): adapter is BoxAdapter => true
 
 const isOption = (value: NativeValue): value is Option<NativeValue> =>
     typeof value === "object" && value !== null
@@ -63,6 +66,11 @@ const decodeParameterValue = (value: JsonValue | undefined): NativeValue => {
     return fail("parameter value must be a finite number, string, boolean, or signed 8-bit integer array")
 }
 
+const decodeUuid = (value: JsonValue | undefined): NativeValue => {
+    const text = expectString(value, "uuid")
+    return UUID.validateString(text) ? UUID.parse(text) : fail(`Invalid UUID '${text}'`)
+}
+
 const decodeFactory = (value: JsonValue | undefined, type: "instrument" | "effect"): object => {
     const key = expectString(value, `${type} factory`)
     const factories = type === "instrument"
@@ -83,7 +91,9 @@ const decodeHandle = (spec: Extract<TypeSpec, {readonly kind: "handle"}>, value:
     if (spec.handle === "address") {return address}
 
     if (spec.handle === "parameter") {
-        const adapter = project.parameterFieldAdapters.get(address)
+        const field = project.boxGraph.findVertex(address).unwrap(`No field at ${addressText}`)
+        project.boxAdapters.adapterFor(field.box, isAnyBoxAdapter)
+        const adapter = project.parameterFieldAdapters.opt(address).unwrap(`No parameter at ${addressText}`)
         if (spec.name !== "AutomatableParameterFieldAdapter" && typeText !== spec.name) {
             return fail(`Expected ${spec.name}, received ${typeText}`)
         }
@@ -99,7 +109,7 @@ const decodeHandle = (spec: Extract<TypeSpec, {readonly kind: "handle"}>, value:
             }
             return box
         }
-        const adapter = project.boxAdapters.optAdapter(box).unwrap(`No adapter for ${addressText}`)
+        const adapter = project.boxAdapters.adapterFor(box, isAnyBoxAdapter)
         if (spec.name !== "BoxAdapter" && !hasConstructorName(adapter, spec.name)) {
             return fail(`Expected adapter ${spec.name}, received ${adapter.constructor.name}`)
         }
@@ -166,6 +176,8 @@ export const decodeType = (spec: TypeSpec, value: JsonValue | undefined, project
             return decodeHandle(spec, value, project)
         case "factory":
             return decodeFactory(value, spec.factory)
+        case "uuid":
+            return decodeUuid(value)
         case "parameterValue":
             return decodeParameterValue(value)
         case "instrumentOptions":
@@ -189,6 +201,23 @@ const encodeHandle = (spec: Extract<TypeSpec, {readonly kind: "handle"}>, value:
     if (!isAddressable(value) && !(spec.handle === "address" && value instanceof Address)) {
         return fail(`${spec.name} result is not addressable`)
     }
+    if (spec.handle === "box" && spec.name !== "Box"
+        && (value as {readonly name?: unknown}).name !== spec.name) {
+        return fail(`Expected box ${spec.name}, received ${(value as {readonly name?: unknown}).name ?? "unknown"}`)
+    }
+    if (spec.handle === "adapter" && spec.name !== "BoxAdapter"
+        && !hasConstructorName(value as object, spec.name)) {
+        return fail(`Expected adapter ${spec.name}, received ${(value as object).constructor.name}`)
+    }
+    if (spec.handle === "pointerField" && !(value instanceof PointerField)) {
+        return fail(`Expected PointerField result`)
+    }
+    if (spec.handle === "primitiveField" && !(value instanceof PrimitiveField)) {
+        return fail(`Expected PrimitiveField result`)
+    }
+    if (spec.handle === "field" && !(value instanceof Field)) {
+        return fail(`Expected Field result`)
+    }
     const address = value instanceof Address ? value : value.address
     return {$type: spec.name, $address: address.toString()}
 }
@@ -199,6 +228,11 @@ const encodeParameterValue = (value: NativeValue): JsonValue => {
     if (value instanceof Int8Array) {return Array.from(value)}
     return fail("parameter result must be a finite number, string, boolean, or signed 8-bit integer array")
 }
+
+const encodeUuid = (value: NativeValue): JsonValue =>
+    value instanceof Uint8Array && value.length === UUID.length
+        ? UUID.toString(value)
+        : fail("uuid result must be a 16-byte UUID")
 
 const encodeObject = (spec: Extract<TypeSpec, {readonly kind: "object"}>, value: NativeValue): JsonObject => {
     if (!isObject(value)) {return fail(`${spec.name ?? "object"} result is not an object`)}
@@ -248,6 +282,8 @@ export const encodeType = (spec: TypeSpec, value: NativeValue): JsonValue => {
         }
         case "handle":
             return encodeHandle(spec, value)
+        case "uuid":
+            return encodeUuid(value)
         case "parameterValue":
             return encodeParameterValue(value)
         case "factory":

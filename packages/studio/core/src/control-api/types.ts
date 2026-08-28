@@ -15,7 +15,7 @@ export type LiteralValue = null | boolean | number | string
 
 export type TypeSpec =
     | {readonly kind: "void"}
-    | {readonly kind: "primitive", readonly type: PrimitiveType}
+    | {readonly kind: "primitive", readonly type: PrimitiveType, readonly semantic?: string}
     | {readonly kind: "literal", readonly values: ReadonlyArray<LiteralValue>}
     | {readonly kind: "array", readonly element: TypeSpec}
     | {readonly kind: "tuple", readonly elements: ReadonlyArray<TypeSpec>}
@@ -23,8 +23,9 @@ export type TypeSpec =
     | {readonly kind: "option", readonly value: TypeSpec}
     | {readonly kind: "nullable", readonly value: TypeSpec}
     | {readonly kind: "union", readonly alternatives: ReadonlyArray<TypeSpec>}
-    | {readonly kind: "handle", readonly handle: HandleKind, readonly name: string}
+    | {readonly kind: "handle", readonly handle: HandleKind, readonly name: string, readonly constraint?: string}
     | {readonly kind: "factory", readonly factory: "instrument" | "effect"}
+    | {readonly kind: "uuid"}
     | {readonly kind: "parameterValue"}
     | {readonly kind: "instrumentOptions"}
 
@@ -77,11 +78,21 @@ export type OperationSearchResult = {
     readonly operation: OperationDescriptor
 }
 
-export type ResourceKind = "box" | "parameter"
+export type ResourceContext = {
+    readonly box: ControlHandle
+    readonly boxType: string
+    readonly label?: string
+    readonly path?: string
+}
+
+export type ResourceKind = "box" | "field" | "pointerField" | "primitiveField" | "adapter" | "parameter"
 
 export type ResourceDescription = {
     readonly kind: ResourceKind
     readonly handle: ControlHandle
     readonly name: string
     readonly type: string
+    readonly label?: string
+    readonly context?: ResourceContext
+    readonly field?: ControlHandle
 }

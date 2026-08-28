@@ -103,6 +103,49 @@ const symbolName = (type: ts.Type): string | undefined =>
 const hasName = (type: ts.Type, name: string): boolean =>
     type.aliasSymbol?.getName() === name || type.getSymbol()?.getName() === name
 
+const semanticAliases = new Set(["int", "float", "unitValue", "ppqn", "bpm", "seconds", "samples", "byte"])
+
+const declaredTypeText = (node: ts.Node): string | undefined => {
+    if (ts.isParameter(node) || ts.isMethodDeclaration(node) || ts.isPropertySignature(node)
+        || ts.isPropertyDeclaration(node)) {
+        return node.type?.getText().trim()
+    }
+    return undefined
+}
+
+const semanticName = (type: ts.Type, fallback: ts.Node): string | undefined => {
+    const name = type.aliasSymbol?.getName()
+    if (name !== undefined && semanticAliases.has(name)) {return name}
+    const declared = declaredTypeText(fallback)
+    return declared !== undefined && semanticAliases.has(declared) ? declared : undefined
+}
+
+const primitiveSpec = (type: ts.Type, primitive: "number" | "string" | "boolean",
+                       fallback: ts.Node): TypeSpec => {
+    const semantic = semanticName(type, fallback)
+    return semantic === undefined
+        ? {kind: "primitive", type: primitive}
+        : {kind: "primitive", type: primitive, semantic}
+}
+
+const isUuidBytes = (checker: ts.TypeChecker, type: ts.Type): boolean => {
+    const text = typeName(checker, type).trim()
+    return !hasName(type, "Array") && !hasName(type, "ReadonlyArray")
+        && !text.endsWith("[]") && text.includes("Uint8Array")
+}
+
+const typeArguments = (type: ts.Type): ReadonlyArray<ts.Type> =>
+    (type as ts.TypeReference).typeArguments ?? []
+
+const handleSpec = (checker: ts.TypeChecker, type: ts.Type,
+                    handle: "address" | "box" | "field" | "pointerField" | "primitiveField" | "adapter" | "parameter",
+                    name: string, constraintIndex?: number): TypeSpec => {
+    const constraint = constraintIndex === undefined ? undefined : typeArguments(type)[constraintIndex]
+    return constraint === undefined
+        ? {kind: "handle", handle, name}
+        : {kind: "handle", handle, name, constraint: typeName(checker, constraint)}
+}
+
 const isLiteral = (type: ts.Type): boolean => {
     const flags = type.flags
     return (flags & (ts.TypeFlags.StringLiteral | ts.TypeFlags.NumberLiteral
@@ -151,6 +194,7 @@ const containsCallback = (checker: ts.TypeChecker, type: ts.Type, seen = new Set
     if (isListenerLike(type) || type.getCallSignatures().length > 0 || type.getConstructSignatures().length > 0) {
         return true
     }
+    if (isUuidBytes(checker, type)) {return false}
     if ((type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.Never
         | ts.TypeFlags.Undefined | ts.TypeFlags.Null | ts.TypeFlags.Void
         | ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike | ts.TypeFlags.BooleanLike
@@ -190,7 +234,8 @@ const objectProperties = (checker: ts.TypeChecker, type: ts.Type, fallback: ts.N
     return properties.map(property => ({
         name: property.getName(),
         optional: (property.flags & ts.SymbolFlags.Optional) !== 0,
-        type: projectType(checker, propertyType(checker, property, fallback), fallback, 0, parameterValueAllowed)
+        type: projectType(checker, propertyType(checker, property, fallback),
+            property.valueDeclaration ?? property.declarations[0] ?? fallback, 0, parameterValueAllowed)
     }))
 }
 
@@ -200,6 +245,7 @@ const projectType = (checker: ts.TypeChecker, type: ts.Type, fallback: ts.Node,
     const text = typeName(checker, type)
     const name = symbolName(type)
 
+    if (isUuidBytes(checker, type)) {return {kind: "uuid"}}
     if (hasName(type, "InstrumentFactory")) {return {kind: "factory", factory: "instrument"}}
     if (hasName(type, "EffectFactory")) {return {kind: "factory", factory: "effect"}}
     if (hasName(type, "InstrumentOptions")) {return {kind: "instrumentOptions"}}
@@ -212,9 +258,15 @@ const projectType = (checker: ts.TypeChecker, type: ts.Type, fallback: ts.Node,
     if (hasName(type, "AutomatableParameterFieldAdapter")) {
         return {kind: "handle", handle: "parameter", name: "AutomatableParameterFieldAdapter"}
     }
-    if (hasName(type, "PointerField")) {return {kind: "handle", handle: "pointerField", name: "PointerField"}}
-    if (hasName(type, "PrimitiveField")) {return {kind: "handle", handle: "primitiveField", name: "PrimitiveField"}}
-    if (hasName(type, "Field")) {return {kind: "handle", handle: "field", name: "Field"}}
+    if (hasName(type, "PointerField")) {
+        return handleSpec(checker, type, "pointerField", "PointerField", 0)
+    }
+    if (hasName(type, "PrimitiveField")) {
+        return handleSpec(checker, type, "primitiveField", "PrimitiveField", 1)
+    }
+    if (hasName(type, "Field")) {
+        return handleSpec(checker, type, "field", "Field", 0)
+    }
     if (derivesFrom(checker, type, "Box")) {
         return {kind: "handle", handle: "box", name: name ?? "Box"}
     }
@@ -236,9 +288,9 @@ const projectType = (checker: ts.TypeChecker, type: ts.Type, fallback: ts.Node,
         throw new UnsupportedProjection(text, "undefined is only valid as an optional property")
     }
     if ((type.flags & ts.TypeFlags.Void) !== 0) {return {kind: "void"}}
-    if ((type.flags & ts.TypeFlags.StringLike) !== 0) {return {kind: "primitive", type: "string"}}
-    if ((type.flags & ts.TypeFlags.NumberLike) !== 0) {return {kind: "primitive", type: "number"}}
-    if ((type.flags & ts.TypeFlags.BooleanLike) !== 0) {return {kind: "primitive", type: "boolean"}}
+    if ((type.flags & ts.TypeFlags.StringLike) !== 0) {return primitiveSpec(type, "string", fallback)}
+    if ((type.flags & ts.TypeFlags.NumberLike) !== 0) {return primitiveSpec(type, "number", fallback)}
+    if ((type.flags & ts.TypeFlags.BooleanLike) !== 0) {return primitiveSpec(type, "boolean", fallback)}
     if (isLiteral(type)) {return {kind: "literal", values: [literalValue(type)]}}
 
     if (type.isUnion()) {

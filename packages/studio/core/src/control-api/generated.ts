@@ -140,7 +140,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "type": {
                         "kind": "handle",
                         "handle": "field",
-                        "name": "Field"
+                        "name": "Field",
+                        "constraint": "EffectPointerType"
                     }
                 },
                 {
@@ -158,7 +159,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "binding": "identifier",
                     "type": {
                         "kind": "primitive",
-                        "type": "number"
+                        "type": "number",
+                        "semantic": "int"
                     }
                 }
             ],
@@ -319,7 +321,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "type": {
                         "kind": "handle",
                         "handle": "field",
-                        "name": "Field"
+                        "name": "Field",
+                        "constraint": "EffectPointerType"
                     }
                 },
                 {
@@ -476,7 +479,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "binding": "identifier",
                     "type": {
                         "kind": "primitive",
-                        "type": "number"
+                        "type": "number",
+                        "semantic": "int"
                     }
                 }
             ],
@@ -509,7 +513,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "binding": "identifier",
                     "type": {
                         "kind": "primitive",
-                        "type": "number"
+                        "type": "number",
+                        "semantic": "int"
                     }
                 }
             ],
@@ -544,7 +549,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "binding": "identifier",
                     "type": {
                         "kind": "primitive",
-                        "type": "number"
+                        "type": "number",
+                        "semantic": "int"
                     }
                 }
             ],
@@ -580,7 +586,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "type": {
                         "kind": "handle",
                         "handle": "field",
-                        "name": "Field"
+                        "name": "Field",
+                        "constraint": "Pointers.Automation"
                     }
                 },
                 {
@@ -589,7 +596,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "binding": "identifier",
                     "type": {
                         "kind": "primitive",
-                        "type": "number"
+                        "type": "number",
+                        "semantic": "int"
                     }
                 }
             ],
@@ -648,7 +656,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "binding": "identifier",
                     "type": {
                         "kind": "primitive",
-                        "type": "number"
+                        "type": "number",
+                        "semantic": "int"
                     }
                 },
                 {
@@ -730,7 +739,8 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "optional": true,
                                 "type": {
                                     "kind": "primitive",
-                                    "type": "number"
+                                    "type": "number",
+                                    "semantic": "ppqn"
                                 }
                             },
                             {
@@ -738,7 +748,8 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "optional": true,
                                 "type": {
                                     "kind": "primitive",
-                                    "type": "number"
+                                    "type": "number",
+                                    "semantic": "ppqn"
                                 }
                             },
                             {
@@ -746,7 +757,8 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "optional": true,
                                 "type": {
                                     "kind": "primitive",
-                                    "type": "number"
+                                    "type": "number",
+                                    "semantic": "ppqn"
                                 }
                             }
                         ]
@@ -782,7 +794,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "binding": "identifier",
                     "type": {
                         "kind": "primitive",
-                        "type": "number"
+                        "type": "number",
+                        "semantic": "int"
                     }
                 },
                 {
@@ -841,7 +854,8 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "optional": false,
                                 "type": {
                                     "kind": "primitive",
-                                    "type": "number"
+                                    "type": "number",
+                                    "semantic": "ppqn"
                                 }
                             },
                             {
@@ -858,7 +872,8 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "optional": true,
                                 "type": {
                                     "kind": "primitive",
-                                    "type": "number"
+                                    "type": "number",
+                                    "semantic": "ppqn"
                                 }
                             },
                             {
@@ -874,7 +889,8 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "optional": true,
                                 "type": {
                                     "kind": "primitive",
-                                    "type": "number"
+                                    "type": "number",
+                                    "semantic": "ppqn"
                                 }
                             },
                             {
@@ -882,7 +898,8 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "optional": true,
                                 "type": {
                                     "kind": "primitive",
-                                    "type": "number"
+                                    "type": "number",
+                                    "semantic": "ppqn"
                                 }
                             },
                             {
@@ -909,7 +926,8 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "optional": false,
                                 "type": {
                                     "kind": "primitive",
-                                    "type": "number"
+                                    "type": "number",
+                                    "semantic": "ppqn"
                                 }
                             },
                             {
@@ -956,7 +974,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "binding": "identifier",
                     "type": {
                         "kind": "primitive",
-                        "type": "number"
+                        "type": "number",
+                        "semantic": "ppqn"
                     }
                 },
                 {
@@ -965,7 +984,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "binding": "identifier",
                     "type": {
                         "kind": "primitive",
-                        "type": "number"
+                        "type": "number",
+                        "semantic": "ppqn"
                     }
                 },
                 {
@@ -1050,7 +1070,8 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "optional": true,
                                 "type": {
                                     "kind": "primitive",
-                                    "type": "number"
+                                    "type": "number",
+                                    "semantic": "int"
                                 }
                             },
                             {
@@ -1058,7 +1079,8 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "optional": false,
                                 "type": {
                                     "kind": "primitive",
-                                    "type": "number"
+                                    "type": "number",
+                                    "semantic": "ppqn"
                                 }
                             },
                             {
@@ -1073,7 +1095,8 @@ export const generatedControlManifest: GeneratedManifest = {
                                             "type": {
                                                 "kind": "handle",
                                                 "handle": "pointerField",
-                                                "name": "PointerField"
+                                                "name": "PointerField",
+                                                "constraint": "Pointers.NoteEventCollection"
                                             }
                                         }
                                     ]
@@ -1084,7 +1107,8 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "optional": false,
                                 "type": {
                                     "kind": "primitive",
-                                    "type": "number"
+                                    "type": "number",
+                                    "semantic": "int"
                                 }
                             },
                             {
@@ -1092,7 +1116,8 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "optional": false,
                                 "type": {
                                     "kind": "primitive",
-                                    "type": "number"
+                                    "type": "number",
+                                    "semantic": "ppqn"
                                 }
                             },
                             {
@@ -1100,7 +1125,8 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "optional": true,
                                 "type": {
                                     "kind": "primitive",
-                                    "type": "number"
+                                    "type": "number",
+                                    "semantic": "float"
                                 }
                             }
                         ]
@@ -1414,7 +1440,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "type": {
                         "kind": "handle",
                         "handle": "field",
-                        "name": "Field"
+                        "name": "Field",
+                        "constraint": "Pointers.Modulation"
                     }
                 },
                 {
@@ -1423,7 +1450,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "binding": "identifier",
                     "type": {
                         "kind": "primitive",
-                        "type": "number"
+                        "type": "number",
+                        "semantic": "unitValue"
                     }
                 }
             ],
@@ -1790,7 +1818,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "binding": "identifier",
                     "type": {
                         "kind": "primitive",
-                        "type": "number"
+                        "type": "number",
+                        "semantic": "ppqn"
                     }
                 }
             ],
@@ -1874,6 +1903,263 @@ export const generatedControlManifest: GeneratedManifest = {
             }
         },
         {
+            "id": "transport.ignoreNoteRegion",
+            "root": "transport",
+            "ownerType": "EngineFacade",
+            "method": "ignoreNoteRegion",
+            "target": "singleton",
+            "transaction": "none",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "uuid",
+                    "optional": false,
+                    "binding": "identifier",
+                    "type": {
+                        "kind": "uuid"
+                    }
+                }
+            ],
+            "result": {
+                "kind": "void"
+            }
+        },
+        {
+            "id": "transport.suspendAutomation",
+            "root": "transport",
+            "ownerType": "EngineFacade",
+            "method": "suspendAutomation",
+            "target": "singleton",
+            "transaction": "none",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "uuid",
+                    "optional": false,
+                    "binding": "identifier",
+                    "type": {
+                        "kind": "uuid"
+                    }
+                }
+            ],
+            "result": {
+                "kind": "void"
+            }
+        },
+        {
+            "id": "transport.noteSignal",
+            "root": "transport",
+            "ownerType": "EngineFacade",
+            "method": "noteSignal",
+            "target": "singleton",
+            "transaction": "none",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "signal",
+                    "optional": false,
+                    "binding": "identifier",
+                    "type": {
+                        "kind": "union",
+                        "alternatives": [
+                            {
+                                "kind": "object",
+                                "name": "NoteSignalOn",
+                                "properties": [
+                                    {
+                                        "name": "pitch",
+                                        "optional": false,
+                                        "type": {
+                                            "kind": "primitive",
+                                            "type": "number",
+                                            "semantic": "byte"
+                                        }
+                                    },
+                                    {
+                                        "name": "type",
+                                        "optional": false,
+                                        "type": {
+                                            "kind": "primitive",
+                                            "type": "string"
+                                        }
+                                    },
+                                    {
+                                        "name": "uuid",
+                                        "optional": false,
+                                        "type": {
+                                            "kind": "uuid"
+                                        }
+                                    },
+                                    {
+                                        "name": "velocity",
+                                        "optional": false,
+                                        "type": {
+                                            "kind": "primitive",
+                                            "type": "number",
+                                            "semantic": "unitValue"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "kind": "object",
+                                "name": "NoteSignalOff",
+                                "properties": [
+                                    {
+                                        "name": "pitch",
+                                        "optional": false,
+                                        "type": {
+                                            "kind": "primitive",
+                                            "type": "number",
+                                            "semantic": "byte"
+                                        }
+                                    },
+                                    {
+                                        "name": "type",
+                                        "optional": false,
+                                        "type": {
+                                            "kind": "primitive",
+                                            "type": "string"
+                                        }
+                                    },
+                                    {
+                                        "name": "uuid",
+                                        "optional": false,
+                                        "type": {
+                                            "kind": "uuid"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "kind": "object",
+                                "name": "NoteSignalAudition",
+                                "properties": [
+                                    {
+                                        "name": "duration",
+                                        "optional": false,
+                                        "type": {
+                                            "kind": "primitive",
+                                            "type": "number",
+                                            "semantic": "ppqn"
+                                        }
+                                    },
+                                    {
+                                        "name": "pitch",
+                                        "optional": false,
+                                        "type": {
+                                            "kind": "primitive",
+                                            "type": "number",
+                                            "semantic": "byte"
+                                        }
+                                    },
+                                    {
+                                        "name": "type",
+                                        "optional": false,
+                                        "type": {
+                                            "kind": "primitive",
+                                            "type": "string"
+                                        }
+                                    },
+                                    {
+                                        "name": "uuid",
+                                        "optional": false,
+                                        "type": {
+                                            "kind": "uuid"
+                                        }
+                                    },
+                                    {
+                                        "name": "velocity",
+                                        "optional": false,
+                                        "type": {
+                                            "kind": "primitive",
+                                            "type": "number",
+                                            "semantic": "unitValue"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ],
+            "result": {
+                "kind": "void"
+            }
+        },
+        {
+            "id": "transport.scheduleClipPlay",
+            "root": "transport",
+            "ownerType": "EngineFacade",
+            "method": "scheduleClipPlay",
+            "target": "singleton",
+            "transaction": "none",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "clipIds",
+                    "optional": false,
+                    "binding": "identifier",
+                    "type": {
+                        "kind": "array",
+                        "element": {
+                            "kind": "uuid"
+                        }
+                    }
+                }
+            ],
+            "result": {
+                "kind": "void"
+            }
+        },
+        {
+            "id": "transport.scheduleClipStop",
+            "root": "transport",
+            "ownerType": "EngineFacade",
+            "method": "scheduleClipStop",
+            "target": "singleton",
+            "transaction": "none",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "trackIds",
+                    "optional": false,
+                    "binding": "identifier",
+                    "type": {
+                        "kind": "array",
+                        "element": {
+                            "kind": "uuid"
+                        }
+                    }
+                }
+            ],
+            "result": {
+                "kind": "void"
+            }
+        },
+        {
+            "id": "transport.unregisterMonitoringSource",
+            "root": "transport",
+            "ownerType": "EngineFacade",
+            "method": "unregisterMonitoringSource",
+            "target": "singleton",
+            "transaction": "none",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "uuid",
+                    "optional": false,
+                    "binding": "identifier",
+                    "type": {
+                        "kind": "uuid"
+                    }
+                }
+            ],
+            "result": {
+                "kind": "void"
+            }
+        },
+        {
             "id": "parameter.valueAt",
             "root": "parameter",
             "ownerType": "AutomatableParameterFieldAdapter",
@@ -1888,7 +2174,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "binding": "identifier",
                     "type": {
                         "kind": "primitive",
-                        "type": "number"
+                        "type": "number",
+                        "semantic": "ppqn"
                     }
                 }
             ],
@@ -1959,7 +2246,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "binding": "identifier",
                     "type": {
                         "kind": "primitive",
-                        "type": "number"
+                        "type": "number",
+                        "semantic": "unitValue"
                     }
                 }
             ],
@@ -1978,7 +2266,8 @@ export const generatedControlManifest: GeneratedManifest = {
             "parameters": [],
             "result": {
                 "kind": "primitive",
-                "type": "number"
+                "type": "number",
+                "semantic": "unitValue"
             }
         },
         {
@@ -2005,7 +2294,8 @@ export const generatedControlManifest: GeneratedManifest = {
             "parameters": [],
             "result": {
                 "kind": "primitive",
-                "type": "number"
+                "type": "number",
+                "semantic": "unitValue"
             }
         },
         {
@@ -2232,42 +2522,12 @@ export const generatedControlManifest: GeneratedManifest = {
         },
         {
             "root": "EngineFacade",
-            "method": "ignoreNoteRegion",
-            "reason": "callback, listener, subscription, or function type"
-        },
-        {
-            "root": "EngineFacade",
-            "method": "suspendAutomation",
-            "reason": "callback, listener, subscription, or function type"
-        },
-        {
-            "root": "EngineFacade",
-            "method": "noteSignal",
-            "reason": "callback, listener, subscription, or function type"
-        },
-        {
-            "root": "EngineFacade",
-            "method": "scheduleClipPlay",
-            "reason": "callback, listener, subscription, or function type"
-        },
-        {
-            "root": "EngineFacade",
-            "method": "scheduleClipStop",
-            "reason": "callback, listener, subscription, or function type"
-        },
-        {
-            "root": "EngineFacade",
             "method": "subscribeDeviceMessage",
             "reason": "callback, listener, subscription, or function type"
         },
         {
             "root": "EngineFacade",
             "method": "registerMonitoringSource",
-            "reason": "callback, listener, subscription, or function type"
-        },
-        {
-            "root": "EngineFacade",
-            "method": "unregisterMonitoringSource",
             "reason": "callback, listener, subscription, or function type"
         },
         {
