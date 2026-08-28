@@ -78,6 +78,22 @@ export type CodexLogin = {
     readonly authUrl: string
 }
 
+export type CodexReasoningEffortOption = {
+    readonly reasoningEffort: string
+    readonly description: string
+}
+
+export type CodexModel = {
+    readonly id: string
+    readonly model: string
+    readonly displayName: string
+    readonly description: string
+    readonly hidden: boolean
+    readonly supportedReasoningEfforts: ReadonlyArray<CodexReasoningEffortOption>
+    readonly defaultReasoningEffort: string
+    readonly isDefault: boolean
+}
+
 export type CodexDynamicFunctionTool = {
     readonly type: "function"
     readonly name: string
@@ -114,6 +130,11 @@ export type CodexThreadInfo = {
 
 export type CodexStartThreadOptions = {
     readonly model?: string
+}
+
+export type CodexStartTurnOptions = {
+    readonly model?: string
+    readonly effort?: string
 }
 
 export type CodexSessionEvent =

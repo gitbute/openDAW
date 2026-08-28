@@ -74,6 +74,18 @@ export default defineConfig(({command}) => {
             },
             hmr: {
                 overlay: false
+            },
+            proxy: {
+                "/codex-app-server": {
+                    target: "ws://127.0.0.1:4500",
+                    ws: true,
+                    rewrite: path => path.replace(/^\/codex-app-server/, "") || "/",
+                    configure: proxy => {
+                        proxy.on("proxyReqWs", proxyRequest => {
+                            proxyRequest.removeHeader("origin")
+                        })
+                    }
+                }
             }
         },
         preview: {

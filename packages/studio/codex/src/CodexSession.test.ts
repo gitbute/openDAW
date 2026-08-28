@@ -93,6 +93,45 @@ const installServer = (transport: FakeTransport): void => {
                     platformOs: "windows"
                 }))
                 break
+            case "model/list": {
+                const params = message.params as JsonObject
+                const page = params.cursor === "page-2" ? 2 : 1
+                transport.emit(response(message, page === 1 ? {
+                    data: [{
+                        id: "model-1",
+                        model: "dynamic-model",
+                        displayName: "Dynamic model",
+                        description: "A model supplied by App Server.",
+                        hidden: false,
+                        supportedReasoningEfforts: [{reasoningEffort: "vendor-effort", description: "Vendor effort"}],
+                        defaultReasoningEffort: "vendor-effort",
+                        isDefault: true
+                    }],
+                    nextCursor: "page-2"
+                } : {
+                    data: [{
+                        id: "hidden-model-id",
+                        model: "hidden-model",
+                        displayName: "Hidden model",
+                        description: "Should not reach the UI.",
+                        hidden: true,
+                        supportedReasoningEfforts: [{reasoningEffort: "hidden-effort", description: "Hidden effort"}],
+                        defaultReasoningEffort: "hidden-effort",
+                        isDefault: false
+                    }, {
+                        id: "model-2",
+                        model: "another-model",
+                        displayName: "Another model",
+                        description: "Another visible model.",
+                        hidden: false,
+                        supportedReasoningEfforts: [{reasoningEffort: "another-effort", description: "Another effort"}],
+                        defaultReasoningEffort: "another-effort",
+                        isDefault: false
+                    }],
+                    nextCursor: null
+                }))
+                break
+            }
             case "account/read":
                 transport.emit(response(message, {
                     account: {type: "chatgpt", email: "producer@example.com", planType: "pro"},
@@ -161,12 +200,14 @@ describe("CodexSession", () => {
             })
         } as unknown as ControlApi
         const executor = new ToolExecutor(controlApi, catalog)
+        const trace: Array<Record<string, unknown>> = []
         const session = new CodexSession({
-            rpc: new CodexRpcClient(transport),
+            rpc: new CodexRpcClient(transport, event => trace.push(event as unknown as Record<string, unknown>)),
             catalog,
             executor,
             serviceName: "openDAW-test",
-            developerInstructions: "Operate the current openDAW project as a producer."
+            developerInstructions: "Operate the current openDAW project as a producer.",
+            traceSink: event => trace.push(event as unknown as Record<string, unknown>)
         })
         const events: Array<{readonly type: string, readonly [key: string]: unknown}> = []
         session.subscribe(event => events.push(event))
@@ -190,6 +231,36 @@ describe("CodexSession", () => {
                 useHostedLoginSuccessPage: true,
                 appBrand: "chatgpt"
             })
+
+            const models = await session.listModels()
+            expect(models).toEqual([
+                {
+                    id: "model-1",
+                    model: "dynamic-model",
+                    displayName: "Dynamic model",
+                    description: "A model supplied by App Server.",
+                    hidden: false,
+                    supportedReasoningEfforts: [{reasoningEffort: "vendor-effort", description: "Vendor effort"}],
+                    defaultReasoningEffort: "vendor-effort",
+                    isDefault: true
+                },
+                {
+                    id: "model-2",
+                    model: "another-model",
+                    displayName: "Another model",
+                    description: "Another visible model.",
+                    hidden: false,
+                    supportedReasoningEfforts: [{reasoningEffort: "another-effort", description: "Another effort"}],
+                    defaultReasoningEffort: "another-effort",
+                    isDefault: false
+                }
+            ])
+            const modelRequests = transport.sent.filter(message => isRequest(message) && message.method === "model/list")
+            expect(modelRequests).toHaveLength(2)
+            expect(modelRequests.map(request => request.params)).toEqual([
+                {limit: 100, cursor: null, includeHidden: false},
+                {limit: 100, cursor: "page-2", includeHidden: false}
+            ])
 
             transport.emit({
                 method: "account/updated",
@@ -252,11 +323,18 @@ describe("CodexSession", () => {
             })
 
             const firstTurn = await session.startTurn("Create a short pattern.")
-            const secondTurn = await session.startTurn("Adjust the pattern.")
+            const secondTurn = await session.startTurn("Adjust the pattern.", {
+                model: "another-model",
+                effort: "another-effort"
+            })
             expect(firstTurn).toBe("turn-1")
             expect(secondTurn).toBe("turn-2")
             expect((requestWithMethod(transport, "turn/start").params as JsonObject).threadId)
                 .toBe("thread-1")
+            expect(requestWithMethod(transport, "turn/start").params).toMatchObject({
+                model: "another-model",
+                effort: "another-effort"
+            })
             expect(events.filter(event => event.type === "turnStarted")).toHaveLength(2)
 
             transport.emit({
@@ -312,6 +390,9 @@ describe("CodexSession", () => {
                 "turnCompleted"
             ]))
             expect(session.activeTurnId).toBeUndefined()
+            expect(trace.some(event => event.layer === "rpc")).toBe(true)
+            expect(trace.some(event => event.layer === "session")).toBe(true)
+            expect(trace.some(event => event.layer === "tool" && event.phase === "tool-start")).toBe(true)
 
             await session.startTurn("One more change.")
             await session.interruptTurn()

@@ -1,4 +1,5 @@
 import type {CodexTransport} from "./CodexTransport"
+import {compactTraceMessage, emitCodexTrace, type CodexTraceSink} from "./CodexTrace"
 import type {CodexTransportState, RpcMessage, Unsubscribe} from "./types"
 
 export const DEFAULT_CODEX_APP_SERVER_URL = "ws://127.0.0.1:4500"
@@ -13,6 +14,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 export class WebSocketCodexTransport implements CodexTransport {
     readonly #url: string
     readonly #socketFactory: WebSocketFactory
+    readonly #traceSink: CodexTraceSink | undefined
     readonly #messageListeners = new Set<(message: RpcMessage) => void>()
     readonly #errorListeners = new Set<(error: Error) => void>()
     readonly #stateListeners = new Set<(state: CodexTransportState) => void>()
@@ -22,9 +24,11 @@ export class WebSocketCodexTransport implements CodexTransport {
     #connectReject: ((reason?: unknown) => void) | undefined
 
     constructor(url: string = DEFAULT_CODEX_APP_SERVER_URL,
-                socketFactory: WebSocketFactory = target => new WebSocket(target)) {
+                socketFactory: WebSocketFactory = target => new WebSocket(target),
+                traceSink?: CodexTraceSink) {
         this.#url = url
         this.#socketFactory = socketFactory
+        this.#traceSink = traceSink
     }
 
     get url(): string {return this.#url}
@@ -101,6 +105,14 @@ export class WebSocketCodexTransport implements CodexTransport {
         if (this.#state !== "connected" || this.#socket === undefined) {
             throw new Error("WebSocket transport is not connected")
         }
+        emitCodexTrace(this.#traceSink, {
+            layer: "transport",
+            phase: "send",
+            direction: "outgoing",
+            method: "method" in message ? message.method : undefined,
+            rpcId: "id" in message ? message.id : undefined,
+            payload: compactTraceMessage(message)
+        })
         this.#socket.send(JSON.stringify(message))
     }
 
@@ -157,9 +169,18 @@ export class WebSocketCodexTransport implements CodexTransport {
             this.#emitError(new Error("Codex App Server message must be a JSON object"))
             return
         }
+        const rpcMessage = message as RpcMessage
+        emitCodexTrace(this.#traceSink, {
+            layer: "transport",
+            phase: "receive",
+            direction: "incoming",
+            method: "method" in rpcMessage ? rpcMessage.method : undefined,
+            rpcId: "id" in rpcMessage ? rpcMessage.id : undefined,
+            payload: compactTraceMessage(rpcMessage)
+        })
         this.#messageListeners.forEach(listener => {
             try {
-                listener(message as RpcMessage)
+                listener(rpcMessage)
             } catch (error) {
                 this.#emitError(asError(error))
             }
@@ -174,6 +195,11 @@ export class WebSocketCodexTransport implements CodexTransport {
     #setState(state: CodexTransportState): void {
         if (this.#state === state) {return}
         this.#state = state
+        emitCodexTrace(this.#traceSink, {
+            layer: "transport",
+            phase: "state",
+            payload: {state}
+        })
         this.#stateListeners.forEach(listener => {
             try {
                 listener(state)
@@ -184,6 +210,11 @@ export class WebSocketCodexTransport implements CodexTransport {
     }
 
     #emitError(error: Error): void {
+        emitCodexTrace(this.#traceSink, {
+            layer: "transport",
+            phase: "error",
+            error: error.message
+        })
         this.#errorListeners.forEach(listener => {
             try {
                 listener(error)

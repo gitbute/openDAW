@@ -82,6 +82,8 @@ import {ShadertoyState} from "@/ui/shadertoy/ShadertoyState"
 import {CodeEditorState} from "@/ui/code-editor/CodeEditorState"
 import {RoomAwareness} from "@/service/RoomAwareness"
 import {ChatService} from "@/chat/ChatService"
+import {CodexAgentController} from "@/codex/CodexAgentController"
+import {BrowseScope} from "@/ui/browse/BrowseScope"
 
 /**
  * I am just piling stuff after stuff in here to boot the environment.
@@ -102,6 +104,8 @@ export class StudioService implements ProjectEnv {
     readonly layout = {
         screen: new DefaultObservableValue<Nullable<Workspace.ScreenKeys>>("default")
     } as const
+    readonly browseScope = new DefaultObservableValue(BrowseScope.Presets)
+    readonly codexAgent = new CodexAgentController()
     readonly timeline = {
         range,
         snapping,
@@ -477,6 +481,7 @@ export class StudioService implements ProjectEnv {
     #listenProject(): void {
         const lifeTime = new Terminator()
         const observer = (optProfile: Option<ProjectProfile>) => {
+            this.codexAgent.bindProject(optProfile.nonEmpty() ? optProfile.unwrap().project : null)
             this.layout.screen.setValue(null)
             lifeTime.terminate()
             document.body.classList.toggle("no-project", optProfile.isEmpty())

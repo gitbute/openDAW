@@ -2,7 +2,9 @@ import type {ToolCatalogSpec, ToolExecutor} from "@opendaw/studio-core"
 import {CodexAccount} from "./CodexAccount"
 import {CodexDynamicTools} from "./CodexDynamicTools"
 import {PRODUCER_DEVELOPER_INSTRUCTIONS} from "./CodexInstructions"
+import {CodexModels} from "./CodexModels"
 import {CodexRpcClient} from "./CodexRpcClient"
+import {emitCodexTrace, type CodexTraceSink} from "./CodexTrace"
 import type {
     CodexAccountEvent,
     CodexAccountState,
@@ -13,6 +15,7 @@ import type {
     CodexInitializeResponse,
     CodexSessionEvent,
     CodexStartThreadOptions,
+    CodexStartTurnOptions,
     CodexThreadInfo,
     CodexTransportState,
     JsonObject,
@@ -107,6 +110,7 @@ export type CodexSessionOptions = {
     readonly clientInfo?: CodexClientInfo
     readonly serviceName?: string
     readonly developerInstructions?: string
+    readonly traceSink?: CodexTraceSink
 }
 
 export class CodexSession {
@@ -118,6 +122,8 @@ export class CodexSession {
     readonly #serviceName: string
     readonly #developerInstructions: string
     readonly #dynamicTools: CodexDynamicTools
+    readonly #models: CodexModels
+    readonly #traceSink: CodexTraceSink | undefined
     readonly #listeners = new Set<(event: CodexSessionEvent) => void>()
     #threadId: string | undefined
     #sessionId: string | null = null
@@ -139,6 +145,8 @@ export class CodexSession {
         this.#serviceName = options.serviceName ?? defaultServiceName
         this.#developerInstructions = options.developerInstructions ?? PRODUCER_DEVELOPER_INSTRUCTIONS
         this.#dynamicTools = dynamicTools
+        this.#traceSink = options.traceSink
+        this.#models = new CodexModels(options.rpc, options.traceSink)
         this.#rpc.subscribeNotifications(notification => this.#onNotification(notification))
         this.#rpc.subscribeErrors(error => {
             this.#lastDisconnectError = error.message
@@ -183,6 +191,10 @@ export class CodexSession {
         return this.#account.readAccount()
     }
 
+    async listModels() {
+        return this.#models.listModels()
+    }
+
     async startChatGPTLogin() {
         return this.#account.startChatGPTLogin()
     }
@@ -219,11 +231,13 @@ export class CodexSession {
         return info
     }
 
-    async startTurn(text: string): Promise<string> {
+    async startTurn(text: string, options: CodexStartTurnOptions = {}): Promise<string> {
         const threadId = this.#requireThread()
         const result = await this.#rpc.request("turn/start", {
             threadId,
-            input: [{type: "text", text, text_elements: []}]
+            input: [{type: "text", text, text_elements: []}],
+            ...(options.model === undefined ? {} : {model: options.model}),
+            ...(options.effort === undefined ? {} : {effort: options.effort})
         })
         const id = turnId(result, "turn/start response")
         this.#activeTurnId = id
@@ -280,6 +294,18 @@ export class CodexSession {
         if (!isRecord(argumentsValue)) {
             return failure("Dynamic tool call arguments must be an object")
         }
+        const threadId = typeof request.params.threadId === "string" ? request.params.threadId : undefined
+        const turnId = typeof request.params.turnId === "string" ? request.params.turnId : undefined
+        emitCodexTrace(this.#traceSink, {
+            layer: "tool",
+            phase: "tool-start",
+            direction: "incoming",
+            threadId,
+            turnId,
+            namespace,
+            tool,
+            payload: argumentsValue as JsonValue
+        })
         let result
         try {
             result = await this.#executor.execute({
@@ -290,6 +316,17 @@ export class CodexSession {
         } catch (error) {
             result = {ok: false as const, error: errorMessage(error)}
         }
+        emitCodexTrace(this.#traceSink, {
+            layer: "tool",
+            phase: "tool-complete",
+            direction: "outgoing",
+            threadId,
+            turnId,
+            namespace,
+            tool,
+            result: result as unknown as JsonValue,
+            error: result.ok ? undefined : result.error
+        })
         return {result: this.#toolResponse(result) as unknown as JsonValue}
     }
 
@@ -424,6 +461,36 @@ export class CodexSession {
     }
 
     #emit(event: CodexSessionEvent): void {
+        const phase = event.type === "error"
+            ? "error"
+            : event.type === "connectionChanged"
+                ? "state"
+                : event.type === "dynamicToolStarted"
+                    ? "tool-start"
+                    : event.type === "dynamicToolCompleted"
+                        ? "tool-complete"
+                        : event.type === "agentTextDelta" ? "notification" : "state"
+        const payload = event.type === "agentTextDelta"
+            ? {
+                type: event.type,
+                threadId: event.threadId,
+                turnId: event.turnId,
+                itemId: event.itemId,
+                textLength: event.text.length,
+                textPreview: event.text.slice(0, 120)
+            }
+            : event as unknown as JsonValue
+        emitCodexTrace(this.#traceSink, {
+            layer: "session",
+            phase,
+            threadId: "threadId" in event ? event.threadId : undefined,
+            turnId: "turnId" in event ? event.turnId : undefined,
+            itemId: "itemId" in event ? event.itemId : undefined,
+            namespace: "namespace" in event ? event.namespace : undefined,
+            tool: "tool" in event ? event.tool : undefined,
+            payload,
+            error: event.type === "error" ? event.error : undefined
+        })
         this.#listeners.forEach(listener => {
             try {
                 listener(event)

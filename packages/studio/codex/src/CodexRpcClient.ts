@@ -1,4 +1,5 @@
 import type {CodexTransport} from "./CodexTransport"
+import {compactTracePayload, emitCodexTrace, type CodexTraceSink} from "./CodexTrace"
 import type {
     CodexClientInfo,
     CodexInitializeResponse,
@@ -39,6 +40,7 @@ const errorReply = (code: number, message: string): RpcServerRequestResult => ({
 })
 
 type PendingRequest = {
+    readonly method: string
     readonly resolve: (value: JsonValue) => void
     readonly reject: (reason: Error) => void
 }
@@ -54,9 +56,11 @@ export class CodexRpcClient {
     #initialized = false
     #initializeResponse: CodexInitializeResponse | undefined
     #connectPromise: Promise<CodexInitializeResponse> | undefined
+    readonly #traceSink: CodexTraceSink | undefined
 
-    constructor(transport: CodexTransport) {
+    constructor(transport: CodexTransport, traceSink?: CodexTraceSink) {
         this.#transport = transport
+        this.#traceSink = traceSink
         transport.subscribe(message => this.#onMessage(message))
         transport.subscribeError(error => this.#onTransportError(error))
         transport.subscribeState(state => this.#onTransportState(state))
@@ -135,7 +139,15 @@ export class CodexRpcClient {
     #request(method: string, params?: JsonValue): Promise<JsonValue> {
         const id = this.#nextRequestId++
         return new Promise<JsonValue>((resolve, reject) => {
-            this.#pending.set(id, {resolve, reject})
+            this.#pending.set(id, {method, resolve, reject})
+            emitCodexTrace(this.#traceSink, {
+                layer: "rpc",
+                phase: "request",
+                direction: "outgoing",
+                method,
+                rpcId: id,
+                payload: params ?? null
+            })
             try {
                 const request: RpcRequest = params === undefined ? {method, id} : {method, id, params}
                 this.#transport.send(request)
@@ -176,17 +188,54 @@ export class CodexRpcClient {
         if (pending === undefined) {return}
         this.#pending.delete(response.id)
         if (hasOwn(response, "error")) {
-            pending.reject(errorFromRpc(response.error))
+            const error = errorFromRpc(response.error)
+            emitCodexTrace(this.#traceSink, {
+                layer: "rpc",
+                phase: "response",
+                direction: "incoming",
+                method: pending.method,
+                rpcId: response.id,
+                error: error.message,
+                payload: response.error as JsonValue
+            })
+            pending.reject(error)
             return
         }
         if (!hasOwn(response, "result")) {
-            pending.reject(new Error("Codex RPC response has neither result nor error"))
+            const error = new Error("Codex RPC response has neither result nor error")
+            emitCodexTrace(this.#traceSink, {
+                layer: "rpc",
+                phase: "error",
+                direction: "incoming",
+                method: pending.method,
+                rpcId: response.id,
+                error: error.message,
+                payload: response as unknown as JsonValue
+            })
+            pending.reject(error)
             return
         }
-        pending.resolve(response.result ?? null)
+        const result = response.result ?? null
+        emitCodexTrace(this.#traceSink, {
+            layer: "rpc",
+            phase: "response",
+            direction: "incoming",
+            method: pending.method,
+            rpcId: response.id,
+            result
+        })
+        pending.resolve(result)
     }
 
     async #handleServerRequest(request: RpcRequest): Promise<void> {
+        emitCodexTrace(this.#traceSink, {
+            layer: "rpc",
+            phase: "request",
+            direction: "incoming",
+            method: request.method,
+            rpcId: request.id,
+            payload: request.params ?? null
+        })
         const handler = this.#serverRequestHandlers.get(request.method)
         if (handler === undefined) {
             this.#sendResponse(request.id, errorReply(-32601, `Method '${request.method}' is not supported`))
@@ -195,13 +244,38 @@ export class CodexRpcClient {
         try {
             const result = await handler(request)
             if ("result" in result) {
+                emitCodexTrace(this.#traceSink, {
+                    layer: "rpc",
+                    phase: "response",
+                    direction: "outgoing",
+                    method: request.method,
+                    rpcId: request.id,
+                    result: result.result
+                })
                 this.#sendResponse(request.id, {result: result.result})
             } else if ("error" in result) {
+                emitCodexTrace(this.#traceSink, {
+                    layer: "rpc",
+                    phase: "response",
+                    direction: "outgoing",
+                    method: request.method,
+                    rpcId: request.id,
+                    error: result.error.message,
+                    payload: result.error.data ?? null
+                })
                 this.#sendResponse(request.id, {error: result.error})
             } else {
                 this.#sendResponse(request.id, errorReply(-32603, "Server request handler returned an invalid result"))
             }
         } catch (error) {
+            emitCodexTrace(this.#traceSink, {
+                layer: "rpc",
+                phase: "error",
+                direction: "outgoing",
+                method: request.method,
+                rpcId: request.id,
+                error: asError(error).message
+            })
             this.#sendResponse(request.id, errorReply(-32603, asError(error).message))
         }
     }
@@ -215,6 +289,13 @@ export class CodexRpcClient {
     }
 
     #notify(notification: RpcNotification): void {
+        emitCodexTrace(this.#traceSink, {
+            layer: "rpc",
+            phase: "notification",
+            direction: "incoming",
+            method: notification.method,
+            payload: compactTracePayload(notification.method, notification.params)
+        })
         this.#notificationListeners.forEach(listener => {
             try {
                 listener(notification)
@@ -228,6 +309,11 @@ export class CodexRpcClient {
         this.#rejectPending(error)
         this.#initialized = false
         this.#initializeResponse = undefined
+        emitCodexTrace(this.#traceSink, {
+            layer: "rpc",
+            phase: "error",
+            error: error.message
+        })
         this.#emitError(error)
     }
 
@@ -236,6 +322,11 @@ export class CodexRpcClient {
             this.#initialized = false
             this.#initializeResponse = undefined
         }
+        emitCodexTrace(this.#traceSink, {
+            layer: "rpc",
+            phase: "state",
+            payload: {state}
+        })
         this.#stateListeners.forEach(listener => {
             try {
                 listener(state)

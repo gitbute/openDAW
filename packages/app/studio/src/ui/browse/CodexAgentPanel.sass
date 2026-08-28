@@ -1,0 +1,129 @@
+@use "@/colors"
+
+component
+  min-height: 0
+  display: flex
+  flex-direction: column
+  gap: 0.5em
+  padding: 0.5em 0.75em
+  overflow: hidden
+  font-size: 0.6875rem
+
+  .hidden
+    display: none
+
+  .connection-row,
+  .model-row,
+  .connection-status,
+  .tool-line,
+  .error-row,
+  .composer
+    display: flex
+    align-items: center
+
+  .connection-row,
+  .model-row
+    gap: 0.5em
+    min-width: 0
+
+  .connection-status
+    min-width: 0
+    flex: 1
+    gap: 0.5em
+    overflow: hidden
+
+  .connection-label,
+  .account-label
+    overflow: hidden
+    text-overflow: ellipsis
+    white-space: nowrap
+
+  .connection-label
+    color: var(--color-gray)
+
+  .account-label
+    color: var(--color-dark)
+
+  .model-row
+    > *
+      min-width: 0
+      flex: 1
+
+  .transcript
+    flex: 1
+    min-height: 0
+    overflow-y: auto
+    display: flex
+    flex-direction: column
+    gap: 0.75em
+    padding: 0.25em 0
+    overflow-wrap: anywhere
+
+  .entry
+    display: flex
+    flex-direction: column
+    gap: 0.2em
+
+  .label
+    color: var(--color-bright)
+    font-weight: bold
+
+  .text,
+  .tool-error
+    color: var(--color-gray)
+    white-space: pre-wrap
+
+  .tool-line
+    gap: 0.35em
+    color: var(--color-gray)
+
+  .tool-status
+    width: 1em
+    color: var(--color-dark)
+    text-align: center
+
+  .tool.success .tool-status
+    color: var(--color-green)
+
+  .tool.failed .tool-status,
+  .tool-error
+    color: var(--color-red)
+
+  .tool-name
+    overflow: hidden
+    text-overflow: ellipsis
+    white-space: nowrap
+
+  .tool-error
+    padding-left: 1.35em
+    overflow-wrap: anywhere
+
+  .error-row
+    gap: 0.25em
+    color: var(--color-red)
+
+  .error-text
+    flex: 1
+    overflow-wrap: anywhere
+
+  .composer
+    align-items: flex-end
+    gap: 0.5em
+
+    > textarea
+      flex: 1
+      min-width: 0
+      min-height: 3em
+      max-height: 12em
+      resize: vertical
+      appearance: none
+      border: none
+      outline: none
+      padding: 0.4em 0.5em
+      color: var(--color-bright)
+      background-color: rgba(black, 0.2)
+      font: inherit
+      overflow-y: auto
+
+      &::placeholder
+        color: var(--color-dark)

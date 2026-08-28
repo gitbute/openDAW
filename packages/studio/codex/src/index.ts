@@ -11,8 +11,11 @@ export type {
     CodexDynamicToolCallResponse,
     CodexInitializeResponse,
     CodexLogin,
+    CodexModel,
+    CodexReasoningEffortOption,
     CodexSessionEvent,
     CodexStartThreadOptions,
+    CodexStartTurnOptions,
     CodexThreadInfo,
     CodexTransportState,
     CodexTransportState as TransportState,
@@ -34,6 +37,20 @@ export {WebSocketCodexTransport, DEFAULT_CODEX_APP_SERVER_URL} from "./WebSocket
 export {CodexRpcClient} from "./CodexRpcClient"
 export {CodexDynamicTools, projectDynamicTools, validateCodexToolCatalog} from "./CodexDynamicTools"
 export {CodexAccount} from "./CodexAccount"
+export {CodexModels} from "./CodexModels"
+export {
+    compactTraceMessage,
+    compactTracePayload,
+    emitCodexTrace,
+    redactTraceValue
+} from "./CodexTrace"
+export type {
+    CodexTraceEvent,
+    CodexTraceEventInput,
+    CodexTraceLayer,
+    CodexTracePhase,
+    CodexTraceSink
+} from "./CodexTrace"
 export {PRODUCER_DEVELOPER_INSTRUCTIONS} from "./CodexInstructions"
 export type {CodexSessionOptions} from "./CodexSession"
 export {CodexSession} from "./CodexSession"
