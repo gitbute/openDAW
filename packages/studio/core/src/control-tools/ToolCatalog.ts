@@ -10,7 +10,8 @@ import type {
 import {
     operationInputSchema,
     resourceInspectInputSchema,
-    resourceQueryInputSchema
+    resourceQueryInputSchema,
+    sampleQueryInputSchema
 } from "./ToolSchema"
 
 const namespacesForRoots = {
@@ -25,10 +26,10 @@ const namespaceDescriptions: Readonly<Record<string, string>> = {
     daw_modulation: "Create and connect canonical openDAW modulators.",
     daw_transport: "Control playback and transport state.",
     daw_parameter: "Read and edit discovered automatable parameters.",
-    daw_resources: "Discover and inspect live project resources and handles."
+    daw_resources: "Discover and inspect live project resources, handles, and samples."
 }
 
-const resourceTools: ReadonlyArray<{readonly name: "query_resources" | "inspect_resource", readonly schema: FunctionToolSpec["inputSchema"], readonly description: string}> = [
+const resourceTools: ReadonlyArray<{readonly name: "query_resources" | "inspect_resource" | "query_samples", readonly schema: FunctionToolSpec["inputSchema"], readonly description: string}> = [
     {
         name: "query_resources",
         schema: resourceQueryInputSchema,
@@ -38,6 +39,11 @@ const resourceTools: ReadonlyArray<{readonly name: "query_resources" | "inspect_
         name: "inspect_resource",
         schema: resourceInspectInputSchema,
         description: "Inspect all generic live-project views available for one handle."
+    },
+    {
+        name: "query_samples",
+        schema: sampleQueryInputSchema,
+        description: "Search the canonical sample catalog without loading sample audio."
     }
 ]
 

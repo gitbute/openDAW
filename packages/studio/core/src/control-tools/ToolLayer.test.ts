@@ -1,6 +1,8 @@
 import {describe, expect, it, vi} from "vitest"
 import {isDefined, Option, Terminable, UUID} from "@opendaw/lib-std"
+import type {Sample} from "@opendaw/studio-adapters"
 import {ProjectSkeleton} from "@opendaw/studio-adapters"
+import {AudioFileBox, NanoDeviceBox, PlayfieldDeviceBox, PlayfieldSampleBox} from "@opendaw/studio-boxes"
 import {Project} from "../project/Project"
 import type {ProjectEnv} from "../project/ProjectEnv"
 import {ControlApi} from "../control-api/ControlApi"
@@ -11,7 +13,8 @@ import {InstrumentFactories} from "@opendaw/studio-adapters"
 import {ResourceTools} from "./ResourceTools"
 import {ToolCatalog, toToolName} from "./ToolCatalog"
 import {ToolExecutor} from "./ToolExecutor"
-import type {JsonSchema} from "./types"
+import {typeSpecToJsonSchema} from "./ToolSchema"
+import type {JsonSchema, SampleCatalog} from "./types"
 
 if (!isDefined(Reflect.get(globalThis, "AudioWorkletNode"))) {
     Reflect.set(globalThis, "AudioWorkletNode", class {})
@@ -41,13 +44,14 @@ const createEnv = (): ProjectEnv => ({
     soundfontService: undefined
 }) as unknown as ProjectEnv
 
-const createLayer = (): {project: Project, controlApi: ControlApi, catalog: ToolCatalog, executor: ToolExecutor} => {
+const createLayer = (sampleCatalog?: SampleCatalog):
+    {project: Project, controlApi: ControlApi, catalog: ToolCatalog, executor: ToolExecutor} => {
     const project = Project.fromSkeleton(createEnv(), ProjectSkeleton.empty({
         createDefaultUser: true, createOutputMaximizer: false
     }))
     const controlApi = new ControlApi(project)
     const catalog = new ToolCatalog()
-    return {project, controlApi, catalog, executor: new ToolExecutor(controlApi, catalog)}
+    return {project, controlApi, catalog, executor: new ToolExecutor(controlApi, catalog, undefined, sampleCatalog)}
 }
 
 const objectValue = (value: JsonValue): JsonObject => {
@@ -88,6 +92,17 @@ const allSchemas = (schema: JsonSchema): ReadonlyArray<JsonSchema> => [
     ...(schema.anyOf?.flatMap(allSchemas) ?? [])
 ]
 
+const sample = (uuid: Sample["uuid"], name: string, origin: Sample["origin"], bpm: number,
+                duration: number, custom?: string): Sample => ({
+    uuid,
+    name,
+    bpm,
+    duration,
+    sample_rate: 48000,
+    origin,
+    ...(custom === undefined ? {} : {custom})
+})
+
 describe("Slice 2 control tools", () => {
     it("projects every generated operation exactly once with deterministic strict tools", () => {
         const first = new ToolCatalog()
@@ -102,7 +117,10 @@ describe("Slice 2 control tools", () => {
         expect(JSON.stringify(generated)).not.toMatch(/\b(?:arg|param)\d+\b/)
         expect(generated.every(tool => tool.exposure === "deferred")).toBe(true)
         expect(first.tools.filter(tool => tool.exposure === "eager").map(tool => tool.name))
-            .toEqual(["query_resources", "inspect_resource"])
+            .toEqual(["query_resources", "inspect_resource", "query_samples"])
+        const sampleQuery = first.get("daw_resources", "query_samples")?.spec.inputSchema
+        expect(sampleQuery?.properties?.origin?.enum).toEqual(["openDAW", "recording", "import"])
+        expect(sampleQuery?.properties?.limit?.maximum).toBe(50)
         generated.forEach(tool => allSchemas(tool.inputSchema).forEach(schema => {
             if (schema.type === "object") {expect(schema.additionalProperties).toBe(false)}
         }))
@@ -124,6 +142,122 @@ describe("Slice 2 control tools", () => {
         expect(JSON.stringify(options)).not.toContain("attachment")
     })
 
+    it("describes handles from generic TypeSpec metadata and exposes semantic note owners", () => {
+        const box = typeSpecToJsonSchema({kind: "handle", handle: "box", name: "TrackBox"})
+        expect(box.description).toBe("Handle to a TrackBox.")
+        expect(Object.keys(box.properties ?? {})).toEqual(["$address"])
+
+        const parameter = typeSpecToJsonSchema({
+            kind: "handle", handle: "parameter", name: "AutomatableParameterFieldAdapter"
+        })
+        expect(parameter.description).toBe("Handle to an AutomatableParameterFieldAdapter.")
+
+        const constrained = typeSpecToJsonSchema({
+            kind: "handle",
+            handle: "field",
+            name: "Field",
+            constraint: "Pointers.NoteEventCollection",
+            constraintMembers: ["Pointers.NoteEventCollection"]
+        })
+        expect(constrained.description).toBe("Field handle accepting Pointers.NoteEventCollection.")
+
+        const several = typeSpecToJsonSchema({
+            kind: "handle",
+            handle: "pointerField",
+            name: "PointerField",
+            constraint: "EffectPointerType",
+            constraintMembers: ["Pointers.AudioEffects", "Pointers.MidiEffects", "Pointers.EffectChain"]
+        })
+        expect(several.description)
+            .toBe("PointerField handle accepting Pointers.AudioEffects, Pointers.MidiEffects, or Pointers.EffectChain.")
+
+        const catalog = new ToolCatalog()
+        for (const name of ["create_note_event", "create_note_events"]) {
+            const owner = catalog.get("daw_project", name)?.spec.inputSchema.properties?.owner
+            expect(owner?.anyOf?.map(schema => schema.description)).toEqual(expect.arrayContaining([
+                "Handle to a NoteRegionBox.",
+                "Handle to a NoteClipBox.",
+                "Handle to a NoteEventCollectionBox."
+            ]))
+        }
+    })
+
+    it("queries the injected canonical sample catalog with text filters and bounded pages", async () => {
+        const samples = [
+            sample("00000000-0000-4000-8000-000000000001", "808 Kick", "openDAW", 120, 0.5, "drum"),
+            sample("00000000-0000-4000-8000-000000000002", "Vinyl Snare", "import", 96, 0.8),
+            sample("00000000-0000-4000-8000-000000000003", "Recorded Hat", "recording", 140, 0.2)
+        ]
+        const catalog: SampleCatalog = {list: vi.fn(async () => samples)}
+        const {project, executor} = createLayer(catalog)
+        try {
+            const result = objectValue(await run(executor, "daw_resources", "query_samples", {
+                text: "DRUM", origin: "openDAW", minBpm: 100, maxDuration: 1, limit: 1, offset: 0
+            }))
+            expect(catalog.list).toHaveBeenCalledOnce()
+            expect(result.total).toBe(1)
+            expect(result.limit).toBe(1)
+            expect(result.offset).toBe(0)
+            expect(result.samples).toEqual([samples[0]])
+
+            const page = objectValue(await run(executor, "daw_resources", "query_samples", {
+                limit: 100, offset: 1
+            }))
+            expect(page.total).toBe(3)
+            expect(page.limit).toBe(50)
+            expect(page.offset).toBe(1)
+            expect(page.samples).toEqual(samples.slice(1))
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("passes a queried canonical Sample directly to Nano and Playfield assignment", async () => {
+        const queried = sample("00000000-0000-4000-8000-000000000011", "Agent Kick", "openDAW", 120, 0.75)
+        const catalog: SampleCatalog = {list: async () => [queried]}
+        const {project, controlApi, executor} = createLayer(catalog)
+        try {
+            const query = objectValue(await run(executor, "daw_resources", "query_samples", {text: "kick"}))
+            const returnedSample = objectValue(arrayValue(query.samples)[0])
+            expect(returnedSample).toEqual(queried)
+
+            const nanoProduct = objectValue(await run(executor, "daw_project", "create_any_instrument", {
+                factory: "Nano"
+            }))
+            const nanoHandle = handleValue(nanoProduct.instrumentBox)
+            await run(executor, "daw_project", "assign_sample", {
+                target: nanoHandle, sample: returnedSample
+            })
+            const nano = controlApi.resolver.resolve({
+                kind: "handle", handle: "box", name: "NanoDeviceBox"
+            }, nanoHandle)
+            expect(nano).toBeInstanceOf(NanoDeviceBox)
+            const nanoFile = (nano as NanoDeviceBox).file.targetVertex.unwrap("Nano sample was not assigned").box
+            if (!(nanoFile instanceof AudioFileBox)) {throw new Error("Nano sample did not resolve to an audio file")}
+
+            const playfieldProduct = objectValue(await run(executor, "daw_project", "create_any_instrument", {
+                factory: "Playfield"
+            }))
+            const playfieldHandle = handleValue(playfieldProduct.instrumentBox)
+            await run(executor, "daw_project", "assign_sample", {
+                target: playfieldHandle, sample: returnedSample, slot: 2
+            })
+            const playfield = controlApi.resolver.resolve({
+                kind: "handle", handle: "box", name: "PlayfieldDeviceBox"
+            }, playfieldHandle)
+            expect(playfield).toBeInstanceOf(PlayfieldDeviceBox)
+            const slots = (playfield as PlayfieldDeviceBox).samples.pointerHub.incoming()
+            expect(slots).toHaveLength(1)
+            const slot = slots[0].box as PlayfieldSampleBox
+            expect(slot.index.getValue()).toBe(2)
+            expect(slot.file.targetVertex.unwrap("Playfield sample was not assigned").box).toBe(nanoFile)
+            expect(nanoFile.fileName.getValue()).toBe(queried.name)
+            expect(nanoFile.endInSeconds.getValue()).toBe(queried.duration)
+        } finally {
+            project.terminate()
+        }
+    })
+
     it("discovers and executes a producer workflow using only catalog and executor", async () => {
         const {project, executor} = createLayer()
         try {
@@ -142,18 +276,14 @@ describe("Slice 2 control tools", () => {
             const region = handleValue(await run(executor, "daw_project", "create_note_region", {
                 trackBox: track, position: 0, duration: 960, name: "Hats"
             }))
-            const events = objectValue((await run(executor, "daw_resources", "query_resources", {
-                kind: "field", owner: region, text: "events", limit: 10
-            })) as JsonValue)
-            const eventField = objectValue((events.resources as ReadonlyArray<JsonValue>)[0])
-            await run(executor, "daw_project", "create_note_event", {
-                owner: {events: handleValue(eventField.handle)},
-                position: 0, duration: 120, pitch: 42
-            })
-            await run(executor, "daw_project", "create_note_event", {
-                owner: {events: handleValue(eventField.handle)},
-                position: 240, duration: 120, pitch: 46
-            })
+            const events = arrayValue(await run(executor, "daw_project", "create_note_events", {
+                owner: region,
+                events: [
+                    {position: 0, duration: 120, pitch: 42},
+                    {position: 240, duration: 120, pitch: 46}
+                ]
+            }))
+            expect(events).toHaveLength(2)
 
             const audioEffects = objectValue((await run(executor, "daw_resources", "query_resources", {
                 kind: "field", owner: audioUnit, text: "audioEffects", limit: 10
@@ -251,6 +381,16 @@ describe("Slice 2 control tools", () => {
             await expect(executor.execute({namespace: "daw_resources", name: "query_resources", arguments: {
                 unexpected: true
             } as unknown as JsonObject})).resolves.toMatchObject({ok: false})
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("reports unavailable sample catalogs explicitly", async () => {
+        const {project, executor} = createLayer()
+        try {
+            await expect(executor.execute({namespace: "daw_resources", name: "query_samples"}))
+                .resolves.toEqual({ok: false, error: "Sample catalog is unavailable."})
         } finally {
             project.terminate()
         }

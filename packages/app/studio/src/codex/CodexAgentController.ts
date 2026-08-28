@@ -18,6 +18,7 @@ import type {
     Unsubscribe
 } from "@opendaw/studio-codex"
 import {ControlApi, ToolCatalog, ToolExecutor} from "@opendaw/studio-core"
+import type {SampleCatalog} from "@opendaw/studio-core"
 import type {Project} from "@opendaw/studio-core"
 import {DefaultObservableValue, Terminable} from "@opendaw/lib-std"
 
@@ -71,6 +72,7 @@ export type CodexAgentSessionFactory = (project: Project, traceSink: CodexTraceS
 export type CodexAgentControllerOptions = {
     readonly createSession?: CodexAgentSessionFactory
     readonly appServerUrl?: () => string
+    readonly sampleCatalog?: SampleCatalog
 }
 
 const emptyAccountState = {
@@ -93,10 +95,11 @@ const defaultAppServerUrl = (): string => {
     return `${protocol}//${window.location.host}/codex-app-server`
 }
 
-const createSession = (url: string, project: Project, traceSink: CodexTraceSink): CodexAgentSession => {
+const createSession = (url: string, project: Project, traceSink: CodexTraceSink,
+                       sampleCatalog?: SampleCatalog): CodexAgentSession => {
     const controlApi = new ControlApi(project)
     const catalog = new ToolCatalog()
-    const executor = new ToolExecutor(controlApi, catalog)
+    const executor = new ToolExecutor(controlApi, catalog, undefined, sampleCatalog)
     const transport = new WebSocketCodexTransport(url, undefined, traceSink)
     const rpc = new CodexRpcClient(transport, traceSink)
     return new CodexSession({rpc, catalog, executor, traceSink})
@@ -138,7 +141,7 @@ export class CodexAgentController {
             console.debug(`[Codex][${event.layer}] ${event.phase}`, event)
         }
         this.#createSession = options.createSession ?? ((project, traceSink) =>
-            createSession(this.#appServerUrl(), project, traceSink))
+            createSession(this.#appServerUrl(), project, traceSink, options.sampleCatalog))
         this.#modelSelectionSubscription = this.selectedModel.subscribe(() => this.#updateEffortSelection())
         this.#effortSelectionSubscription = this.models.subscribe(() => this.#reconcileModelSelection())
     }

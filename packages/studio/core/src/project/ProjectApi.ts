@@ -71,6 +71,7 @@ import {
     TrackBoxAdapter,
     TrackType
 } from "@opendaw/studio-adapters"
+import type {Sample} from "@opendaw/studio-adapters"
 import {Project} from "./Project"
 import {ProjectModulation} from "./ProjectModulation"
 import {EffectFactory} from "../EffectFactory"
@@ -84,12 +85,6 @@ import {AudioWavExport} from "./AudioWavExport"
 export type ClipRegionOptions = {
     name?: string
     hue?: number
-}
-
-export type SampleReference = {
-    uuid: UUID.Bytes
-    name: string
-    durationInSeconds: number
 }
 
 export type NoteEventInput = {
@@ -118,8 +113,10 @@ export type PresetApplyOptions = {
     insertIndex?: int
 }
 
+export type NoteEventOwner = NoteRegionBox | NoteClipBox | NoteEventCollectionBox
+
 export type NoteEventParams = {
-    owner: { events: Field<Pointers.NoteEventCollection> }
+    owner: NoteEventOwner
     position: ppqn
     duration: ppqn
     pitch: int
@@ -250,13 +247,18 @@ export class ProjectApi {
         send.delete()
     }
 
-    assignSample(target: NanoDeviceBox | PlayfieldDeviceBox, sample: SampleReference, slot?: int): void {
+    assignSample(target: NanoDeviceBox | PlayfieldDeviceBox, sample: Sample, slot?: int): void {
+        const assignment = {
+            uuid: UUID.parse(sample.uuid),
+            name: sample.name,
+            durationInSeconds: sample.duration
+        }
         if (target instanceof NanoDeviceBox) {
             if (slot !== undefined) {throw new Error("Nano has one sample slot")}
-            SampleAssignment.assignNano(this.#project.boxGraph, target, sample)
+            SampleAssignment.assignNano(this.#project.boxGraph, target, assignment)
         } else {
             if (slot === undefined) {throw new Error("Playfield sample assignment requires a slot")}
-            SampleAssignment.assignPlayfield(this.#project.boxGraph, target, slot, sample)
+            SampleAssignment.assignPlayfield(this.#project.boxGraph, target, slot, assignment)
         }
     }
 
@@ -715,10 +717,10 @@ export class ProjectApi {
             })
     }
 
-    #noteEvents(field: Field<Pointers.NoteEventCollection>): Field<Pointers.NoteEvents> {
-        const collection = field instanceof PointerField
-            ? field.targetVertex.unwrap("Owner has no event-collection").box
-            : field.box
+    #noteEvents(owner: NoteEventOwner): Field<Pointers.NoteEvents> {
+        const collection = owner instanceof NoteEventCollectionBox
+            ? owner
+            : owner.events.targetVertex.unwrap("Owner has no event-collection").box
         return collection.asBox(NoteEventCollectionBox).events
     }
 
@@ -738,11 +740,11 @@ export class ProjectApi {
             box.pitch.setValue(pitch)
             box.chance.setValue(chance ?? 100.0)
             box.cent.setValue(cent ?? 0.0)
-            box.events.refer(this.#noteEvents(owner.events))
+            box.events.refer(this.#noteEvents(owner))
         })
     }
 
-    createNoteEvents(collection: Field<Pointers.NoteEventCollection>,
+    createNoteEvents(owner: NoteEventOwner,
                      events: ReadonlyArray<NoteEventInput>): ReadonlyArray<NoteEventBox> {
         return events.map(({position, duration, pitch, cent, velocity, chance, playCount}) =>
             NoteEventBox.create(this.#project.boxGraph, UUID.generate(), box => {
@@ -753,7 +755,7 @@ export class ProjectApi {
                 box.velocity.setValue(velocity ?? 1.0)
                 box.chance.setValue(chance ?? 100)
                 box.playCount.setValue(playCount ?? 1)
-                box.events.refer(this.#noteEvents(collection))
+                box.events.refer(this.#noteEvents(owner))
             }))
     }
 

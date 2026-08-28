@@ -5,6 +5,9 @@ export type {
     ResourceKind,
     ResourceQuery,
     ResourceQueryResult,
+    SampleCatalog,
+    SampleQuery,
+    SampleQueryResult,
     ToolBinding,
     ToolCatalogSpec,
     ToolExposure,
@@ -15,7 +18,7 @@ export type {
     ToolSpec,
     ToolSuccess
 } from "./types"
-export {typeSpecToJsonSchema, operationInputSchema} from "./ToolSchema"
+export {typeSpecToJsonSchema, operationInputSchema, sampleQueryInputSchema} from "./ToolSchema"
 export {ToolCatalog, toToolName} from "./ToolCatalog"
 export {ResourceTools} from "./ResourceTools"
 export {ToolExecutor} from "./ToolExecutor"

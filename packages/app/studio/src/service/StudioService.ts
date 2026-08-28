@@ -105,7 +105,7 @@ export class StudioService implements ProjectEnv {
         screen: new DefaultObservableValue<Nullable<Workspace.ScreenKeys>>("default")
     } as const
     readonly browseScope = new DefaultObservableValue(BrowseScope.Presets)
-    readonly codexAgent = new CodexAgentController()
+    readonly codexAgent: CodexAgentController
     readonly timeline = {
         range,
         snapping,
@@ -159,6 +159,7 @@ export class StudioService implements ProjectEnv {
             type: "import-sample",
             sample
         }))
+        this.codexAgent = new CodexAgentController({sampleCatalog: this.#sampleService})
         this.#soundfontService = new SoundfontService()
         this.#soundfontService.subscribe(([soundfont, _]) => this.#signals.notify({
             type: "import-soundfont",

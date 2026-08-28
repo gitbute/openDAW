@@ -27,9 +27,34 @@ const strictObject = (properties: Readonly<Record<string, JsonSchema>>,
     additionalProperties: false
 })
 
-const handleSchema = (): JsonSchema => strictObject({
-    $address: {type: "string"}
-}, ["$address"])
+type HandleSpec = Extract<TypeSpec, {readonly kind: "handle"}>
+
+const indefiniteArticle = (name: string): "a" | "an" => /^[aeiou]/i.test(name) ? "an" : "a"
+
+const listValues = (values: ReadonlyArray<string>): string => {
+    if (values.length <= 1) {return values[0] ?? ""}
+    if (values.length === 2) {return `${values[0]} or ${values[1]}`}
+    return `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`
+}
+
+const handleDescription = (spec: HandleSpec): string => {
+    const constraints = spec.constraintMembers?.length === undefined || spec.constraintMembers.length === 0
+        ? spec.constraint === undefined ? [] : [spec.constraint]
+        : spec.constraintMembers
+    if (spec.handle === "field" || spec.handle === "pointerField" || spec.handle === "primitiveField") {
+        return constraints.length === 0
+            ? `${spec.name} handle.`
+            : `${spec.name} handle accepting ${listValues(constraints)}.`
+    }
+    return `Handle to ${indefiniteArticle(spec.name)} ${spec.name}.`
+}
+
+const handleSchema = (spec?: HandleSpec): JsonSchema => ({
+    ...strictObject({
+        $address: {type: "string"}
+    }, ["$address"]),
+    ...(spec === undefined ? {} : {description: handleDescription(spec)})
+})
 
 const instrumentOptionsSchema = (): JsonSchema => strictObject({
     name: {type: "string"},
@@ -93,7 +118,7 @@ export const typeSpecToJsonSchema = (spec: TypeSpec): JsonSchema => {
                 ? typeSpecToJsonSchema(spec.alternatives[0])
                 : {anyOf: spec.alternatives.map(typeSpecToJsonSchema)}
         case "handle":
-            return handleSchema()
+            return handleSchema(spec)
         case "factory":
             return {
                 type: "string",
@@ -153,6 +178,17 @@ export const resourceQueryInputSchema: JsonSchema = strictObject({
     type: {type: "string"},
     owner: handleSchema(),
     limit: {type: "integer", minimum: 0},
+    offset: {type: "integer", minimum: 0}
+}, [])
+
+export const sampleQueryInputSchema: JsonSchema = strictObject({
+    text: {type: "string"},
+    origin: literalSchema(["openDAW", "recording", "import"]),
+    minBpm: {type: "number"},
+    maxBpm: {type: "number"},
+    minDuration: {type: "number"},
+    maxDuration: {type: "number"},
+    limit: {type: "integer", minimum: 0, maximum: 50},
     offset: {type: "integer", minimum: 0}
 }, [])
 

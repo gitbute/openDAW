@@ -1,4 +1,5 @@
 import type {ControlHandle, JsonObject, JsonValue, OperationDescriptor} from "../control-api/types"
+import type {Sample} from "@opendaw/studio-adapters"
 
 export type JsonSchemaType = "object" | "array" | "string" | "number" | "integer" | "boolean" | "null"
 
@@ -44,6 +45,10 @@ export type ToolCatalogSpec = {
 
 export type ResourceKind = "box" | "field" | "adapter" | "parameter"
 
+export type SampleCatalog = {
+    list(): Promise<ReadonlyArray<Sample>>
+}
+
 export type ResourceQuery = {
     readonly kind?: ResourceKind
     readonly text?: string
@@ -54,6 +59,18 @@ export type ResourceQuery = {
 }
 
 export type ResourceToolName = "query_resources" | "inspect_resource"
+    | "query_samples"
+
+export type SampleQuery = {
+    readonly text?: string
+    readonly origin?: Sample["origin"]
+    readonly minBpm?: number
+    readonly maxBpm?: number
+    readonly minDuration?: number
+    readonly maxDuration?: number
+    readonly limit?: number
+    readonly offset?: number
+}
 
 export type ToolBinding = {
     readonly spec: ToolSpec
@@ -81,6 +98,13 @@ export type ToolResult = ToolSuccess | ToolFailure
 
 export type ResourceQueryResult = {
     readonly resources: ReadonlyArray<JsonObject>
+    readonly total: number
+    readonly limit: number
+    readonly offset: number
+}
+
+export type SampleQueryResult = {
+    readonly samples: ReadonlyArray<Sample>
     readonly total: number
     readonly limit: number
     readonly offset: number

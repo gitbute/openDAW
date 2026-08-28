@@ -363,10 +363,25 @@ export const generatedControlManifest: GeneratedManifest = {
                     },
                     "type": {
                         "kind": "object",
-                        "name": "SampleReference",
                         "properties": [
                             {
-                                "name": "durationInSeconds",
+                                "name": "bpm",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number"
+                                }
+                            },
+                            {
+                                "name": "custom",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "name": "duration",
                                 "optional": false,
                                 "type": {
                                     "kind": "primitive",
@@ -382,10 +397,31 @@ export const generatedControlManifest: GeneratedManifest = {
                                 }
                             },
                             {
+                                "name": "origin",
+                                "optional": false,
+                                "type": {
+                                    "kind": "literal",
+                                    "values": [
+                                        "openDAW",
+                                        "recording",
+                                        "import"
+                                    ]
+                                }
+                            },
+                            {
+                                "name": "sample_rate",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number"
+                                }
+                            },
+                            {
                                 "name": "uuid",
                                 "optional": false,
                                 "type": {
-                                    "kind": "uuid"
+                                    "kind": "primitive",
+                                    "type": "string"
                                 }
                             }
                         ]
@@ -2430,20 +2466,22 @@ export const generatedControlManifest: GeneratedManifest = {
                                 "name": "owner",
                                 "optional": false,
                                 "type": {
-                                    "kind": "object",
-                                    "properties": [
+                                    "kind": "union",
+                                    "alternatives": [
                                         {
-                                            "name": "events",
-                                            "optional": false,
-                                            "type": {
-                                                "kind": "handle",
-                                                "handle": "field",
-                                                "name": "Field",
-                                                "constraint": "Pointers.NoteEventCollection",
-                                                "constraintMembers": [
-                                                    "Pointers.NoteEventCollection"
-                                                ]
-                                            }
+                                            "kind": "handle",
+                                            "handle": "box",
+                                            "name": "NoteClipBox"
+                                        },
+                                        {
+                                            "kind": "handle",
+                                            "handle": "box",
+                                            "name": "NoteRegionBox"
+                                        },
+                                        {
+                                            "kind": "handle",
+                                            "handle": "box",
+                                            "name": "NoteEventCollectionBox"
                                         }
                                     ]
                                 }
@@ -2495,19 +2533,30 @@ export const generatedControlManifest: GeneratedManifest = {
             "async": false,
             "parameters": [
                 {
-                    "name": "collection",
+                    "name": "owner",
                     "optional": false,
                     "binding": {
                         "kind": "identifier",
-                        "name": "collection"
+                        "name": "owner"
                     },
                     "type": {
-                        "kind": "handle",
-                        "handle": "field",
-                        "name": "Field",
-                        "constraint": "Pointers.NoteEventCollection",
-                        "constraintMembers": [
-                            "Pointers.NoteEventCollection"
+                        "kind": "union",
+                        "alternatives": [
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "NoteClipBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "NoteRegionBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "NoteEventCollectionBox"
+                            }
                         ]
                     }
                 },

@@ -1,7 +1,8 @@
 import {describe, expect, it} from "vitest"
-import {Field, PointerField} from "@opendaw/lib-box"
+import {Field} from "@opendaw/lib-box"
 import {isDefined, Option, Terminable, UUID} from "@opendaw/lib-std"
 import {ProjectSkeleton} from "@opendaw/studio-adapters"
+import {NoteRegionBox} from "@opendaw/studio-boxes"
 import {ControlApi} from "./ControlApi"
 import {decodeType} from "./codec"
 import {generatedControlManifest} from "./generated"
@@ -63,6 +64,11 @@ const asHandle = (value: JsonValue): ControlHandle => {
     return {$address: object.$address}
 }
 
+const asHandles = (value: JsonValue): ReadonlyArray<ControlHandle> => {
+    if (!Array.isArray(value)) {throw new Error("Expected an array of control handles")}
+    return value.map(asHandle)
+}
+
 const operation = (id: string): OperationDescriptor => {
     const result = generatedControlManifest.operations.find(candidate => candidate.id === id)
     if (result === undefined) {throw new Error(`Missing generated operation ${id}`)}
@@ -95,13 +101,33 @@ describe("ControlApi", () => {
             const region = asHandle(call(api, "project.createNoteRegion", {
                 trackBox: track, position: 0, duration: 960, name: "Agent Region"
             }))
-            const events = fieldOf(api, region, "events")
-            expect(events).toBeInstanceOf(PointerField)
             const event = asHandle(call(api, "project.createNoteEvent", {
-                owner: {events: api.resolver.handle(events)},
+                owner: region,
                 position: 0,
                 duration: 240,
                 pitch: 60
+            }))
+            const regionEvents = asHandles(call(api, "project.createNoteEvents", {
+                owner: region,
+                events: [
+                    {position: 240, duration: 120, pitch: 64},
+                    {position: 480, duration: 120, pitch: 67}
+                ]
+            }))
+            const clip = asHandle(call(api, "project.createNoteClip", {
+                trackBox: track, clipIndex: 0
+            }))
+            const clipEvents = asHandles(call(api, "project.createNoteEvents", {
+                owner: clip,
+                events: [{position: 0, duration: 120, pitch: 72}]
+            }))
+            const regionBox = api.resolver.boxes()
+                .find(box => box.address.toString() === region.$address)
+            if (!(regionBox instanceof NoteRegionBox)) {throw new Error("Missing note region")}
+            const collection = regionBox.events.targetVertex.unwrap("Missing event collection").box
+            const collectionEvents = asHandles(call(api, "project.createNoteEvents", {
+                owner: api.resolver.handle(collection),
+                events: [{position: 0, duration: 120, pitch: 36}]
             }))
             const noteAdapter = api.resolver.adapters().find(adapter =>
                 adapter.box.address.toString() === event.$address && adapter.constructor.name === "NoteEventBoxAdapter")
@@ -117,6 +143,9 @@ describe("ControlApi", () => {
                 && box.name === "NoteRegionBox")).toBe(true)
             expect(api.resolver.boxes().some(box => box.address.toString() === event.$address
                 && box.name === "NoteEventBox")).toBe(true)
+            expect(regionEvents).toHaveLength(2)
+            expect(clipEvents).toHaveLength(1)
+            expect(collectionEvents).toHaveLength(1)
             expect(Array.isArray(duplicate)).toBe(true)
         } finally {
             project.terminate()
@@ -205,7 +234,7 @@ describe("ControlApi", () => {
         }
     })
 
-    it("rejects unknown nested object properties", async () => {
+    it("rejects unknown arguments", async () => {
         const {project, api} = await createProject()
         try {
             const product = asObject(call(api, "project.createAnyInstrument", {factory: "Vaporisateur"}))
@@ -215,10 +244,9 @@ describe("ControlApi", () => {
             const region = asHandle(call(api, "project.createNoteRegion", {
                 trackBox: track, position: 0, duration: 960
             }))
-            const events = api.resolver.handle(fieldOf(api, region, "events"))
             expect(() => call(api, "project.createNoteEvent", {
-                owner: {events, ignored: true}, position: 0, duration: 240, pitch: 60
-            })).toThrow(/Unknown property 'ignored'/)
+                owner: region, ignored: true, position: 0, duration: 240, pitch: 60
+            })).toThrow(/Unknown argument 'ignored'/)
         } finally {
             project.terminate()
         }

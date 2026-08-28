@@ -1,12 +1,16 @@
 import {Address, Box, Field, PointerField, PrimitiveField} from "@opendaw/lib-box"
 import {AutomatableParameterFieldAdapter, BoxAdapter} from "@opendaw/studio-adapters"
+import type {Sample} from "@opendaw/studio-adapters"
 import {ControlResolver} from "../control-api/ControlResolver"
 import type {JsonObject, JsonValue} from "../control-api/types"
 import type {
     ResourceInspectionResult,
     ResourceKind,
     ResourceQuery,
-    ResourceQueryResult
+    ResourceQueryResult,
+    SampleCatalog,
+    SampleQuery,
+    SampleQueryResult
 } from "./types"
 
 type ResourceEntry = {
@@ -33,6 +37,9 @@ const boxSpec = {
 const knownKinds: ReadonlyArray<ResourceKind> = ["box", "field", "adapter", "parameter"]
 const kindOrder: Readonly<Record<ResourceKind, number>> = {box: 0, field: 1, adapter: 2, parameter: 3}
 const defaultLimit = 100
+const sampleDefaultLimit = 50
+const sampleMaxLimit = 50
+const sampleOrigins: ReadonlyArray<Sample["origin"]> = ["openDAW", "recording", "import"]
 
 const asJsonValue = (value: unknown): JsonValue | undefined => {
     if (value === null || typeof value === "boolean" || typeof value === "string") {return value}
@@ -229,10 +236,42 @@ const optionalNonNegativeInteger = (value: JsonObject, name: string): number | u
     return candidate
 }
 
+const optionalFiniteNumber = (value: JsonObject, name: string): number | undefined => {
+    const candidate = value[name]
+    if (candidate === undefined) {return undefined}
+    if (typeof candidate !== "number" || !Number.isFinite(candidate)) {
+        throw new Error(`${name} must be a finite number`)
+    }
+    return candidate
+}
+
+const optionalSampleOrigin = (value: JsonObject): Sample["origin"] | undefined => {
+    const candidate = value.origin
+    if (candidate === undefined) {return undefined}
+    if (typeof candidate !== "string" || !sampleOrigins.includes(candidate as Sample["origin"])) {
+        throw new Error("origin must be one of openDAW, recording, import")
+    }
+    return candidate as Sample["origin"]
+}
+
+const sampleView = (sample: Sample): Sample => ({
+    uuid: sample.uuid,
+    name: sample.name,
+    bpm: sample.bpm,
+    duration: sample.duration,
+    sample_rate: sample.sample_rate,
+    origin: sample.origin,
+    ...(sample.custom === undefined ? {} : {custom: sample.custom})
+})
+
 export class ResourceTools {
     readonly #resolver: ControlResolver
+    readonly #sampleCatalog: SampleCatalog | undefined
 
-    constructor(resolver: ControlResolver) {this.#resolver = resolver}
+    constructor(resolver: ControlResolver, sampleCatalog?: SampleCatalog) {
+        this.#resolver = resolver
+        this.#sampleCatalog = sampleCatalog
+    }
 
     query(input: ResourceQuery | JsonObject = {}): ResourceQueryResult {
         const value = assertRecord(input, "query_resources input")
@@ -260,6 +299,40 @@ export class ResourceTools {
             .filter(candidate => text === undefined || candidate.search.includes(text))
         const resources = matching.slice(offset, offset + limit).map(candidate => candidate.view)
         return {resources, total: matching.length, limit, offset}
+    }
+
+    async querySamples(input: SampleQuery | JsonObject = {}): Promise<SampleQueryResult> {
+        const value = assertRecord(input, "query_samples input")
+        assertKnownProperties(value, [
+            "text", "origin", "minBpm", "maxBpm", "minDuration", "maxDuration", "limit", "offset"
+        ], "query_samples input")
+        const text = optionalString(value, "text")?.trim().toLocaleLowerCase()
+        const origin = optionalSampleOrigin(value)
+        const minBpm = optionalFiniteNumber(value, "minBpm")
+        const maxBpm = optionalFiniteNumber(value, "maxBpm")
+        const minDuration = optionalFiniteNumber(value, "minDuration")
+        const maxDuration = optionalFiniteNumber(value, "maxDuration")
+        const requestedLimit = optionalNonNegativeInteger(value, "limit") ?? sampleDefaultLimit
+        const limit = Math.min(requestedLimit, sampleMaxLimit)
+        const offset = optionalNonNegativeInteger(value, "offset") ?? 0
+        const catalog = this.#sampleCatalog
+        if (catalog === undefined) {throw new Error("Sample catalog is unavailable.")}
+        const samples = await catalog.list()
+        const matching = samples
+            .filter(sample => origin === undefined || sample.origin === origin)
+            .filter(sample => minBpm === undefined || sample.bpm >= minBpm)
+            .filter(sample => maxBpm === undefined || sample.bpm <= maxBpm)
+            .filter(sample => minDuration === undefined || sample.duration >= minDuration)
+            .filter(sample => maxDuration === undefined || sample.duration <= maxDuration)
+            .filter(sample => text === undefined
+                || [sample.name, sample.custom ?? "", sample.origin]
+                    .join(" ").toLocaleLowerCase().includes(text))
+        return {
+            samples: matching.slice(offset, offset + limit).map(sampleView),
+            total: matching.length,
+            limit,
+            offset
+        }
     }
 
     inspect(input: JsonObject): ResourceInspectionResult {
