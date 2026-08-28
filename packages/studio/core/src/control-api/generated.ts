@@ -323,10 +323,10 @@ export const generatedControlManifest: GeneratedManifest = {
             }
         },
         {
-            "id": "project.assignSample",
+            "id": "project.assignNanoSample",
             "root": "project",
             "ownerType": "ProjectApi",
-            "method": "assignSample",
+            "method": "assignNanoSample",
             "target": "singleton",
             "transaction": "editing",
             "async": false,
@@ -339,19 +339,110 @@ export const generatedControlManifest: GeneratedManifest = {
                         "name": "target"
                     },
                     "type": {
-                        "kind": "union",
-                        "alternatives": [
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "NanoDeviceBox"
+                    }
+                },
+                {
+                    "name": "sample",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "sample"
+                    },
+                    "type": {
+                        "kind": "object",
+                        "properties": [
                             {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "NanoDeviceBox"
+                                "name": "bpm",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number"
+                                }
                             },
                             {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "PlayfieldDeviceBox"
+                                "name": "custom",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "name": "duration",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number"
+                                }
+                            },
+                            {
+                                "name": "name",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "name": "origin",
+                                "optional": false,
+                                "type": {
+                                    "kind": "literal",
+                                    "values": [
+                                        "openDAW",
+                                        "recording",
+                                        "import"
+                                    ]
+                                }
+                            },
+                            {
+                                "name": "sample_rate",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number"
+                                }
+                            },
+                            {
+                                "name": "uuid",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "string"
+                                }
                             }
                         ]
+                    }
+                }
+            ],
+            "result": {
+                "kind": "void"
+            },
+            "description": "Assign a canonical sample to the Nano instrument, which has no MIDI-note/sample-slot argument."
+        },
+        {
+            "id": "project.assignPlayfieldSample",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "assignPlayfieldSample",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "target",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
+                    "type": {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "PlayfieldDeviceBox"
                     }
                 },
                 {
@@ -428,11 +519,11 @@ export const generatedControlManifest: GeneratedManifest = {
                     }
                 },
                 {
-                    "name": "slot",
-                    "optional": true,
+                    "name": "midiNote",
+                    "optional": false,
                     "binding": {
                         "kind": "identifier",
-                        "name": "slot"
+                        "name": "midiNote"
                     },
                     "type": {
                         "kind": "primitive",
@@ -443,13 +534,14 @@ export const generatedControlManifest: GeneratedManifest = {
             ],
             "result": {
                 "kind": "void"
-            }
+            },
+            "description": "Assign a canonical sample to a Playfield slot.\nmidiNote is the absolute MIDI pitch and Playfield slot index in the range 0..127.\nNote events in the pattern must use the same MIDI pitch to trigger this sample."
         },
         {
-            "id": "project.removeSample",
+            "id": "project.removeNanoSample",
             "root": "project",
             "ownerType": "ProjectApi",
-            "method": "removeSample",
+            "method": "removeNanoSample",
             "target": "singleton",
             "transaction": "editing",
             "async": false,
@@ -462,27 +554,45 @@ export const generatedControlManifest: GeneratedManifest = {
                         "name": "target"
                     },
                     "type": {
-                        "kind": "union",
-                        "alternatives": [
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "NanoDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "PlayfieldDeviceBox"
-                            }
-                        ]
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "NanoDeviceBox"
+                    }
+                }
+            ],
+            "result": {
+                "kind": "void"
+            },
+            "description": "Remove the sample assigned to a Nano instrument."
+        },
+        {
+            "id": "project.removePlayfieldSample",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "removePlayfieldSample",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "target",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
+                    "type": {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "PlayfieldDeviceBox"
                     }
                 },
                 {
-                    "name": "slot",
-                    "optional": true,
+                    "name": "midiNote",
+                    "optional": false,
                     "binding": {
                         "kind": "identifier",
-                        "name": "slot"
+                        "name": "midiNote"
                     },
                     "type": {
                         "kind": "primitive",
@@ -493,7 +603,8 @@ export const generatedControlManifest: GeneratedManifest = {
             ],
             "result": {
                 "kind": "void"
-            }
+            },
+            "description": "Remove the sample assigned to a Playfield absolute MIDI-note/sample slot."
         },
         {
             "id": "project.insertEffect",
@@ -1496,7 +1607,8 @@ export const generatedControlManifest: GeneratedManifest = {
                 "kind": "handle",
                 "handle": "box",
                 "name": "NoteClipBox"
-            }
+            },
+            "description": "Create a note clip on a TrackBox of type TrackType.Notes with its own note-event collection."
         },
         {
             "id": "project.createAudioClip",
@@ -2104,11 +2216,11 @@ export const generatedControlManifest: GeneratedManifest = {
                                 }
                             },
                             {
-                                "name": "eventCollection",
+                                "name": "eventOwner",
                                 "optional": false,
                                 "binding": {
                                     "kind": "identifier",
-                                    "name": "eventCollection"
+                                    "name": "eventOwner"
                                 }
                             },
                             {
@@ -2151,21 +2263,36 @@ export const generatedControlManifest: GeneratedManifest = {
                                 }
                             },
                             {
-                                "name": "eventCollection",
-                                "optional": true,
-                                "type": {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "NoteEventCollectionBox"
-                                }
-                            },
-                            {
                                 "name": "eventOffset",
                                 "optional": true,
                                 "type": {
                                     "kind": "primitive",
                                     "type": "number",
                                     "semantic": "ppqn"
+                                }
+                            },
+                            {
+                                "name": "eventOwner",
+                                "optional": true,
+                                "type": {
+                                    "kind": "union",
+                                    "alternatives": [
+                                        {
+                                            "kind": "handle",
+                                            "handle": "box",
+                                            "name": "NoteClipBox"
+                                        },
+                                        {
+                                            "kind": "handle",
+                                            "handle": "box",
+                                            "name": "NoteRegionBox"
+                                        },
+                                        {
+                                            "kind": "handle",
+                                            "handle": "box",
+                                            "name": "NoteEventCollectionBox"
+                                        }
+                                    ]
                                 }
                             },
                             {
@@ -2239,7 +2366,8 @@ export const generatedControlManifest: GeneratedManifest = {
                 "kind": "handle",
                 "handle": "box",
                 "name": "NoteRegionBox"
-            }
+            },
+            "description": "Create a note region on a TrackBox of type TrackType.Notes.\nWhen eventOwner is supplied, it may be a NoteRegionBox, NoteClipBox, or NoteEventCollectionBox;\nthe supplied owner's note-event collection is reused."
         },
         {
             "id": "project.createTrackRegion",
@@ -2521,7 +2649,8 @@ export const generatedControlManifest: GeneratedManifest = {
                 "kind": "handle",
                 "handle": "box",
                 "name": "NoteEventBox"
-            }
+            },
+            "description": "Create one note event in the owner's underlying note-event collection.\nPass the semantic owner box directly: the NoteRegionBox, NoteClipBox, or NoteEventCollectionBox itself;\ndo not pass an events field handle."
         },
         {
             "id": "project.createNoteEvents",
@@ -2647,7 +2776,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "handle": "box",
                     "name": "NoteEventBox"
                 }
-            }
+            },
+            "description": "Create note events in the owner's underlying note-event collection.\nPass the semantic owner box directly; do not pass an events field handle or field address.\nAll events are added to that owner."
         },
         {
             "id": "project.deleteNoteEvents",

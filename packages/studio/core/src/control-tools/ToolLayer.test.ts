@@ -2,7 +2,13 @@ import {describe, expect, it, vi} from "vitest"
 import {isDefined, Option, Terminable, UUID} from "@opendaw/lib-std"
 import type {Sample} from "@opendaw/studio-adapters"
 import {ProjectSkeleton} from "@opendaw/studio-adapters"
-import {AudioFileBox, NanoDeviceBox, PlayfieldDeviceBox, PlayfieldSampleBox} from "@opendaw/studio-boxes"
+import {
+    AudioFileBox,
+    NanoDeviceBox,
+    NoteEventBox,
+    PlayfieldDeviceBox,
+    PlayfieldSampleBox
+} from "@opendaw/studio-boxes"
 import {Project} from "../project/Project"
 import type {ProjectEnv} from "../project/ProjectEnv"
 import {ControlApi} from "../control-api/ControlApi"
@@ -182,6 +188,37 @@ describe("Slice 2 control tools", () => {
         }
     })
 
+    it("exposes explicit sample assignment tools and canonical note-owner documentation", () => {
+        const catalog = new ToolCatalog()
+        expect(catalog.get("daw_project", "assign_sample")).toBeUndefined()
+        expect(catalog.get("daw_project", "assign_nano_sample")).toBeDefined()
+        const playfield = catalog.get("daw_project", "assign_playfield_sample")
+        expect(playfield).toBeDefined()
+        expect(playfield?.spec.inputSchema.properties?.midiNote).toMatchObject({
+            type: "number",
+            description: expect.stringContaining("Semantic type: int")
+        })
+        expect(playfield?.spec.description).toContain("absolute MIDI pitch")
+        expect(playfield?.spec.description).toContain("same MIDI pitch")
+
+        const region = catalog.get("daw_project", "create_note_region")?.spec
+        expect(region?.inputSchema.properties?.eventOwner?.anyOf?.map(schema => schema.description))
+            .toEqual(expect.arrayContaining([
+                "Handle to a NoteRegionBox.",
+                "Handle to a NoteClipBox.",
+                "Handle to a NoteEventCollectionBox."
+            ]))
+        expect(region?.description).toContain("eventOwner")
+        expect(region?.description).toContain("note-event collection is reused")
+        expect(catalog.get("daw_project", "create_note_clip")?.spec.description)
+            .toContain("TrackBox of type TrackType.Notes")
+        for (const name of ["create_note_event", "create_note_events"]) {
+            const description = catalog.get("daw_project", name)?.spec.description
+            expect(description).toContain("semantic owner box directly")
+            expect(description).toContain("do not pass an events field handle")
+        }
+    })
+
     it("queries the injected canonical sample catalog with text filters and bounded pages", async () => {
         const samples = [
             sample("00000000-0000-4000-8000-000000000001", "808 Kick", "openDAW", 120, 0.5, "drum"),
@@ -225,7 +262,7 @@ describe("Slice 2 control tools", () => {
                 factory: "Nano"
             }))
             const nanoHandle = handleValue(nanoProduct.instrumentBox)
-            await run(executor, "daw_project", "assign_sample", {
+            await run(executor, "daw_project", "assign_nano_sample", {
                 target: nanoHandle, sample: returnedSample
             })
             const nano = controlApi.resolver.resolve({
@@ -239,8 +276,8 @@ describe("Slice 2 control tools", () => {
                 factory: "Playfield"
             }))
             const playfieldHandle = handleValue(playfieldProduct.instrumentBox)
-            await run(executor, "daw_project", "assign_sample", {
-                target: playfieldHandle, sample: returnedSample, slot: 2
+            await run(executor, "daw_project", "assign_playfield_sample", {
+                target: playfieldHandle, sample: returnedSample, midiNote: 36
             })
             const playfield = controlApi.resolver.resolve({
                 kind: "handle", handle: "box", name: "PlayfieldDeviceBox"
@@ -249,10 +286,35 @@ describe("Slice 2 control tools", () => {
             const slots = (playfield as PlayfieldDeviceBox).samples.pointerHub.incoming()
             expect(slots).toHaveLength(1)
             const slot = slots[0].box as PlayfieldSampleBox
-            expect(slot.index.getValue()).toBe(2)
+            expect(slot.index.getValue()).toBe(36)
             expect(slot.file.targetVertex.unwrap("Playfield sample was not assigned").box).toBe(nanoFile)
             expect(nanoFile.fileName.getValue()).toBe(queried.name)
             expect(nanoFile.endInSeconds.getValue()).toBe(queried.duration)
+
+            const track = handleValue(await run(executor, "daw_project", "create_note_track", {
+                audioUnitBox: handleValue(playfieldProduct.audioUnitBox)
+            }))
+            const region = handleValue(await run(executor, "daw_project", "create_note_region", {
+                trackBox: track, position: 0, duration: 960
+            }))
+            const events = arrayValue(await run(executor, "daw_project", "create_note_events", {
+                owner: region, events: [{position: 0, duration: 120, pitch: 36}]
+            }))
+            expect(events).toHaveLength(1)
+            const event = controlApi.resolver.boxes().find(box =>
+                box.address.toString() === handleValue(events[0]).$address)
+            expect(event).toBeInstanceOf(NoteEventBox)
+            if (!(event instanceof NoteEventBox)) {throw new Error("Missing note event")}
+            expect(event.pitch.getValue()).toBe(slot.index.getValue())
+
+            for (const midiNote of [-1, 128, 36.5]) {
+                await expect(executor.execute({namespace: "daw_project", name: "assign_playfield_sample", arguments: {
+                    target: playfieldHandle, sample: returnedSample, midiNote
+                }})).resolves.toMatchObject({
+                    ok: false,
+                    error: expect.stringContaining("midiNote must be an integer in the range 0..127")
+                })
+            }
         } finally {
             project.terminate()
         }

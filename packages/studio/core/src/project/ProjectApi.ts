@@ -132,7 +132,7 @@ export type NoteRegionParams = {
     loopOffset?: ppqn
     loopDuration?: ppqn
     eventOffset?: ppqn
-    eventCollection?: NoteEventCollectionBox
+    eventOwner?: NoteEventOwner
     mute?: boolean
     name?: string
     hue?: number
@@ -147,6 +147,12 @@ export type QuantiseNotesOptions = {
     positionQuantisation?: ppqn
     durationQuantisation?: ppqn
     offset?: ppqn
+}
+
+const validateMidiNote = (midiNote: int): void => {
+    if (!Number.isInteger(midiNote) || midiNote < 0 || midiNote > 127) {
+        throw new Error("midiNote must be an integer in the range 0..127")
+    }
 }
 
 // noinspection JSUnusedGlobalSymbols
@@ -247,29 +253,40 @@ export class ProjectApi {
         send.delete()
     }
 
-    assignSample(target: NanoDeviceBox | PlayfieldDeviceBox, sample: Sample, slot?: int): void {
+    /** Assign a canonical sample to the Nano instrument, which has no MIDI-note/sample-slot argument. */
+    assignNanoSample(target: NanoDeviceBox, sample: Sample): void {
         const assignment = {
             uuid: UUID.parse(sample.uuid),
             name: sample.name,
             durationInSeconds: sample.duration
         }
-        if (target instanceof NanoDeviceBox) {
-            if (slot !== undefined) {throw new Error("Nano has one sample slot")}
-            SampleAssignment.assignNano(this.#project.boxGraph, target, assignment)
-        } else {
-            if (slot === undefined) {throw new Error("Playfield sample assignment requires a slot")}
-            SampleAssignment.assignPlayfield(this.#project.boxGraph, target, slot, assignment)
-        }
+        SampleAssignment.assignNano(this.#project.boxGraph, target, assignment)
     }
 
-    removeSample(target: NanoDeviceBox | PlayfieldDeviceBox, slot?: int): void {
-        if (target instanceof NanoDeviceBox) {
-            if (slot !== undefined) {throw new Error("Nano has one sample slot")}
-            SampleAssignment.removeNano(target)
-        } else {
-            if (slot === undefined) {throw new Error("Playfield sample removal requires a slot")}
-            SampleAssignment.removePlayfield(target, slot)
+    /**
+     * Assign a canonical sample to a Playfield slot.
+     * midiNote is the absolute MIDI pitch and Playfield slot index in the range 0..127.
+     * Note events in the pattern must use the same MIDI pitch to trigger this sample.
+     */
+    assignPlayfieldSample(target: PlayfieldDeviceBox, sample: Sample, midiNote: int): void {
+        validateMidiNote(midiNote)
+        const assignment = {
+            uuid: UUID.parse(sample.uuid),
+            name: sample.name,
+            durationInSeconds: sample.duration
         }
+        SampleAssignment.assignPlayfield(this.#project.boxGraph, target, midiNote, assignment)
+    }
+
+    /** Remove the sample assigned to a Nano instrument. */
+    removeNanoSample(target: NanoDeviceBox): void {
+        SampleAssignment.removeNano(target)
+    }
+
+    /** Remove the sample assigned to a Playfield absolute MIDI-note/sample slot. */
+    removePlayfieldSample(target: PlayfieldDeviceBox, midiNote: int): void {
+        validateMidiNote(midiNote)
+        SampleAssignment.removePlayfield(target, midiNote)
     }
 
     replaceMIDIInstrument<A>(target: InstrumentBox,
@@ -416,6 +433,7 @@ export class ProjectApi {
         return AudioContentFactory.createNotStretchedRegion(props)
     }
 
+    /** Create a note clip on a TrackBox of type TrackType.Notes with its own note-event collection. */
     createNoteClip(trackBox: TrackBox, clipIndex: int, {name, hue}: ClipRegionOptions = {}): NoteClipBox {
         const {boxGraph} = this.#project
         const type = trackBox.type.getValue()
@@ -612,15 +630,22 @@ export class ProjectApi {
         })
     }
 
+    /**
+     * Create a note region on a TrackBox of type TrackType.Notes.
+     * When eventOwner is supplied, it may be a NoteRegionBox, NoteClipBox, or NoteEventCollectionBox;
+     * the supplied owner's note-event collection is reused.
+     */
     createNoteRegion({
                          trackBox, position, duration, loopOffset, loopDuration,
-                         eventOffset, eventCollection, mute, name, hue
+                         eventOffset, eventOwner, mute, name, hue
                      }: NoteRegionParams): NoteRegionBox {
         if (trackBox.type.getValue() !== TrackType.Notes) {
             console.warn("You should not create a note-region in mismatched track")
         }
         const {boxGraph} = this.#project
-        const events = eventCollection ?? NoteEventCollectionBox.create(boxGraph, UUID.generate())
+        const events = eventOwner === undefined
+            ? NoteEventCollectionBox.create(boxGraph, UUID.generate())
+            : this.#noteEventCollection(eventOwner)
         return NoteRegionBox.create(boxGraph, UUID.generate(), box => {
             box.position.setValue(position)
             box.label.setValue(name ?? "")
@@ -717,11 +742,15 @@ export class ProjectApi {
             })
     }
 
-    #noteEvents(owner: NoteEventOwner): Field<Pointers.NoteEvents> {
-        const collection = owner instanceof NoteEventCollectionBox
+    #noteEventCollection(owner: NoteEventOwner): NoteEventCollectionBox {
+        return owner instanceof NoteEventCollectionBox
             ? owner
             : owner.events.targetVertex.unwrap("Owner has no event-collection").box
-        return collection.asBox(NoteEventCollectionBox).events
+                .asBox(NoteEventCollectionBox)
+    }
+
+    #noteEvents(owner: NoteEventOwner): Field<Pointers.NoteEvents> {
+        return this.#noteEventCollection(owner).events
     }
 
     #valueEvents(field: Field<Pointers.ValueEventCollection>): Field<Pointers.ValueEvents> {
@@ -731,6 +760,11 @@ export class ProjectApi {
         return collection.asBox(ValueEventCollectionBox).events
     }
 
+    /**
+     * Create one note event in the owner's underlying note-event collection.
+     * Pass the semantic owner box directly: the NoteRegionBox, NoteClipBox, or NoteEventCollectionBox itself;
+     * do not pass an events field handle.
+     */
     createNoteEvent({owner, position, duration, velocity, pitch, chance, cent}: NoteEventParams): NoteEventBox {
         const {boxGraph} = this.#project
         return NoteEventBox.create(boxGraph, UUID.generate(), box => {
@@ -744,6 +778,11 @@ export class ProjectApi {
         })
     }
 
+    /**
+     * Create note events in the owner's underlying note-event collection.
+     * Pass the semantic owner box directly; do not pass an events field handle or field address.
+     * All events are added to that owner.
+     */
     createNoteEvents(owner: NoteEventOwner,
                      events: ReadonlyArray<NoteEventInput>): ReadonlyArray<NoteEventBox> {
         return events.map(({position, duration, pitch, cent, velocity, chance, playCount}) =>

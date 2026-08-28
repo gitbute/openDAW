@@ -2,7 +2,7 @@ import {describe, expect, it} from "vitest"
 import {Field} from "@opendaw/lib-box"
 import {isDefined, Option, Terminable, UUID} from "@opendaw/lib-std"
 import {ProjectSkeleton} from "@opendaw/studio-adapters"
-import {NoteRegionBox} from "@opendaw/studio-boxes"
+import {NoteClipBox, NoteEventCollectionBox, NoteRegionBox} from "@opendaw/studio-boxes"
 import {ControlApi} from "./ControlApi"
 import {decodeType} from "./codec"
 import {generatedControlManifest} from "./generated"
@@ -147,6 +147,60 @@ describe("ControlApi", () => {
             expect(clipEvents).toHaveLength(1)
             expect(collectionEvents).toHaveLength(1)
             expect(Array.isArray(duplicate)).toBe(true)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("reuses semantic note owners when creating note regions", async () => {
+        const {project, api} = await createProject()
+        try {
+            const product = asObject(call(api, "project.createAnyInstrument", {factory: "Vaporisateur"}))
+            const track = asHandle(call(api, "project.createNoteTrack", {
+                audioUnitBox: asHandle(product.audioUnitBox)
+            }))
+            const freshRegion = asHandle(call(api, "project.createNoteRegion", {
+                trackBox: track, position: 0, duration: 960
+            }))
+            const freshRegionBox = api.resolver.boxes()
+                .find(box => box.address.toString() === freshRegion.$address)
+            if (!(freshRegionBox instanceof NoteRegionBox)) {throw new Error("Missing fresh note region")}
+            const freshCollection = freshRegionBox.events.targetVertex.unwrap("Missing fresh collection").box
+            expect(freshCollection).toBeInstanceOf(NoteEventCollectionBox)
+
+            const clip = asHandle(call(api, "project.createNoteClip", {
+                trackBox: track, clipIndex: 0
+            }))
+            const clipBox = api.resolver.boxes().find(box => box.address.toString() === clip.$address)
+            if (!(clipBox instanceof NoteClipBox)) {throw new Error("Missing note clip")}
+            const clipCollection = clipBox.events.targetVertex.unwrap("Missing clip collection").box
+
+            const fromClip = asHandle(call(api, "project.createNoteRegion", {
+                trackBox: track, position: 960, duration: 480, eventOwner: clip
+            }))
+            const fromRegion = asHandle(call(api, "project.createNoteRegion", {
+                trackBox: track, position: 1440, duration: 480, eventOwner: freshRegion
+            }))
+            const fromCollection = asHandle(call(api, "project.createNoteRegion", {
+                trackBox: track, position: 1920, duration: 480,
+                eventOwner: api.resolver.handle(freshCollection)
+            }))
+            const collectionOf = (handle: ControlHandle): NoteEventCollectionBox => {
+                const box = api.resolver.boxes().find(candidate => candidate.address.toString() === handle.$address)
+                if (!(box instanceof NoteRegionBox)) {throw new Error("Expected a note region")}
+                const collection = box.events.targetVertex.unwrap("Missing note collection").box
+                if (!(collection instanceof NoteEventCollectionBox)) {throw new Error("Expected a note collection")}
+                return collection
+            }
+
+            expect(collectionOf(freshRegion)).not.toBe(clipCollection)
+            expect(collectionOf(fromClip)).toBe(clipCollection)
+            expect(collectionOf(fromRegion)).toBe(freshCollection)
+            expect(collectionOf(fromCollection)).toBe(freshCollection)
+            expect(asHandles(call(api, "project.createNoteEvents", {
+                owner: fromRegion,
+                events: [{position: 0, duration: 120, pitch: 36}]
+            }))).toHaveLength(1)
         } finally {
             project.terminate()
         }
