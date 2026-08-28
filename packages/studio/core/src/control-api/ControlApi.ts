@@ -2,8 +2,10 @@ import {Address, Box, Field, PointerField, PrimitiveField, PrimitiveType, Vertex
 import {Pointers} from "@opendaw/studio-enums"
 import type {AutomatableParameterFieldAdapter, BoxAdapter} from "@opendaw/studio-adapters"
 import {Project} from "../project/Project"
+import {ProjectResources} from "../project/ProjectResources"
 import {generatedControlManifest} from "./generated"
 import {decodeType, encodeType} from "./codec"
+import {choicesOf, constraintsOf, toJsonValue} from "./parameter-metadata"
 import {
     ControlCall,
     ControlBatchItem,
@@ -93,15 +95,6 @@ const pointerTypes = (field: Field): ReadonlyArray<string> => field.pointerRules
     .map(pointerTypeName)
     .filter((value): value is string => value !== undefined)
 
-const jsonValue = (value: unknown): JsonValue => {
-    if (value === null) {return null}
-    if (typeof value === "string" || typeof value === "boolean") {return value}
-    if (typeof value === "number") {return Number.isFinite(value) ? value : null}
-    if (ArrayBuffer.isView(value)) {return Array.from(value as unknown as ArrayLike<number>)}
-    if (Array.isArray(value)) {return value.map(jsonValue)}
-    return null
-}
-
 const printValue = (value: {readonly value: string, readonly unit: string}): ControlPrintValue => ({
     value: value.value,
     unit: value.unit
@@ -148,7 +141,8 @@ const inspectField = (field: Field): ControlFieldInspection => {
         ...(primitive ? {
             primitiveType: field.type,
             ...(fieldUnit(field) === undefined ? {} : {unit: fieldUnit(field)}),
-            value: jsonValue(field.getValue())
+            ...(constraintsOf(field) === undefined ? {} : {constraints: constraintsOf(field)}),
+            value: toJsonValue(field.getValue())
         } : {}),
         ...(pointer ? {
             ...(pointerTypeName(field.pointerType) === undefined ? {} : {pointerType: pointerTypeName(field.pointerType)}),
@@ -160,7 +154,9 @@ const inspectField = (field: Field): ControlFieldInspection => {
 const inspectParameter = (parameter: AutomatableParameterFieldAdapter): ControlInspection => {
     const field = parameter.field
     const unit = fieldUnit(field)
-    const rawValue = jsonValue(parameter.getValue())
+    const rawValue = toJsonValue(parameter.getValue())
+    const choices = choicesOf(parameter)
+    const constraints = constraintsOf(field)
     return {
         kind: "parameter",
         handle: handle("AutomatableParameterFieldAdapter", parameter.address),
@@ -174,8 +170,11 @@ const inspectParameter = (parameter: AutomatableParameterFieldAdapter): ControlI
         rawValue,
         unitValue: parameter.getUnitValue(),
         printValue: printValue(parameter.getPrintValue()),
-        controlledValue: jsonValue(parameter.getControlledValue()),
-        controlledPrintValue: printValue(parameter.getControlledPrintValue())
+        controlledValue: toJsonValue(parameter.getControlledValue()),
+        controlledPrintValue: printValue(parameter.getControlledPrintValue()),
+        owner: handle(field.box.name, field.box.address),
+        ...(constraints === undefined ? {} : {constraints}),
+        ...(choices.length === 0 ? {} : {choices})
     }
 }
 
@@ -209,10 +208,12 @@ const inspectAdapter = (adapter: BoxAdapter): ControlInspection => {
 
 export class ControlApi {
     readonly #project: Project
+    readonly #resources: ProjectResources
     readonly #operations: ReadonlyMap<string, OperationDescriptor>
 
     constructor(project: Project) {
         this.#project = project
+        this.#resources = new ProjectResources(project)
         this.#operations = new Map(generatedControlManifest.operations.map(operation => [operation.id, operation]))
     }
 
@@ -239,6 +240,29 @@ export class ControlApi {
 
     call(request: ControlCall): ReturnType<typeof encodeType> {
         const operation = this.#operation(request.operation)
+        if (operation.async) {
+            throw new Error(`[ControlApi] ${operation.id} is asynchronous; use callAsync`)
+        }
+        const {args, owner} = this.#decodeCall(operation, request)
+        const invoke = () => (owner as DynamicOwner)[operation.method](...args as never[])
+        const value = operation.transaction === "editing"
+            ? this.#project.editing.modify(invoke).unwrapOrUndefined()
+            : invoke()
+        return encodeType(operation.result, value)
+    }
+
+    async callAsync(request: ControlCall): Promise<ReturnType<typeof encodeType>> {
+        const operation = this.#operation(request.operation)
+        const {args, owner} = this.#decodeCall(operation, request)
+        if (!operation.async) {return this.call(request)}
+        // Async operations never hold a transaction open while waiting on a
+        // catalog/provider. Mutating async methods own their short live-model
+        // transaction after the await; read-only resources simply return.
+        const value = await (owner as DynamicOwner)[operation.method](...args as never[])
+        return encodeType(operation.result, value)
+    }
+
+    #decodeCall(operation: OperationDescriptor, request: ControlCall): {args: ReadonlyArray<unknown>, owner: object} {
         const input: JsonObject = request.arguments ?? {}
         const known = new Set(operation.parameters.map(parameter => parameter.name))
         Object.keys(input).forEach(name => {
@@ -250,11 +274,7 @@ export class ControlApi {
             return present ? decodeType(parameter.type, input[parameter.name], this.#project) : undefined
         })
         const owner = this.#resolveOwner(operation, request.target)
-        const invoke = () => (owner as DynamicOwner)[operation.method](...args as never[])
-        const value = operation.transaction === "editing"
-            ? this.#project.editing.modify(invoke).unwrapOrUndefined()
-            : invoke()
-        return encodeType(operation.result, value)
+        return {args, owner}
     }
 
     inspect(resource: ControlHandle): ControlInspection {
@@ -472,6 +492,7 @@ export class ControlApi {
             case "modulation": return this.#project.api.modulation
             case "transport": return this.#project.engine
             case "parameter": return this.#resolveTarget(target)
+            case "resources": return this.#resources
         }
     }
 

@@ -140,7 +140,8 @@ describe("ControlApi", () => {
             const volume = resource(api.find("parameter", "Volume"), entry => entry.name === "Volume")
             expect(volume.field).toBeDefined()
             if (volume.field === undefined) {throw new Error("Parameter field is missing")}
-            expect(() => api.set(volume.field, -12)).toThrow(/parameter API/)
+            const parameterField = volume.field
+            expect(() => api.set(parameterField, -12)).toThrow(/parameter API/)
             const before = call(api, "parameter.getValue", {}, volume.handle)
             expect(project.editing.canUndo()).toBe(false)
 
@@ -315,6 +316,130 @@ describe("ControlApi", () => {
             expect(api.snapshot({parameters: false}).boxes.filter(box => box.type === "NoteEventBox"))
                 .toHaveLength(3)
             expect(api.inspect(discoveredCutoff.handle).printValue).toMatchObject({value: "1200", unit: "Hz"})
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("discovers generic parameter metadata and project resources", async () => {
+        const {project, api} = await createProject()
+        try {
+            call(api, "project.createAnyInstrument", {factory: "Vaporisateur"})
+            const parameters = call(api, "project.resources.parameters")
+            if (!Array.isArray(parameters)) {throw new Error("Expected parameter resources")}
+            const waveform = parameters.find(value => asObject(value).name === "Waveform")
+            if (waveform === undefined) {throw new Error("Waveform parameter was not discovered")}
+            const waveformResource = asObject(waveform)
+            expect(waveformResource.owner).toMatchObject({$type: "VaporisateurDeviceBox"})
+            expect(waveformResource.field).toMatchObject({$type: "PrimitiveField"})
+            expect(waveformResource.constraints).toBeDefined()
+            expect(waveformResource.choices).toEqual(expect.arrayContaining([
+                {value: 0, label: "Sine", unit: ""},
+                {value: 3, label: "Square", unit: ""}
+            ]))
+
+            const factories = call(api, "project.resources.instrumentFactories")
+            if (!Array.isArray(factories)) {throw new Error("Expected instrument factory resources")}
+            expect(factories.some(value => asObject(value).key === "Vaporisateur")).toBe(true)
+            expect(() => JSON.stringify(parameters)).not.toThrow()
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("creates and routes a bus with an aux send through generic operations", async () => {
+        const {project, api} = await createProject()
+        try {
+            const product = asObject(call(api, "project.createAnyInstrument", {factory: "Vaporisateur"}))
+            const audioUnit = asHandle(product.audioUnitBox)
+            const bus = asHandle(call(api, "project.createAudioBus", {name: "Agent Bus"}))
+            call(api, "project.routeOutput", {audioUnitBox: audioUnit, target: bus})
+            const send = asHandle(call(api, "project.createAuxSend", {
+                audioUnitBox: audioUnit,
+                targetBus: bus,
+                sendGain: -9,
+                sendPan: 0
+            }))
+            expect(api.find("box", bus.$address).some(entry => entry.type === "AudioBusBox")).toBe(true)
+            expect(api.find("box", send.$address).some(entry => entry.type === "AuxSendBox")).toBe(true)
+            expect(project.editing.canUndo()).toBe(true)
+            expect(project.editing.undo()).toBe(true)
+            expect(api.find("box", send.$address)).toHaveLength(0)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("assigns and removes a discovered Playfield sample slot", async () => {
+        const {project, api} = await createProject()
+        try {
+            const product = asObject(call(api, "project.createAnyInstrument", {factory: "Playfield"}))
+            const target = asHandle(product.instrumentBox)
+            const sampleUuid = UUID.generate()
+            call(api, "project.assignSample", {
+                target,
+                sample: {uuid: UUID.toString(sampleUuid), name: "Agent Sample", durationInSeconds: 1.25},
+                slot: 36
+            })
+            const slots = call(api, "project.resources.playfieldSlots")
+            if (!Array.isArray(slots)) {throw new Error("Expected Playfield slot resources")}
+            const slot = slots.map(asObject).find(value => value.index === 36)
+            expect(slot).toMatchObject({fileName: "Agent Sample"})
+            if (slot === undefined) {throw new Error("Assigned Playfield slot was not discovered")}
+            call(api, "project.removeSample", {target, slot: 36})
+            expect(call(api, "project.resources.playfieldSlots")).toEqual([])
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("creates bulk notes and automation from discovered event owners", async () => {
+        const {project, api} = await createProject()
+        try {
+            const product = asObject(call(api, "project.createAnyInstrument", {factory: "Vaporisateur"}))
+            const audioUnit = asHandle(product.audioUnitBox)
+            const track = asHandle(call(api, "project.createNoteTrack", {audioUnitBox: audioUnit}))
+            const region = asHandle(call(api, "project.createNoteRegion", {
+                arg0: {trackBox: track, position: 0, duration: 1920, name: "Bulk Region"}
+            }))
+            const regionInspection = api.inspect(region)
+            const noteCollection = inspectedField(regionInspection, "events").target
+            if (noteCollection === undefined || noteCollection === null) {
+                throw new Error("Note event owner was not discoverable")
+            }
+            const notes = call(api, "project.createNoteEvents", {
+                collection: noteCollection,
+                events: [
+                    {position: 0, duration: 240, pitch: 60},
+                    {position: 480, duration: 240, pitch: 64}
+                ]
+            })
+            expect(Array.isArray(notes)).toBe(true)
+            expect(api.snapshot({parameters: false}).boxes.filter(box => box.type === "NoteEventBox")).toHaveLength(2)
+
+            const volume = resource(api.find("parameter", "Volume"), entry => entry.name === "Volume")
+            if (volume.field === undefined || volume.context?.box === undefined) {
+                throw new Error("Volume target was not discoverable")
+            }
+            const automationTrack = asHandle(call(api, "project.createAutomationTrack", {
+                audioUnitBox: volume.context.box,
+                target: volume.field
+            }))
+            const automationRegion = asHandle(call(api, "project.createTrackRegion", {
+                trackBox: automationTrack,
+                position: 0,
+                duration: 960
+            }))
+            const automationInspection = api.inspect(automationRegion)
+            const valueCollection = inspectedField(automationInspection, "events").target
+            if (valueCollection === undefined || valueCollection === null) {
+                throw new Error("Automation event owner was not discoverable")
+            }
+            call(api, "project.createValueEvents", {
+                collection: valueCollection,
+                events: [{position: 0, index: 0, value: 0.25, interpolation: "linear"}]
+            })
+            expect(api.snapshot({parameters: false}).boxes.some(box => box.type === "ValueEventBox")).toBe(true)
         } finally {
             project.terminate()
         }

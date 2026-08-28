@@ -44,7 +44,7 @@ export type ParameterSpec = {
 
 export type OperationDescriptor = {
     readonly id: string
-    readonly root: "project" | "modulation" | "transport" | "parameter"
+    readonly root: "project" | "modulation" | "transport" | "parameter" | "resources"
     readonly ownerType: string
     readonly method: string
     readonly target: "singleton" | "address"
@@ -91,6 +91,12 @@ export type ControlPrintValue = {
     readonly unit: string
 }
 
+export type ControlChoice = {
+    readonly value: JsonPrimitive
+    readonly label: string
+    readonly unit: string
+}
+
 export type ControlFieldInspection = {
     readonly name: string
     readonly handle: ControlHandle
@@ -100,6 +106,8 @@ export type ControlFieldInspection = {
     readonly primitiveType?: string
     readonly semantic?: string
     readonly unit?: string
+    readonly constraints?: JsonValue
+    readonly choices?: ReadonlyArray<ControlChoice>
     readonly value?: JsonValue
     readonly pointerType?: string
     readonly pointerTypes?: ReadonlyArray<string>
@@ -125,6 +133,9 @@ export type ControlInspection = {
     readonly printValue?: ControlPrintValue
     readonly controlledValue?: JsonValue
     readonly controlledPrintValue?: ControlPrintValue
+    readonly owner?: ControlHandle
+    readonly constraints?: JsonValue
+    readonly choices?: ReadonlyArray<ControlChoice>
     readonly pointerType?: string
     readonly pointerTypes?: ReadonlyArray<string>
     readonly target?: ControlHandle | null

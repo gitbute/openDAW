@@ -1,7 +1,7 @@
 import css from "./OutputSelector.sass?inline"
-import {assert, DefaultObservableValue, Lifecycle, StringComparator, UUID} from "@opendaw/lib-std"
-import {AudioBusFactory, AudioUnitBoxAdapter} from "@opendaw/studio-adapters"
-import {AudioUnitType, Colors, IconSymbol} from "@opendaw/studio-enums"
+import {DefaultObservableValue, Lifecycle, StringComparator, UUID} from "@opendaw/lib-std"
+import {AudioUnitBoxAdapter} from "@opendaw/studio-adapters"
+import {Colors, IconSymbol} from "@opendaw/studio-enums"
 import {createElement, DomElement, Frag} from "@opendaw/lib-jsx"
 import {IconCartridge} from "@/ui/components/Icon.tsx"
 import {Html} from "@opendaw/lib-dom"
@@ -57,7 +57,7 @@ export const ChannelOutputSelector = ({lifecycle, project, adapter}: Construct) 
                                     selectable: UUID.Comparator(bus.uuid, inputUUID) !== 0,
                                     checked: UUID.Comparator(bus.uuid, outputUUID) === 0
                                 }).setTriggerProcedure(() =>
-                                    project.editing.modify(() => adapter.box.output.refer(bus.box.input)))))
+                                    project.editing.modify(() => project.api.routeOutput(adapter.box, bus.box)))))
                             .addMenuItem(
                                 MenuItem.default({
                                     label: "New Output Bus...",
@@ -66,15 +66,14 @@ export const ChannelOutputSelector = ({lifecycle, project, adapter}: Construct) 
                                 }).setTriggerProcedure(() =>
                                     showNewAudioBusOrAuxDialog("Bus", ({name, icon}) =>
                                         project.editing.modify(() => {
-                                            assert(project.primaryAudioBusBox.isAttached(), "primaryAudioBusBox not attached")
-                                            const audioBusBox = AudioBusFactory.create(project.skeleton,
-                                                name, icon, AudioUnitType.Bus, Colors.orange)
-                                            adapter.box.output.refer(audioBusBox.input)
+                                            const audioBusBox = project.api.createAudioBus(name, "bus")
+                                            audioBusBox.icon.setValue(IconSymbol.toName(icon))
+                                            project.api.routeOutput(adapter.box, audioBusBox)
                                         }), IconSymbol.AudioBus)),
                                 MenuItem.default({
                                     label: "No Output",
                                     selectable: adapter.box.output.nonEmpty()
-                                }).setTriggerProcedure(() => project.editing.modify(() => adapter.box.output.defer()))
+                                }).setTriggerProcedure(() => project.editing.modify(() => project.api.routeOutput(adapter.box, null)))
                             )
                     })}
                 appearance={{color: Colors.dark}}

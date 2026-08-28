@@ -59,6 +59,14 @@ const roots: ReadonlyArray<RootConfig> = [
         idPrefix: "parameter",
         target: "address",
         transaction: "editing"
+    },
+    {
+        sourceFile: path.join(coreDirectory, "src/project/ProjectResources.ts"),
+        className: "ProjectResources",
+        root: "resources",
+        idPrefix: "project.resources",
+        target: "singleton",
+        transaction: "none"
     }
 ]
 
@@ -185,6 +193,9 @@ const isBoxAdapterType = (checker: ts.TypeChecker, type: ts.Type): boolean => {
 
 const isPromise = (type: ts.Type): boolean => hasName(type, "Promise")
 
+const promiseValue = (type: ts.Type): ts.Type | undefined =>
+    isPromise(type) ? typeArguments(type)[0] : undefined
+
 const isListenerLike = (type: ts.Type): boolean => {
     const name = symbolName(type)
     return name === "Observer" || name === "Procedure" || name === "Subscription" || name === "Terminable"
@@ -219,6 +230,15 @@ const containsCallback = (checker: ts.TypeChecker, type: ts.Type, seen = new Set
     if (seen.has(text)) {return false}
     seen.add(text)
     return checker.getPropertiesOfType(type)
+        // A reflected data object may expose imperative methods (for example the
+        // transport signal helpers). Their *return types* are not callback
+        // payloads and must not make the containing operation disappear.
+        .filter(property => {
+            if ((property.flags & ts.SymbolFlags.Method) !== 0) {return false}
+            return !(property.declarations ?? []).some(declaration =>
+                ts.isMethodSignature(declaration) || ts.isMethodDeclaration(declaration)
+                || ts.isGetAccessorDeclaration(declaration) || ts.isSetAccessorDeclaration(declaration))
+        })
         .some(property => containsCallback(checker, checker.getTypeOfSymbolAtLocation(
             property, property.valueDeclaration ?? property.declarations[0]), seen))
 }
@@ -274,6 +294,14 @@ const projectType = (checker: ts.TypeChecker, type: ts.Type, fallback: ts.Node,
         return {kind: "handle", handle: "adapter", name: name ?? "BoxAdapter"}
     }
 
+    // Promise is a transport concern, not part of the JSON result shape. The
+    // manifest marks the operation async while projecting the resolved value.
+    if (isPromise(type)) {
+        const value = promiseValue(type)
+        if (value === undefined) {throw new UnsupportedProjection(text, "Promise has no resolved value type")}
+        return projectType(checker, value, fallback, depth + 1, parameterValueAllowed)
+    }
+
     if ((type.flags & ts.TypeFlags.Any) !== 0) {
         throw new UnsupportedProjection(text, "any is not a projectable API type")
     }
@@ -321,10 +349,6 @@ const projectType = (checker: ts.TypeChecker, type: ts.Type, fallback: ts.Node,
         if (args.length !== 1) {throw new UnsupportedProjection(text, "array has no element type")}
         return {kind: "array", element: projectType(checker, args[0], fallback, depth + 1, parameterValueAllowed)}
     }
-    if (hasName(type, "Promise")) {
-        throw new UnsupportedProjection(text, "Promise results are outside the synchronous first slice")
-    }
-
     if ((type.flags & ts.TypeFlags.Object) !== 0) {
         if (type.getCallSignatures().length > 0 || type.getConstructSignatures().length > 0) {
             throw new UnsupportedProjection(text, "function/constructor type")
@@ -394,17 +418,16 @@ const generateManifest = (program: ts.Program): GeneratedManifest => {
                 continue
             }
             const returnType = checker.getReturnTypeOfSignature(signature)
-            if (isPromise(returnType)) {
-                skipped.push({root: reportRoot, method, reason: "async Promise operation is outside the synchronous first slice"})
-                continue
-            }
+            const asyncOperation = isPromise(returnType)
+            const projectedReturnType = promiseValue(returnType) ?? returnType
             const parameterTypes = signature.parameters.map((parameter, index) =>
                 checker.getTypeOfSymbolAtLocation(parameter, member.parameters[index]))
-            if (parameterTypes.some(type => containsCallback(checker, type)) || containsCallback(checker, returnType)) {
+            if (parameterTypes.some(type => containsCallback(checker, type))
+                || containsCallback(checker, projectedReturnType)) {
                 skipped.push({root: reportRoot, method, reason: "callback, listener, subscription, or function type"})
                 continue
             }
-            if (isListenerLike(returnType)) {
+            if (isListenerLike(projectedReturnType)) {
                 skipped.push({root: reportRoot, method, reason: "subscription/lifecycle result"})
                 continue
             }
@@ -419,15 +442,15 @@ const generateManifest = (program: ts.Program): GeneratedManifest => {
                         type: projectType(checker, parameterTypes[index], parameter, 0, parameterValueAllowed)
                     }
                 })
-                const result = projectType(checker, returnType, member, 0, parameterValueAllowed)
+                const result = projectType(checker, projectedReturnType, member, 0, parameterValueAllowed)
                 operations.push({
                     id: `${root.idPrefix}.${method}`,
                     root: root.root,
                     ownerType: root.className,
                     method,
                     target: root.target,
-                    transaction: root.transaction,
-                    async: false,
+                    transaction: asyncOperation ? "none" : root.transaction,
+                    async: asyncOperation,
                     parameters,
                     result,
                     description: documentation(checker, member)

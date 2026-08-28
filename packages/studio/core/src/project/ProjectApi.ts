@@ -18,19 +18,24 @@ import {
     unitValue,
     UUID
 } from "@opendaw/lib-std"
-import {ppqn, PPQN} from "@opendaw/lib-dsp"
+import {Interpolation, ppqn, PPQN, TimeBase} from "@opendaw/lib-dsp"
 import {Box, BoxGraph, Field, IndexedBox, PointerField} from "@opendaw/lib-box"
-import {AudioUnitType, Pointers} from "@opendaw/studio-enums"
+import {AudioUnitType, Colors, IconSymbol, Pointers} from "@opendaw/studio-enums"
 import {
     AudioClipBox,
+    AudioBusBox,
+    AudioFileBox,
     AudioRegionBox,
     AudioUnitBox,
+    AuxSendBox,
     CaptureAudioBox,
     CaptureMidiBox,
+    NanoDeviceBox,
     NoteClipBox,
     NoteEventBox,
     NoteEventCollectionBox,
     NoteRegionBox,
+    PlayfieldDeviceBox,
     TrackBox,
     ValueClipBox,
     ValueEventBox,
@@ -40,6 +45,7 @@ import {
 import {
     AnyRegionBox,
     AnyRegionBoxAdapter,
+    AudioBusFactory,
     AudioClipBoxAdapter,
     AudioRegionBoxAdapter,
     AudioUnitBoxAdapter,
@@ -47,6 +53,8 @@ import {
     CaptureBox,
     ColorCodes,
     DeviceAccepts,
+    DeviceHost,
+    Devices,
     EffectPointerType,
     IndexedAdapterCollectionListener,
     InstrumentBox,
@@ -56,7 +64,10 @@ import {
     InterpolationFieldAdapter,
     NoteEventBoxAdapter,
     NoteEventCollectionBoxAdapter,
+    PresetDecoder,
+    PresetHeader,
     ProjectQueries,
+    SampleAssignment,
     TrackBoxAdapter,
     TrackType
 } from "@opendaw/studio-adapters"
@@ -64,6 +75,8 @@ import {Project} from "./Project"
 import {ProjectModulation} from "./ProjectModulation"
 import {EffectFactory} from "../EffectFactory"
 import {EffectBox} from "../EffectBox"
+import {FactoryCatalog} from "../FactoryCatalog"
+import {PresetSource} from "../presets"
 import {AudioContentFactory} from "./audio"
 import {NoteMidiExport} from "./NoteMidiExport"
 import {AudioWavExport} from "./AudioWavExport"
@@ -73,8 +86,40 @@ export type ClipRegionOptions = {
     hue?: number
 }
 
+export type SampleReference = {
+    uuid: UUID.Bytes
+    name: string
+    durationInSeconds: number
+}
+
+export type NoteEventInput = {
+    position: ppqn
+    duration: ppqn
+    pitch: int
+    cent?: number
+    velocity?: float
+    chance?: int
+    playCount?: int
+}
+
+export type ValueEventInput = {
+    position: ppqn
+    index: int
+    value: unitValue
+    interpolation?: "none" | "linear" | "curve"
+    slope?: unitValue
+}
+
+export type PresetApplyOptions = {
+    source?: PresetSource
+    keepMIDIEffects?: boolean
+    keepAudioEffects?: boolean
+    keepTimeline?: boolean
+    insertIndex?: int
+}
+
 export type NoteEventParams = {
-    owner: { events: PointerField<Pointers.NoteEventCollection> }
+    owner: { events: Field<Pointers.NoteEventCollection> }
     position: ppqn
     duration: ppqn
     pitch: int
@@ -157,6 +202,74 @@ export class ProjectApi {
         return this.createInstrument(factory)
     }
 
+    createAudioBus(name: string, type: "bus" | "aux" = "bus"): AudioBusBox {
+        return type === "aux"
+            ? AudioBusFactory.create(this.#project.skeleton, name, IconSymbol.Effects, AudioUnitType.Aux, Colors.green)
+            : AudioBusFactory.create(this.#project.skeleton, name, IconSymbol.AudioBus, AudioUnitType.Bus, Colors.orange)
+    }
+
+    routeOutput(audioUnitBox: AudioUnitBox, target: AudioBusBox | null): void {
+        if (!audioUnitBox.isAttached()) {throw new Error("AudioUnitBox is not attached")}
+        if (target === null) {
+            audioUnitBox.output.defer()
+            return
+        }
+        if (!target.isAttached()) {throw new Error("AudioBusBox is not attached")}
+        const isSelf = target.output.targetVertex.mapOr(vertex => vertex.box === audioUnitBox, false)
+        if (isSelf) {throw new Error("An audio unit cannot route to itself")}
+        audioUnitBox.output.refer(target.input)
+    }
+
+    createAuxSend(audioUnitBox: AudioUnitBox,
+                  targetBus: AudioBusBox,
+                  sendGain: number = -6.0,
+                  sendPan: number = 0.0,
+                  routing: int = 0): AuxSendBox {
+        if (audioUnitBox.type.getValue() === AudioUnitType.Output) {
+            throw new Error("The output audio unit cannot create auxiliary sends")
+        }
+        if (!targetBus.isAttached()) {throw new Error("AudioBusBox is not attached")}
+        const index = IndexedBox.insertOrder(audioUnitBox.auxSends)
+        return AuxSendBox.create(this.#project.boxGraph, UUID.generate(), box => {
+            box.audioUnit.refer(audioUnitBox.auxSends)
+            box.targetBus.refer(targetBus.input)
+            box.index.setValue(index)
+            box.routing.setValue(routing)
+            box.sendGain.setValue(sendGain)
+            box.sendPan.setValue(sendPan)
+        })
+    }
+
+    deleteAuxSend(send: AuxSendBox): void {
+        if (!send.isAttached()) {return}
+        send.audioUnit.targetVertex.ifSome(vertex => {
+            if (vertex instanceof Field) {
+                IndexedBox.removeOrder(vertex as Field<Pointers.AuxSend>, send.index.getValue())
+            }
+        })
+        send.delete()
+    }
+
+    assignSample(target: NanoDeviceBox | PlayfieldDeviceBox, sample: SampleReference, slot?: int): void {
+        if (target instanceof NanoDeviceBox) {
+            if (slot !== undefined) {throw new Error("Nano has one sample slot")}
+            SampleAssignment.assignNano(this.#project.boxGraph, target, sample)
+        } else {
+            if (slot === undefined) {throw new Error("Playfield sample assignment requires a slot")}
+            SampleAssignment.assignPlayfield(this.#project.boxGraph, target, slot, sample)
+        }
+    }
+
+    removeSample(target: NanoDeviceBox | PlayfieldDeviceBox, slot?: int): void {
+        if (target instanceof NanoDeviceBox) {
+            if (slot !== undefined) {throw new Error("Nano has one sample slot")}
+            SampleAssignment.removeNano(target)
+        } else {
+            if (slot === undefined) {throw new Error("Playfield sample removal requires a slot")}
+            SampleAssignment.removePlayfield(target, slot)
+        }
+    }
+
     replaceMIDIInstrument<A>(target: InstrumentBox,
                              fromFactory: InstrumentFactory<A>,
                              attachment?: A): Attempt<InstrumentBox, string> {
@@ -200,6 +313,15 @@ export class ProjectApi {
             if (field === targetField) {return}
             IndexedBox.collectIndexedBoxes(field).forEach((box, index) => box.index.setValue(index))
         })
+    }
+
+    deleteEffect(effect: EffectBox): void {
+        const adapter = this.#project.boxAdapters.adapterFor(effect, Devices.isEffect)
+        Devices.deleteEffectDevices([adapter])
+    }
+
+    moveEffect(effect: EffectBox, targetField: Field<EffectPointerType>, insertIndex: int): void {
+        this.moveEffects(targetField, [effect], insertIndex)
     }
 
     createNoteTrack(audioUnitBox: AudioUnitBox, insertIndex: int = Number.MAX_SAFE_INTEGER): TrackBox {
@@ -307,6 +429,109 @@ export class ProjectApi {
             box.events.refer(events.owners)
         })
     }
+
+    createAudioClip(trackBox: TrackBox,
+                    audioFileBox: AudioFileBox,
+                    clipIndex: int,
+                    duration: ppqn,
+                    name: string = ""): AudioClipBox {
+        const {boxGraph} = this.#project
+        if (trackBox.type.getValue() !== TrackType.Audio) {
+            return panic("Incompatible track type for audio-clip creation")
+        }
+        const events = ValueEventCollectionBox.create(boxGraph, UUID.generate())
+        const index = IndexedBox.insertOrder(trackBox.clips, clipIndex)
+        return AudioClipBox.create(boxGraph, UUID.generate(), box => {
+            box.index.setValue(index)
+            box.label.setValue(name)
+            box.hue.setValue(ColorCodes.forTrackType(TrackType.Audio))
+            box.mute.setValue(false)
+            box.duration.setValue(duration)
+            box.timeBase.setValue(TimeBase.Musical)
+            box.clips.refer(trackBox.clips)
+            box.file.refer(audioFileBox)
+            box.events.refer(events.owners)
+        })
+    }
+
+    createAudioRegion(trackBox: TrackBox,
+                      audioFileBox: AudioFileBox,
+                      position: ppqn,
+                      duration: ppqn,
+                      name: string = ""): AudioRegionBox {
+        const {boxGraph} = this.#project
+        if (trackBox.type.getValue() !== TrackType.Audio) {
+            return panic("Incompatible track type for audio-region creation")
+        }
+        const trackAdapter = this.#project.boxAdapters.adapterFor(trackBox, TrackBoxAdapter)
+        const startPosition = Math.max(position, 0)
+        const solver = this.#project.overlapResolver.fromRange(
+            trackAdapter, startPosition, startPosition + duration)
+        const events = ValueEventCollectionBox.create(boxGraph, UUID.generate())
+        const region = AudioRegionBox.create(boxGraph, UUID.generate(), box => {
+            box.position.setValue(startPosition)
+            box.duration.setValue(duration)
+            box.loopOffset.setValue(0)
+            box.loopDuration.setValue(duration)
+            box.label.setValue(name)
+            box.hue.setValue(ColorCodes.forTrackType(TrackType.Audio))
+            box.mute.setValue(false)
+            box.timeBase.setValue(TimeBase.Musical)
+            box.regions.refer(trackBox.regions)
+            box.file.refer(audioFileBox)
+            box.events.refer(events.owners)
+        })
+        solver()
+        return region
+    }
+
+    deleteTrack(trackBox: TrackBox): void {
+        if (!trackBox.isAttached()) {return}
+        const adapter = this.#project.boxAdapters.adapterFor(trackBox, TrackBoxAdapter)
+        const audioUnit = adapter.optAudioUnit
+        audioUnit.ifSome(audioUnit => {
+            this.#project.boxAdapters.adapterFor(audioUnit, AudioUnitBoxAdapter).deleteTrack(adapter)
+        })
+        if (audioUnit.isEmpty()) {
+            trackBox.tracks.targetVertex.ifSome(vertex => {
+                if (vertex instanceof Field) {
+                    IndexedBox.removeOrder(vertex as Field<Pointers.TrackCollection>, trackBox.index.getValue())
+                }
+            })
+            trackBox.delete()
+        }
+    }
+
+    renameTrack(trackBox: TrackBox, name: string): void {
+        this.#project.boxAdapters.adapterFor(trackBox, TrackBoxAdapter).targetName = name
+    }
+
+    moveTrack(trackBox: TrackBox, delta: int): void {
+        if (delta === 0) {return}
+        const adapter = this.#project.boxAdapters.adapterFor(trackBox, TrackBoxAdapter)
+        const audioUnit = adapter.optAudioUnit
+        if (audioUnit.nonEmpty()) {
+            this.#project.boxAdapters.adapterFor(audioUnit.unwrap(), AudioUnitBoxAdapter).moveTrack(adapter, delta)
+            return
+        }
+        trackBox.tracks.targetVertex.ifSome(vertex => {
+            if (!(vertex instanceof Field)) {return}
+            const field = vertex as Field<Pointers.TrackCollection>
+            const tracks = [...IndexedBox.collectIndexedBoxes(field)]
+            const from = tracks.indexOf(trackBox)
+            if (from < 0) {return}
+            const to = clamp(from + delta, 0, tracks.length - 1)
+            if (from === to) {return}
+            const moving = tracks[from]
+            tracks.splice(from, 1)
+            tracks.splice(to, 0, moving)
+            tracks.forEach((track, index) => track.index.setValue(index))
+        })
+    }
+
+    deleteRegion(region: AnyRegionBox): void {region.delete()}
+
+    deleteClip(clip: NoteClipBox | ValueClipBox | AudioClipBox): void {clip.delete()}
 
     duplicateRegion<R extends AnyRegionBoxAdapter>(region: R,
                                                    options?: { findFreeSpace?: boolean, position?: ppqn }): Option<R> {
@@ -490,6 +715,20 @@ export class ProjectApi {
             })
     }
 
+    #noteEvents(field: Field<Pointers.NoteEventCollection>): Field<Pointers.NoteEvents> {
+        const collection = field instanceof PointerField
+            ? field.targetVertex.unwrap("Owner has no event-collection").box
+            : field.box
+        return collection.asBox(NoteEventCollectionBox).events
+    }
+
+    #valueEvents(field: Field<Pointers.ValueEventCollection>): Field<Pointers.ValueEvents> {
+        const collection = field instanceof PointerField
+            ? field.targetVertex.unwrap("Owner has no event-collection").box
+            : field.box
+        return collection.asBox(ValueEventCollectionBox).events
+    }
+
     createNoteEvent({owner, position, duration, velocity, pitch, chance, cent}: NoteEventParams): NoteEventBox {
         const {boxGraph} = this.#project
         return NoteEventBox.create(boxGraph, UUID.generate(), box => {
@@ -499,10 +738,109 @@ export class ProjectApi {
             box.pitch.setValue(pitch)
             box.chance.setValue(chance ?? 100.0)
             box.cent.setValue(cent ?? 0.0)
-            box.events.refer(owner.events.targetVertex
-                .unwrap("Owner has no event-collection").box
-                .asBox(NoteEventCollectionBox).events)
+            box.events.refer(this.#noteEvents(owner.events))
         })
+    }
+
+    createNoteEvents(collection: Field<Pointers.NoteEventCollection>,
+                     events: ReadonlyArray<NoteEventInput>): ReadonlyArray<NoteEventBox> {
+        return events.map(({position, duration, pitch, cent, velocity, chance, playCount}) =>
+            NoteEventBox.create(this.#project.boxGraph, UUID.generate(), box => {
+                box.position.setValue(position)
+                box.duration.setValue(duration)
+                box.pitch.setValue(pitch)
+                box.cent.setValue(cent ?? 0.0)
+                box.velocity.setValue(velocity ?? 1.0)
+                box.chance.setValue(chance ?? 100)
+                box.playCount.setValue(playCount ?? 1)
+                box.events.refer(this.#noteEvents(collection))
+            }))
+    }
+
+    deleteNoteEvents(events: ReadonlyArray<NoteEventBox>): void {
+        events.forEach(event => event.isAttached() && event.delete())
+    }
+
+    createValueEvents(collection: Field<Pointers.ValueEventCollection>,
+                      events: ReadonlyArray<ValueEventInput>): ReadonlyArray<ValueEventBox> {
+        return events.map(({position, index, value, interpolation, slope}) => {
+            const event = ValueEventBox.create(this.#project.boxGraph, UUID.generate(), box => {
+                box.position.setValue(position)
+                box.index.setValue(index)
+                box.value.setValue(value)
+                box.events.refer(this.#valueEvents(collection))
+            })
+            this.#writeInterpolation(event, interpolation ?? "linear", slope)
+            return event
+        })
+    }
+
+    replaceValueEvents(collection: Field<Pointers.ValueEventCollection>,
+                       events: ReadonlyArray<ValueEventInput>): void {
+        this.#valueEvents(collection).pointerHub.incoming().forEach(({box}) => box.delete())
+        this.createValueEvents(collection, events)
+    }
+
+    updateValueEvent(event: ValueEventBox,
+                     position?: ppqn,
+                     index?: int,
+                     value?: unitValue,
+                     interpolation?: "none" | "linear" | "curve",
+                     slope?: unitValue): void {
+        if (position !== undefined) {event.position.setValue(position)}
+        if (index !== undefined) {event.index.setValue(index)}
+        if (value !== undefined) {event.value.setValue(value)}
+        if (interpolation !== undefined) {this.#writeInterpolation(event, interpolation, slope)}
+    }
+
+    deleteValueEvents(events: ReadonlyArray<ValueEventBox>): void {
+        events.forEach(event => event.isAttached() && event.delete())
+    }
+
+    async applyPreset(target: AudioUnitBox | EffectBox,
+                      uuid: UUID.Bytes,
+                      options: PresetApplyOptions = {}): Promise<void> {
+        const bytes = await FactoryCatalog.loadPreset(uuid, options.source ?? "stock")
+        if (target instanceof AudioUnitBox) {
+            let failure: string | undefined
+            this.#project.editing.modify(() => {
+                const result = PresetDecoder.replaceAudioUnit(bytes, target, {
+                    keepMIDIEffects: options.keepMIDIEffects,
+                    keepAudioEffects: options.keepAudioEffects,
+                    keepTimeline: options.keepTimeline
+                })
+                if (result.isFailure()) {failure = String(result.failureReason())}
+            })
+            if (failure !== undefined) {throw new Error(failure)}
+        } else {
+            const effect = this.#project.boxAdapters.adapterFor(target, Devices.isEffect)
+            const field = DeviceHost.chainFieldOf(effect.deviceHost(), effect.accepts)
+                .unwrap(`Host takes no ${effect.accepts} effects`)
+            const index = options.insertIndex ?? effect.indexField.getValue()
+            let failure: string | undefined
+            this.#project.editing.modify(() => {
+                const result = PresetDecoder.insertEffectChain(bytes, field, index,
+                    effect.accepts === "audio" ? PresetHeader.ChainKind.Audio : PresetHeader.ChainKind.Midi)
+                if (result.isFailure()) {
+                    failure = String(result.failureReason())
+                    return
+                }
+                Devices.deleteEffectDevices([effect])
+            })
+            if (failure !== undefined) {throw new Error(failure)}
+        }
+        this.#project.loadScriptDevices()
+    }
+
+    #writeInterpolation(event: ValueEventBox,
+                        interpolation: "none" | "linear" | "curve",
+                        slope?: unitValue): void {
+        const value: Interpolation = interpolation === "none"
+            ? Interpolation.None
+            : interpolation === "linear"
+                ? Interpolation.Linear
+                : {type: "curve", slope: slope ?? 0.0}
+        InterpolationFieldAdapter.write(event.interpolation, value)
     }
 
     deleteAudioUnit(audioUnitBox: AudioUnitBox): void {

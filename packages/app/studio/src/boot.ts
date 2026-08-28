@@ -23,6 +23,7 @@ import {
     FactoryCatalog,
     GlobalSampleLoaderManager,
     GlobalSoundfontLoaderManager,
+    PresetStorage,
     RegionClipResolver,
     Workers
 } from "@opendaw/studio-core"
@@ -114,7 +115,10 @@ export const boot = async ({workersUrl, workletsUrl, wasmProcessorUrl, wasmOffli
     FactoryCatalog.install({
         samples: () => OpenSampleAPI.get().all(),
         soundfonts: () => OpenSoundfontAPI.get().all(),
-        presets: () => OpenPresetAPI.get().list()
+        presets: () => OpenPresetAPI.get().list(),
+        loadPreset: (uuid, source) => source === "user"
+            ? PresetStorage.load(uuid)
+            : OpenPresetAPI.get().load(uuid)
     })
     const chainedSampleProvider = new ChainedSampleProvider({
         fetch: async (uuid: UUID.Bytes, progress: Progress.Handler): Promise<[AudioData, SampleMetaData]> =>

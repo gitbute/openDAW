@@ -4,6 +4,7 @@ import {EffectFactories} from "../EffectFactories"
 import {Project} from "../project/Project"
 import {InstrumentFactories} from "@opendaw/studio-adapters"
 import type {BoxAdapter} from "@opendaw/studio-adapters"
+import {Pointers} from "@opendaw/studio-enums"
 import {
     ControlHandle,
     JsonObject,
@@ -34,6 +35,23 @@ const hasConstructorName = (value: object, name: string): boolean => {
 }
 
 const isAnyBoxAdapter = (adapter: BoxAdapter): adapter is BoxAdapter => true
+
+const pointerName = (value: unknown): string | undefined => {
+    if (typeof value !== "number") {return undefined}
+    return Object.entries(Pointers).find(([key, candidate]) =>
+        !/^\d+$/.test(key) && typeof candidate === "number" && candidate === value)?.[0]
+}
+
+const satisfiesPointerConstraint = (field: Field, constraint: string): boolean => {
+    const accepted = field instanceof PointerField ? [field.pointerType] : field.pointerRules.accepts
+    if (constraint === "EffectPointerType") {
+        return accepted.includes(Pointers.AudioEffectHost) || accepted.includes(Pointers.MIDIEffectHost)
+    }
+    const match = /^Pointers\.(.+)$/.exec(constraint)
+    if (match === null) {return true}
+    const pointer = (Pointers as unknown as Record<string, unknown>)[match[1]]
+    return typeof pointer === "number" && accepted.includes(pointer as never)
+}
 
 const isOption = (value: NativeValue): value is Option<NativeValue> =>
     typeof value === "object" && value !== null
@@ -125,6 +143,22 @@ const decodeHandle = (spec: Extract<TypeSpec, {readonly kind: "handle"}>, value:
     }
     if (spec.handle === "field" && !(vertex instanceof Field)) {
         return fail(`Expected Field at ${addressText}`)
+    }
+    if (spec.handle === "pointerField" && typeText !== "PointerField") {
+        return fail(`Expected PointerField handle type, received ${typeText}`)
+    }
+    if (spec.handle === "primitiveField" && typeText !== "PrimitiveField") {
+        return fail(`Expected PrimitiveField handle type, received ${typeText}`)
+    }
+    if (spec.handle === "field" && typeText !== "Field" && typeText !== "PointerField"
+        && typeText !== "PrimitiveField") {
+        return fail(`Expected Field handle type, received ${typeText}`)
+    }
+    if (spec.constraint !== undefined && vertex instanceof Field
+        && !satisfiesPointerConstraint(vertex, spec.constraint)) {
+        const actual = (vertex instanceof PointerField ? [vertex.pointerType] : vertex.pointerRules.accepts)
+            .map(pointerName).filter(value => value !== undefined).join(", ")
+        return fail(`Field at ${addressText} does not satisfy ${spec.constraint} (accepts ${actual})`)
     }
     return vertex
 }
