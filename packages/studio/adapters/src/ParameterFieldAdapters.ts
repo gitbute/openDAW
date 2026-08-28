@@ -30,6 +30,7 @@ export class ParameterFieldAdapters {
 
     get(address: Address): AutomatableParameterFieldAdapter {return this.#set.get(address, "parameter field adapter")}
     opt(address: Address): Option<AutomatableParameterFieldAdapter> {return this.#set.opt(address)}
+    values(): ReadonlyArray<AutomatableParameterFieldAdapter> {return this.#set.values()}
 
     registerTracks(address: Address, tracks: ParameterTracks): Terminable {
         const key = address.toString()
