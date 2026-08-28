@@ -6,7 +6,11 @@ export default defineConfig({
     test: {
         globals: true,
         environment: "node",
-        include: ["src/**/*.test.ts", "test/**/*.test.ts"]
+        include: ["src/**/*.test.ts", "test/**/*.test.ts"],
+        // The parity suite contains real-time performance checks and heavyweight audio renders.
+        // Running files concurrently makes those checks depend on scheduler load instead of the
+        // engine, especially on Windows. Keep the suite deterministic; individual tests still run normally.
+        fileParallelism: false
     },
     esbuild: {
         target: "ESNext"

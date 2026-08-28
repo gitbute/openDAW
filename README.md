@@ -212,6 +212,27 @@ Before starting, ensure you have the following installed on your system:
   the WASM modules (`brew install binaryen`, or `apt install binaryen`). If it is missing, the build still
   succeeds and ships unoptimised modules.
 
+#### Native Windows (PowerShell)
+
+The project runs natively on Windows; WSL, Git Bash, and a global Sass installation are not required. Install the
+native tools once, then run the project commands from PowerShell:
+
+```powershell
+choco install llvm mkcert -y
+rustup toolchain install nightly
+rustup target add wasm32-unknown-unknown
+rustup target add wasm32-unknown-unknown --toolchain nightly
+rustup component add rust-src --toolchain nightly
+npm install
+npm run cert
+npm run build
+npm run dev:studio
+```
+
+The Rust test/build scripts automatically find LLVM's standard Chocolatey installation and configure `libclang`; no
+manual `LIBCLANG_PATH` or `PATH` setup is needed. `wasm-opt` from Binaryen remains optional. Open the studio at
+`https://localhost:8080`.
+
 ### Clone
 
 `git clone https://github.com/andremichelle/opendaw.git && cd opendaw`

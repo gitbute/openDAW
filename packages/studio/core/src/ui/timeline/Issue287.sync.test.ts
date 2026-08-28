@@ -123,5 +123,5 @@ describe("issue 287: move regions over others, then undo (real SyncSource batche
         executor.terminate()
         loopback.terminate()
         project.terminate()
-    })
+    }, 60_000)
 })

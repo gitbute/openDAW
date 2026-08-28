@@ -4,19 +4,19 @@
   "version": "0.1.10",
   "type": "module",
   "scripts": {
-    "wasm": "sh ./build-wasm.sh",
+    "wasm": "node ./build-wasm.mjs",
     "predev": "npm run wasm",
     "dev": "vite --host",
     "prebuild": "npm run wasm",
     "build": "vite build",
     "preview": "vite preview --host",
-    "test:rust": ". \"$HOME/.cargo/env\" && cargo test --manifest-path ../../../crates/Cargo.toml --workspace",
+    "test:rust": "node ./test-rust.mjs",
     "pretest:parity": "npm run wasm",
     "test:parity": "vitest run --config vitest.config.ts",
     "pretest:sync": "npm run wasm",
     "test:sync": "vitest run --config vitest.config.ts test/sync.test.ts",
     "test": "npm run test:rust && npm run test:parity",
-    "clean": "rm -rf dist public/wasm"
+    "clean": "node -e \"for (const p of ['dist', 'public/wasm']) require('node:fs').rmSync(p, {recursive: true, force: true})\""
   },
   "dependencies": {
     "@opendaw/lib-dom": "^0.0.89",

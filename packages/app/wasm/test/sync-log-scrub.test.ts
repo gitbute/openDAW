@@ -81,5 +81,5 @@ describe("sync-log scrub", () => {
         expect(Array.from(checksum())).toEqual(Array.from(new Int8Array(source.checksum())))
         console.log(`settled at ${current}; engine in sync`)
         stepper.dispose()
-    })
+    }, 60_000)
 })

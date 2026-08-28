@@ -3017,7 +3017,7 @@ pub extern "C" fn set_click_sound(index: u32, frame_count: u32, channels: u32, s
 }
 
 /// Bind the synced `TimelineBox`. Returns 0 on success, 1 if absent.
-#[no_mangle]
+#[cfg_attr(target_arch = "wasm32", no_mangle)]
 pub extern "C" fn bind() -> i32 {
     unsafe {
         match ENGINE.get().as_mut() {

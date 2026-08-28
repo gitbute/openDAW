@@ -21,13 +21,13 @@
   ],
   "scripts": {
     "build": "npm run build:wasm && npm run build:bundles && npm run build:api",
-    "build:wasm": "sh ./build-wasm.sh",
+    "build:wasm": "node ./build-wasm.mjs",
     "build:bundles": "esbuild src/processor.ts --bundle --format=esm --platform=browser --minify --sourcemap --outfile=dist/wasm-processor.js && esbuild src/offline-worker.ts --bundle --format=esm --platform=browser --minify --sourcemap --outfile=dist/wasm-offline-worker.js",
     "build:api": "tsc --project tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"**/*.ts\"",
     "test": "vitest run",
-    "clean": "rm -rf dist"
+    "clean": "node -e \"require('node:fs').rmSync('dist', {recursive: true, force: true})\""
   },
   "dependencies": {
     "@opendaw/lib-box": "^0.0.93",
