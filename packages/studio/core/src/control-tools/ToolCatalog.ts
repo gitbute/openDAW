@@ -9,6 +9,7 @@ import type {
 } from "./types"
 import {
     operationInputSchema,
+    instrumentInspectInputSchema,
     resourceInspectInputSchema,
     resourceQueryInputSchema,
     sampleQueryInputSchema
@@ -29,7 +30,7 @@ const namespaceDescriptions: Readonly<Record<string, string>> = {
     daw_resources: "Discover and inspect live project resources, handles, and samples."
 }
 
-const resourceTools: ReadonlyArray<{readonly name: "query_resources" | "inspect_resource" | "query_samples", readonly schema: FunctionToolSpec["inputSchema"], readonly description: string}> = [
+const resourceTools: ReadonlyArray<{readonly name: "query_resources" | "inspect_resource" | "query_samples" | "inspect_instrument", readonly schema: FunctionToolSpec["inputSchema"], readonly description: string}> = [
     {
         name: "query_resources",
         schema: resourceQueryInputSchema,
@@ -39,6 +40,11 @@ const resourceTools: ReadonlyArray<{readonly name: "query_resources" | "inspect_
         name: "inspect_resource",
         schema: resourceInspectInputSchema,
         description: "Inspect all generic live-project views available for one handle."
+    },
+    {
+        name: "inspect_instrument",
+        schema: instrumentInspectInputSchema,
+        description: "Inspect the semantic properties and control context of a supported instrument."
     },
     {
         name: "query_samples",

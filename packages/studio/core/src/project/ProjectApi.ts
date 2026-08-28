@@ -59,6 +59,7 @@ import {
     IndexedAdapterCollectionListener,
     InstrumentBox,
     InstrumentFactory,
+    InstrumentSemantics,
     InstrumentOptions,
     InstrumentProduct,
     InterpolationFieldAdapter,
@@ -68,6 +69,8 @@ import {
     PresetHeader,
     ProjectQueries,
     SampleAssignment,
+    SemanticFields,
+    SupportedInstrumentBox,
     TrackBoxAdapter,
     TrackType
 } from "@opendaw/studio-adapters"
@@ -114,6 +117,11 @@ export type PresetApplyOptions = {
 }
 
 export type NoteEventOwner = NoteRegionBox | NoteClipBox | NoteEventCollectionBox
+
+export type InstrumentPropertyChange = {
+    path: string
+    value: number | string | boolean
+}
 
 export type NoteEventParams = {
     owner: NoteEventOwner
@@ -203,6 +211,28 @@ export class ProjectApi {
 
     createAnyInstrument(factory: InstrumentFactory<any, any>): InstrumentProduct<InstrumentBox> {
         return this.createInstrument(factory)
+    }
+
+    /**
+     * Set semantic instrument properties discovered with `daw_resources.inspect_instrument`.
+     * Paths are canonical instrument property paths, not raw field addresses. Multiple changes
+     * are applied together; use the returned paths exactly when making subsequent edits.
+     */
+    setInstrumentProperties(instrument: SupportedInstrumentBox,
+                            changes: ReadonlyArray<InstrumentPropertyChange>): void {
+        const semantics = InstrumentSemantics.forBox(instrument)
+        if (semantics === null) {
+            throw new Error(`Unsupported instrument '${instrument.name}'.`)
+        }
+        const writes = changes.map(change => {
+            const field = SemanticFields.resolve(semantics.spec, change.path)
+            if (field === undefined) {
+                throw new Error(`'${change.path}' is not a semantic property of ${semantics.type}. `
+                    + "Use inspect_instrument to discover valid paths.")
+            }
+            return {field, value: SemanticFields.coerceValue(field, change.value, change.path)}
+        })
+        writes.forEach(({field, value}) => field.setValue(value))
     }
 
     createAudioBus(name: string, type: "bus" | "aux" = "bus"): AudioBusBox {

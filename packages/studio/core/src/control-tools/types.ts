@@ -59,7 +59,7 @@ export type ResourceQuery = {
 }
 
 export type ResourceToolName = "query_resources" | "inspect_resource"
-    | "query_samples"
+    | "query_samples" | "inspect_instrument"
 
 export type SampleQuery = {
     readonly text?: string
@@ -113,4 +113,22 @@ export type SampleQueryResult = {
 export type ResourceInspectionResult = {
     readonly handle: ControlHandle
     readonly views: ReadonlyArray<JsonObject>
+}
+
+export type InstrumentPropertyInspection = {
+    readonly path: string
+    readonly value: JsonValue
+    readonly fieldType: string
+    readonly constraints: JsonValue
+    readonly automatable: boolean
+    readonly parameterName?: string
+    readonly printValue?: JsonObject
+}
+
+export type InstrumentInspectionResult = {
+    readonly handle: ControlHandle
+    readonly type: string
+    readonly label: string
+    readonly properties: ReadonlyArray<InstrumentPropertyInspection>
+    readonly groups: ReadonlyArray<{readonly prefix: string, readonly label: string}>
 }

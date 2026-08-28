@@ -1,5 +1,11 @@
-import {Address, Box, Field, PointerField, PrimitiveField} from "@opendaw/lib-box"
-import {AutomatableParameterFieldAdapter, BoxAdapter} from "@opendaw/studio-adapters"
+import {Address, Box, Field, Float32Field, Int32Field, PointerField, PrimitiveField} from "@opendaw/lib-box"
+import {
+    AutomatableParameterFieldAdapter,
+    BoxAdapter,
+    InstrumentSemantics,
+    SemanticFields,
+    isSupportedInstrumentBox
+} from "@opendaw/studio-adapters"
 import type {Sample} from "@opendaw/studio-adapters"
 import {ControlResolver} from "../control-api/ControlResolver"
 import type {JsonObject, JsonValue} from "../control-api/types"
@@ -8,6 +14,8 @@ import type {
     ResourceKind,
     ResourceQuery,
     ResourceQueryResult,
+    InstrumentInspectionResult,
+    InstrumentPropertyInspection,
     SampleCatalog,
     SampleQuery,
     SampleQueryResult
@@ -53,7 +61,11 @@ const asJsonValue = (value: unknown): JsonValue | undefined => {
             .filter((element): element is JsonValue => element !== undefined)
     }
     if (typeof value !== "object") {return undefined}
-    return undefined
+    const object = value as Record<string, unknown>
+    const entries = Object.entries(object)
+        .map(([key, member]) => [key, asJsonValue(member)] as const)
+        .filter((entry): entry is readonly [string, JsonValue] => entry[1] !== undefined)
+    return Object.fromEntries(entries)
 }
 
 const pointerTypeValue = (value: unknown): JsonValue => {
@@ -192,6 +204,24 @@ const parameterView = (resolver: ControlResolver,
         printValue: printValue(parameter),
         ...(value === undefined ? {} : {value})
     } as JsonObject
+}
+
+const semanticPropertyView = (path: string, field: PrimitiveField,
+                              parameter: AutomatableParameterFieldAdapter | undefined): InstrumentPropertyInspection => {
+    const constraints = field instanceof Float32Field || field instanceof Int32Field
+        ? asJsonValue(field.constraints) ?? null
+        : null
+    return {
+        path,
+        value: primitiveValue(field) ?? null,
+        fieldType: String(field.type),
+        constraints,
+        automatable: parameter !== undefined,
+        ...(parameter === undefined ? {} : {
+            parameterName: parameter.name,
+            printValue: printValue(parameter)
+        })
+    }
 }
 
 const entrySearchText = (view: JsonObject, extra: ReadonlyArray<string> = []): string =>
@@ -349,6 +379,34 @@ export class ResourceTools {
             .map(candidate => candidate.view)
         if (views.length === 0) {throw new Error(`No resource at ${address}`)}
         return {handle: this.#resolver.handle(resolved), views}
+    }
+
+    inspectInstrument(input: JsonObject): InstrumentInspectionResult {
+        const value = assertRecord(input, "inspect_instrument input")
+        assertKnownProperties(value, ["instrument"], "inspect_instrument input")
+        const handle = value.instrument
+        if (handle === undefined) {throw new Error("Missing argument 'instrument'")}
+        const resolved = this.#resolver.resolve(boxSpec, handle)
+        if (!(resolved instanceof Box)) {throw new Error("instrument must be a box handle")}
+        if (!isSupportedInstrumentBox(resolved)) {
+            throw new Error(`Unsupported instrument '${resolved.name}'.`)
+        }
+        const semantics = InstrumentSemantics.forBox(resolved)
+        if (semantics === null) {throw new Error(`Unsupported instrument '${resolved.name}'.`)}
+        const parameters = this.#resolver.parameters()
+        const properties = SemanticFields.paths(semantics.spec).map(path => {
+            const field = SemanticFields.resolve(semantics.spec, path)
+            if (field === undefined) {throw new Error(`Missing semantic field '${path}'`)}
+            const parameter = parameters.find(candidate => candidate.field.address.equals(field.address))
+            return semanticPropertyView(path, field, parameter)
+        })
+        return {
+            handle: this.#resolver.handle(resolved),
+            type: resolved.name,
+            label: labelOf(resolved) ?? resolved.name,
+            properties,
+            groups: semantics.groups
+        }
     }
 
     #entries(): ReadonlyArray<ResourceEntry> {

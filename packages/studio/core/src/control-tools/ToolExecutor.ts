@@ -35,6 +35,9 @@ export class ToolExecutor {
             if (binding.resource === "inspect_resource") {
                 return {ok: true, value: this.#resources.inspect(input) as unknown as JsonValue}
             }
+            if (binding.resource === "inspect_instrument") {
+                return {ok: true, value: this.#resources.inspectInstrument(input) as unknown as JsonValue}
+            }
             if (binding.resource === "query_samples") {
                 return {ok: true, value: await this.#resources.querySamples(input) as unknown as JsonValue}
             }

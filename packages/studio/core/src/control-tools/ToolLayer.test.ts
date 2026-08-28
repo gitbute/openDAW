@@ -1,9 +1,11 @@
 import {describe, expect, it, vi} from "vitest"
+import {BoxEditing} from "@opendaw/lib-box"
 import {isDefined, Option, Terminable, UUID} from "@opendaw/lib-std"
 import type {Sample} from "@opendaw/studio-adapters"
 import {ProjectSkeleton} from "@opendaw/studio-adapters"
 import {
     AudioFileBox,
+    NeonDeviceBox,
     NanoDeviceBox,
     NoteEventBox,
     PlayfieldDeviceBox,
@@ -123,7 +125,7 @@ describe("Slice 2 control tools", () => {
         expect(JSON.stringify(generated)).not.toMatch(/\b(?:arg|param)\d+\b/)
         expect(generated.every(tool => tool.exposure === "deferred")).toBe(true)
         expect(first.tools.filter(tool => tool.exposure === "eager").map(tool => tool.name))
-            .toEqual(["query_resources", "inspect_resource", "query_samples"])
+            .toEqual(["query_resources", "inspect_resource", "inspect_instrument", "query_samples"])
         const sampleQuery = first.get("daw_resources", "query_samples")?.spec.inputSchema
         expect(sampleQuery?.properties?.origin?.enum).toEqual(["openDAW", "recording", "import"])
         expect(sampleQuery?.properties?.limit?.maximum).toBe(50)
@@ -186,6 +188,17 @@ describe("Slice 2 control tools", () => {
                 "Handle to a NoteEventCollectionBox."
             ]))
         }
+
+        const generatedOperation = generatedControlManifest.operations
+            .find(operation => operation.method === "setInstrumentProperties")
+        expect(generatedOperation).toBeDefined()
+        const instrumentMutation = catalog.get("daw_project", "set_instrument_properties")
+        expect(instrumentMutation?.spec.exposure).toBe("deferred")
+        expect(instrumentMutation?.spec.inputSchema.properties?.instrument?.anyOf
+            ?.map(schema => schema.description)).toEqual(expect.arrayContaining([
+                "Handle to a NeonDeviceBox.",
+                "Handle to a VaporisateurDeviceBox."
+            ]))
     })
 
     it("exposes explicit sample assignment tools and canonical note-owner documentation", () => {
@@ -408,6 +421,97 @@ describe("Slice 2 control tools", () => {
                 handle: rediscoveredHandle
             }))
             expect(arrayValue(inspection.views).length).toBeGreaterThanOrEqual(1)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("inspects and mutates Neon semantic properties without raw field handles", async () => {
+        const {project, controlApi, catalog, executor} = createLayer()
+        try {
+            const product = objectValue(await run(executor, "daw_project", "create_any_instrument", {
+                factory: "Neon"
+            }))
+            const instrument = handleValue(product.instrumentBox)
+            // Creation itself is a separate producer mutation; start this focused assertion with a clean history.
+            const boxEditing = project.editing as BoxEditing
+            boxEditing.clear()
+            const inspection = objectValue(await run(executor, "daw_resources", "inspect_instrument", {instrument}))
+            expect(inspection.type).toBe("NeonDeviceBox")
+            expect(inspection.label).toBe("Neon")
+
+            const properties = arrayValue(inspection.properties).map(objectValue)
+            const paths = properties.map(property => stringValue(property.path))
+            expect(paths).toContain("envelopes.0.rate1")
+            expect(paths).toContain("envelopes.5.level8")
+            expect(paths).toContain("vibrato.rate")
+            const rate = properties.find(property => property.path === "envelopes.0.rate1")!
+            expect(rate).toMatchObject({
+                value: 0,
+                fieldType: "float32",
+                constraints: {min: 0, max: 99, scaling: "linear"},
+                automatable: false
+            })
+            const lineSelect = properties.find(property => property.path === "lineSelect")!
+            expect(lineSelect).toMatchObject({automatable: true, parameterName: "Line"})
+            expect(lineSelect).not.toHaveProperty("field")
+
+            const groups = arrayValue(inspection.groups).map(objectValue)
+            expect(groups.map(group => group.label)).toEqual([
+                "Line 1 Pitch Envelope",
+                "Line 1 DCW Envelope",
+                "Line 1 DCA Envelope",
+                "Line 2 Pitch Envelope",
+                "Line 2 DCW Envelope",
+                "Line 2 DCA Envelope"
+            ])
+
+            const neon = controlApi.resolver.resolve({
+                kind: "handle", handle: "box", name: "NeonDeviceBox"
+            }, instrument)
+            expect(neon).toBeInstanceOf(NeonDeviceBox)
+            if (!(neon instanceof NeonDeviceBox)) {throw new Error("Missing Neon box")}
+            const originalRate = neon.envelopes.fields()[0].rate1.getValue()
+            const originalVibratoRate = neon.vibrato.rate.getValue()
+            expect(project.editing.canUndo()).toBe(false)
+
+            await run(executor, "daw_project", "set_instrument_properties", {
+                instrument,
+                changes: [
+                    {path: "envelopes.0.rate1", value: 73},
+                    {path: "vibrato.rate", value: 12}
+                ]
+            })
+            expect(neon.envelopes.fields()[0].rate1.getValue()).toBe(73)
+            expect(neon.vibrato.rate.getValue()).toBe(12)
+            expect(project.editing.canUndo()).toBe(true)
+            expect(project.editing.undo()).toBe(true)
+            expect(neon.envelopes.fields()[0].rate1.getValue()).toBe(originalRate)
+            expect(neon.vibrato.rate.getValue()).toBe(originalVibratoRate)
+            expect(project.editing.canUndo()).toBe(false)
+
+            await expect(executor.execute({
+                namespace: "daw_project", name: "set_instrument_properties", arguments: {
+                    instrument, changes: [{path: "envelopes.9.foo", value: 1}]
+                }
+            })).resolves.toMatchObject({
+                ok: false,
+                error: expect.stringContaining("'envelopes.9.foo' is not a semantic property of Neon")
+            })
+            await expect(executor.execute({
+                namespace: "daw_project", name: "set_instrument_properties", arguments: {
+                    instrument, changes: [{path: "envelopes.0.rate1", value: 100}]
+                }
+            })).resolves.toMatchObject({
+                ok: false,
+                error: expect.stringContaining("envelopes.0.rate1")
+            })
+            expect(neon.envelopes.fields()[0].rate1.getValue()).toBe(originalRate)
+            expect(project.editing.canUndo()).toBe(false)
+
+            const mutationTool = catalog.get("daw_project", "set_instrument_properties")
+            expect(mutationTool?.spec.exposure).toBe("deferred")
+            expect(catalog.get("daw_project", "set_neon_envelope")).toBeUndefined()
         } finally {
             project.terminate()
         }

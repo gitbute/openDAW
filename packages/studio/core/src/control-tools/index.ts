@@ -1,5 +1,7 @@
 export type {
     FunctionToolSpec,
+    InstrumentInspectionResult,
+    InstrumentPropertyInspection,
     JsonSchema,
     ResourceInspectionResult,
     ResourceKind,
@@ -18,7 +20,12 @@ export type {
     ToolSpec,
     ToolSuccess
 } from "./types"
-export {typeSpecToJsonSchema, operationInputSchema, sampleQueryInputSchema} from "./ToolSchema"
+export {
+    typeSpecToJsonSchema,
+    operationInputSchema,
+    sampleQueryInputSchema,
+    instrumentInspectInputSchema
+} from "./ToolSchema"
 export {ToolCatalog, toToolName} from "./ToolCatalog"
 export {ResourceTools} from "./ResourceTools"
 export {ToolExecutor} from "./ToolExecutor"

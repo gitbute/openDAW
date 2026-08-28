@@ -1,4 +1,4 @@
-import {InstrumentFactories} from "@opendaw/studio-adapters"
+import {InstrumentFactories, SupportedInstrumentBoxNames} from "@opendaw/studio-adapters"
 import {EffectFactories} from "../EffectFactories"
 import type {OperationDescriptor, ParameterSpec, PropertySpec, TypeSpec} from "../control-api/types"
 import type {JsonSchema} from "./types"
@@ -195,3 +195,11 @@ export const sampleQueryInputSchema: JsonSchema = strictObject({
 export const resourceInspectInputSchema: JsonSchema = strictObject({
     handle: handleSchema()
 }, ["handle"])
+
+export const instrumentInspectInputSchema: JsonSchema = strictObject({
+    instrument: {
+        anyOf: SupportedInstrumentBoxNames.map(name => handleSchema({
+            kind: "handle", handle: "box", name
+        }))
+    }
+}, ["instrument"])

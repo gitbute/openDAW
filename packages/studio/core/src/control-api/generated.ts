@@ -131,6 +131,94 @@ export const generatedControlManifest: GeneratedManifest = {
             }
         },
         {
+            "id": "project.setInstrumentProperties",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "setInstrumentProperties",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "instrument",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "instrument"
+                    },
+                    "type": {
+                        "kind": "union",
+                        "alternatives": [
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "VaporisateurDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "NeonDeviceBox"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "changes",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "changes"
+                    },
+                    "type": {
+                        "kind": "array",
+                        "element": {
+                            "kind": "object",
+                            "name": "InstrumentPropertyChange",
+                            "properties": [
+                                {
+                                    "name": "path",
+                                    "optional": false,
+                                    "type": {
+                                        "kind": "primitive",
+                                        "type": "string"
+                                    }
+                                },
+                                {
+                                    "name": "value",
+                                    "optional": false,
+                                    "type": {
+                                        "kind": "union",
+                                        "alternatives": [
+                                            {
+                                                "kind": "primitive",
+                                                "type": "string"
+                                            },
+                                            {
+                                                "kind": "primitive",
+                                                "type": "number"
+                                            },
+                                            {
+                                                "kind": "primitive",
+                                                "type": "boolean"
+                                            },
+                                            {
+                                                "kind": "primitive",
+                                                "type": "boolean"
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            ],
+            "result": {
+                "kind": "void"
+            },
+            "description": "Set semantic instrument properties discovered with `daw_resources.inspect_instrument`.\nPaths are canonical instrument property paths, not raw field addresses. Multiple changes\nare applied together; use the returned paths exactly when making subsequent edits."
+        },
+        {
             "id": "project.createAudioBus",
             "root": "project",
             "ownerType": "ProjectApi",
