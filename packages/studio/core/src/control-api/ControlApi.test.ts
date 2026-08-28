@@ -2,7 +2,15 @@ import {describe, expect, it} from "vitest"
 import {Field} from "@opendaw/lib-box"
 import {isDefined, Option, Terminable, UUID} from "@opendaw/lib-std"
 import {ProjectSkeleton} from "@opendaw/studio-adapters"
-import {NoteClipBox, NoteEventCollectionBox, NoteRegionBox} from "@opendaw/studio-boxes"
+import {
+    ApparatDeviceBox,
+    AudioFileBox,
+    NoteClipBox,
+    NoteEventCollectionBox,
+    NoteRegionBox,
+    WerkstattParameterBox,
+    WerkstattSampleBox
+} from "@opendaw/studio-boxes"
 import {ControlApi} from "./ControlApi"
 import {decodeType} from "./codec"
 import {generatedControlManifest} from "./generated"
@@ -13,6 +21,10 @@ import type {ProjectEnv} from "../project/ProjectEnv"
 // jsdom lacks the Web Audio worklet globals that EngineWorklet extends at module-eval time.
 if (!isDefined(Reflect.get(globalThis, "AudioWorkletNode"))) {
     Reflect.set(globalThis, "AudioWorkletNode", class {})
+}
+if (!isDefined(URL.createObjectURL)) {
+    Reflect.set(URL, "createObjectURL", () => "blob:opendaw-test")
+    Reflect.set(URL, "revokeObjectURL", () => {})
 }
 
 const createSampleManager = () => ({
@@ -30,17 +42,20 @@ const createSampleManager = () => ({
     register: () => Terminable.Empty
 })
 
-const createEnv = (): ProjectEnv => ({
+const createAudioWorklets = (addModule: () => Promise<void>): ProjectEnv["audioWorklets"] =>
+    ({context: {audioWorklet: {addModule}}} as unknown as ProjectEnv["audioWorklets"])
+
+const createEnv = (audioWorklets?: ProjectEnv["audioWorklets"]): ProjectEnv => ({
     audioContext: undefined,
-    audioWorklets: undefined,
+    audioWorklets,
     sampleManager: createSampleManager(),
     soundfontManager: undefined,
     sampleService: undefined,
     soundfontService: undefined
 }) as unknown as ProjectEnv
 
-const createProject = async (): Promise<{project: Project, api: ControlApi}> => {
-    const project = Project.fromSkeleton(createEnv(), ProjectSkeleton.empty({
+const createProject = async (audioWorklets?: ProjectEnv["audioWorklets"]): Promise<{project: Project, api: ControlApi}> => {
+    const project = Project.fromSkeleton(createEnv(audioWorklets), ProjectSkeleton.empty({
         createDefaultUser: true, createOutputMaximizer: false
     }))
     return {project, api: new ControlApi(project)}
@@ -324,6 +339,133 @@ describe("ControlApi", () => {
             expect(project.boxGraph.inTransaction()).toBe(false)
             await api.callAsync({operation: "transport.isReady"})
             expect(project.boxGraph.inTransaction()).toBe(false)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("waits for Apparat compilation and reads back only user source", async () => {
+        let blockRegistration = true
+        let releaseRegistration!: () => void
+        const addModule = () => blockRegistration
+            ? new Promise<void>(resolve => {releaseRegistration = resolve})
+            : Promise.resolve()
+        const {project, api} = await createProject(createAudioWorklets(addModule))
+        try {
+            const product = asObject(call(api, "project.createAnyInstrument", {factory: "Apparat"}))
+            const target = asHandle(product.instrumentBox)
+            const apparat = api.resolver.resolve({kind: "handle", handle: "box", name: "ApparatDeviceBox"}, target)
+            if (!(apparat instanceof ApparatDeviceBox)) {throw new Error("Missing Apparat box")}
+            const source = "// @label Agent Apparat\nclass Processor {\n"
+                + "    noteOn(pitch, velocity, cent, id) {}\n"
+                + "    noteOff(id) {}\n"
+                + "    reset() {}\n"
+                + "    process(output, block) {}\n"
+                + "}"
+            let settled = false
+            const pending = api.callAsync({operation: "project.programApparat", arguments: {target, source}})
+                .then(value => {settled = true; return value})
+            await Promise.resolve()
+            expect(settled).toBe(false)
+            expect(apparat.code.getValue()).toContain("// @apparat js 1 1\n")
+            releaseRegistration()
+            await pending
+            expect(call(api, "project.readApparatSource", {target})).toBe(source)
+
+            blockRegistration = false
+            const updated = "class Processor {\n"
+                + "    noteOn(pitch, velocity, cent, id) {}\n"
+                + "    noteOff(id) {}\n"
+                + "    reset() {}\n"
+                + "    process(output, block) {}\n"
+                + "}\n"
+            await api.callAsync({operation: "project.programApparat", arguments: {target, source: updated}})
+            expect(apparat.code.getValue()).toContain("// @apparat js 1 2\n")
+            expect(call(api, "project.readApparatSource", {target})).toBe(updated)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("propagates rejected async Apparat compilation", async () => {
+        const {project, api} = await createProject(createAudioWorklets(async () => {}))
+        try {
+            const product = asObject(call(api, "project.createAnyInstrument", {factory: "Apparat"}))
+            const target = asHandle(product.instrumentBox)
+            await expect(api.callAsync({
+                operation: "project.programApparat",
+                arguments: {target, source: "class Processor {"}
+            })).rejects.toThrow()
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("turns Apparat declarations into ordinary parameters and reconciles them", async () => {
+        const {project, api} = await createProject(createAudioWorklets(async () => {}))
+        try {
+            const product = asObject(call(api, "project.createAnyInstrument", {factory: "Apparat"}))
+            const target = asHandle(product.instrumentBox)
+            const source = "// @param tone 0.5\n// @param decay 0.1 0.001 1 exp s\n"
+                + "class Processor { noteOn() {} noteOff() {} reset() {} process() {} }"
+            await api.callAsync({operation: "project.programApparat", arguments: {target, source}})
+            const apparat = api.resolver.resolve({kind: "handle", handle: "box", name: "ApparatDeviceBox"}, target)
+            if (!(apparat instanceof ApparatDeviceBox)) {throw new Error("Missing Apparat box")}
+            const parameterBoxes = (): ReadonlyArray<WerkstattParameterBox> => apparat.parameters.pointerHub
+                .incoming().map(({box}) => box).filter((box): box is WerkstattParameterBox => box instanceof WerkstattParameterBox)
+            expect(parameterBoxes().map(box => box.label.getValue()))
+                .toEqual(expect.arrayContaining(["tone", "decay"]))
+            const tone = api.resolver.parameters().find(parameter => parameter.name === "Tone")
+            if (tone === undefined) {throw new Error("Missing generated Tone parameter")}
+            const before = tone.getValue()
+            call(api, "parameter.setValue", {value: 0.75}, api.resolver.handle(tone))
+            expect(tone.getValue()).not.toBe(before)
+
+            const updated = "// @param tone 0.25 0 1 exp\n"
+                + "class Processor { noteOn() {} noteOff() {} reset() {} process() {} }"
+            await api.callAsync({operation: "project.programApparat", arguments: {target, source: updated}})
+            expect(parameterBoxes().map(box => box.label.getValue())).toEqual(["tone"])
+            expect(parameterBoxes()[0].defaultValue.getValue()).toBe(0.25)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("assigns and removes Apparat samples without deleting declaration slots", async () => {
+        const {project, api} = await createProject(createAudioWorklets(async () => {}))
+        try {
+            const product = asObject(call(api, "project.createAnyInstrument", {factory: "Apparat"}))
+            const target = asHandle(product.instrumentBox)
+            const source = "// @sample kick\n// @sample texture\n"
+                + "class Processor { noteOn() {} noteOff() {} reset() {} process() {} }"
+            await api.callAsync({operation: "project.programApparat", arguments: {target, source}})
+            const apparat = api.resolver.resolve({kind: "handle", handle: "box", name: "ApparatDeviceBox"}, target)
+            if (!(apparat instanceof ApparatDeviceBox)) {throw new Error("Missing Apparat box")}
+            const slots = (): ReadonlyArray<WerkstattSampleBox> => apparat.samples.pointerHub.incoming()
+                .map(({box}) => box).filter((box): box is WerkstattSampleBox => box instanceof WerkstattSampleBox)
+            const kick = slots().find(slot => slot.label.getValue() === "kick")
+            if (kick === undefined) {throw new Error("Missing kick sample declaration")}
+            const sample = {
+                uuid: "00000000-0000-4000-8000-000000000021",
+                name: "Agent Kick",
+                bpm: 120,
+                duration: 0.75,
+                sample_rate: 48000,
+                origin: "openDAW"
+            } as const
+            call(api, "project.assignApparatSample", {target, sampleLabel: "kick", sample})
+            const file = kick.file.targetVertex.unwrap("Missing assigned Apparat sample").box
+            expect(file).toBeInstanceOf(AudioFileBox)
+            expect(file.address.uuid).toEqual(UUID.parse(sample.uuid))
+            call(api, "project.removeApparatSample", {target, sampleLabel: "kick"})
+            expect(kick.isAttached()).toBe(true)
+            expect(kick.file.targetVertex.isEmpty()).toBe(true)
+            expect(api.resolver.boxes().some(box => box === kick)).toBe(true)
+            expect(api.resolver.boxes().some(box => box instanceof AudioFileBox
+                && UUID.equals(box.address.uuid, UUID.parse(sample.uuid)))).toBe(false)
+            expect(() => call(api, "project.assignApparatSample", {
+                target, sampleLabel: "missing", sample
+            })).toThrow(/missing.*kick.*texture/i)
         } finally {
             project.terminate()
         }

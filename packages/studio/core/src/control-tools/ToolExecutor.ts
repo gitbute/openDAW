@@ -2,7 +2,7 @@ import {ControlApi} from "../control-api/ControlApi"
 import {ResourceTools} from "./ResourceTools"
 import {ToolCatalog} from "./ToolCatalog"
 import type {ControlHandle, JsonObject, JsonValue} from "../control-api/types"
-import type {SampleCatalog, ToolInvocation, ToolResult} from "./types"
+import type {DeviceHelpCatalog, SampleCatalog, ToolInvocation, ToolResult} from "./types"
 
 const errorMessage = (error: unknown): string => error instanceof Error ? error.message : String(error)
 
@@ -15,10 +15,11 @@ export class ToolExecutor {
     readonly #resources: ResourceTools
 
     constructor(controlApi: ControlApi, catalog: ToolCatalog = new ToolCatalog(),
-                resources?: ResourceTools, sampleCatalog?: SampleCatalog) {
+                resources?: ResourceTools, sampleCatalog?: SampleCatalog,
+                deviceHelpCatalog?: DeviceHelpCatalog) {
         this.#controlApi = controlApi
         this.#catalog = catalog
-        this.#resources = resources ?? new ResourceTools(controlApi.resolver, sampleCatalog)
+        this.#resources = resources ?? new ResourceTools(controlApi.resolver, sampleCatalog, deviceHelpCatalog)
     }
 
     async execute(invocation: ToolInvocation): Promise<ToolResult> {
@@ -40,6 +41,9 @@ export class ToolExecutor {
             }
             if (binding.resource === "query_samples") {
                 return {ok: true, value: await this.#resources.querySamples(input) as unknown as JsonValue}
+            }
+            if (binding.resource === "inspect_device_help") {
+                return {ok: true, value: await this.#resources.inspectDeviceHelp(input) as unknown as JsonValue}
             }
             const operation = binding.operation
             if (operation === undefined) {throw new Error("Tool has no executable binding")}

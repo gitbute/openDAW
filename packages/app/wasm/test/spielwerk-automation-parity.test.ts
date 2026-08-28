@@ -6,7 +6,7 @@ import {describe, expect, it} from "vitest"
 import {UUID, ValueMapping} from "@opendaw/lib-std"
 import {Interpolation} from "@opendaw/lib-dsp"
 import {ApparatDeviceBox, AudioUnitBox, NoteEventBox, NoteEventCollectionBox, NoteRegionBox, SpielwerkDeviceBox, TrackBox, ValueEventBox, ValueEventCollectionBox, ValueRegionBox, WerkstattParameterBox} from "@opendaw/studio-boxes"
-import {InterpolationFieldAdapter, ProjectSkeleton, ScriptCompiler, TrackType} from "@opendaw/studio-adapters"
+import {InterpolationFieldAdapter, ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs, TrackType} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./helpers/load-full-engine"
 import {connectSyncToEngine} from "./helpers/connect-sync"
 import {maxDiff} from "./helpers/render-harness"
@@ -125,9 +125,9 @@ describe("spielwerk automation parity", () => {
         const spielwerkUuid = UUID.toString(spielwerk.address.uuid)
 
         new Function(ScriptCompiler.wrap(
-            {headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"}, apparatUuid, 1, APPARAT))()
+            ScriptDeviceConfigs.Apparat, apparatUuid, 1, APPARAT))()
         new Function(ScriptCompiler.wrap(
-            {headerTag: "spielwerk", registryName: "spielwerkProcessors", functionName: "spielwerk"}, spielwerkUuid, 1, SPIELWERK))()
+            ScriptDeviceConfigs.Spielwerk, spielwerkUuid, 1, SPIELWERK))()
 
         const {engine, memory} = await loadFullEngine()
         const sync = connectSyncToEngine(engine, memory, source)

@@ -6,7 +6,7 @@
 import {describe, expect, it} from "vitest"
 import {UUID} from "@opendaw/lib-std"
 import {ApparatDeviceBox, AudioUnitBox, SpielwerkDeviceBox} from "@opendaw/studio-boxes"
-import {ProjectSkeleton, ScriptCompiler} from "@opendaw/studio-adapters"
+import {ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./helpers/load-full-engine"
 import {connectSyncToEngine} from "./helpers/connect-sync"
 
@@ -60,9 +60,9 @@ describe("spielwerk loop release", () => {
         })
         source.endTransaction()
 
-        new Function(ScriptCompiler.wrap({headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"},
+        new Function(ScriptCompiler.wrap(ScriptDeviceConfigs.Apparat,
             UUID.toString(apparat.address.uuid), 1, APPARAT))()
-        new Function(ScriptCompiler.wrap({headerTag: "spielwerk", registryName: "spielwerkProcessors", functionName: "spielwerk"},
+        new Function(ScriptCompiler.wrap(ScriptDeviceConfigs.Spielwerk,
             UUID.toString(spielwerk.address.uuid), 1, SPIELWERK))()
 
         const {engine, memory} = await loadFullEngine()

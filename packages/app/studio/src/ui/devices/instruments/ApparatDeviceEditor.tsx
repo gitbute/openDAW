@@ -1,6 +1,6 @@
 import defaultCode from "./apparat-default.js?raw"
 import starterPrompt from "./apparat-starter-prompt.txt?raw"
-import {DeviceHost, ApparatDeviceBoxAdapter} from "@opendaw/studio-adapters"
+import {DeviceHost, ApparatDeviceBoxAdapter, ScriptDeviceConfigs} from "@opendaw/studio-adapters"
 import {Lifecycle} from "@opendaw/lib-std"
 import {createElement} from "@opendaw/lib-jsx"
 import {DevicePeakMeter} from "@/ui/devices/panel/DevicePeakMeter.tsx"
@@ -11,7 +11,7 @@ import {ScriptDeviceEditor, ScriptDeviceEditorConfig} from "@/ui/devices/ScriptD
 import {ApparatExamples} from "./apparat-examples"
 
 const config: ScriptDeviceEditorConfig = {
-    compiler: {headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"},
+    compiler: ScriptDeviceConfigs.Apparat,
     defaultCode,
     examples: ApparatExamples,
     starterPrompt,

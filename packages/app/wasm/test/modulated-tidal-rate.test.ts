@@ -16,7 +16,7 @@ import {
     TidalDeviceBox,
     TrackBox
 } from "@opendaw/studio-boxes"
-import {ProjectSkeleton, ScriptCompiler} from "@opendaw/studio-adapters"
+import {ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./helpers/load-full-engine"
 import {connectSyncToEngine} from "./helpers/connect-sync"
 
@@ -83,7 +83,7 @@ describe("modulated tidal rate", () => {
         })
         source.endTransaction()
         new Function(ScriptCompiler.wrap(
-            {headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"},
+            ScriptDeviceConfigs.Apparat,
             UUID.toString(apparat.address.uuid), 1, DC))()
         const {engine, memory} = await loadFullEngine()
         const sync = connectSyncToEngine(engine, memory, source)

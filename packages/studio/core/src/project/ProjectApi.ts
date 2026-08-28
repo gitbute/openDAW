@@ -30,6 +30,7 @@ import {
     AuxSendBox,
     CaptureAudioBox,
     CaptureMidiBox,
+    ApparatDeviceBox,
     NanoDeviceBox,
     NoteClipBox,
     NoteEventBox,
@@ -40,7 +41,8 @@ import {
     ValueClipBox,
     ValueEventBox,
     ValueEventCollectionBox,
-    ValueRegionBox
+    ValueRegionBox,
+    WerkstattSampleBox
 } from "@opendaw/studio-boxes"
 import {
     AnyRegionBox,
@@ -69,6 +71,7 @@ import {
     PresetHeader,
     ProjectQueries,
     SampleAssignment,
+    ScriptDeviceConfigs,
     SemanticFields,
     SupportedInstrumentBox,
     TrackBoxAdapter,
@@ -317,6 +320,35 @@ export class ProjectApi {
     removePlayfieldSample(target: PlayfieldDeviceBox, midiNote: int): void {
         validateMidiNote(midiNote)
         SampleAssignment.removePlayfield(target, midiNote)
+    }
+
+    /** Read an Apparat's user source without exposing the compiler's private version header. */
+    readApparatSource(target: ApparatDeviceBox): string {
+        return this.#project.readScriptDeviceSource(ScriptDeviceConfigs.Apparat, target)
+    }
+
+    /**
+     * Compile and install JavaScript source for an Apparat instrument using openDAW's canonical script
+     * compiler. Use device help for the authoritative Processor contract. @param declarations become
+     * automatable parameters discoverable through the parameter API; @sample declarations become named inputs.
+     */
+    async programApparat(target: ApparatDeviceBox, source: string): Promise<void> {
+        await this.#project.compileScriptDevice(ScriptDeviceConfigs.Apparat, target, source)
+    }
+
+    /** Assign a canonical sample to an existing Apparat @sample declaration by its exact label. */
+    assignApparatSample(target: ApparatDeviceBox, sampleLabel: string, sample: Sample): void {
+        const slot = this.#apparatSample(target, sampleLabel)
+        SampleAssignment.assignScriptSample(this.#project.boxGraph, slot, {
+            uuid: UUID.parse(sample.uuid),
+            name: sample.name,
+            durationInSeconds: sample.duration
+        })
+    }
+
+    /** Remove an Apparat sample assignment while keeping its declared @sample slot. */
+    removeApparatSample(target: ApparatDeviceBox, sampleLabel: string): void {
+        SampleAssignment.removeScriptSample(this.#apparatSample(target, sampleLabel))
     }
 
     replaceMIDIInstrument<A>(target: InstrumentBox,
@@ -777,6 +809,16 @@ export class ProjectApi {
             ? owner
             : owner.events.targetVertex.unwrap("Owner has no event-collection").box
                 .asBox(NoteEventCollectionBox)
+    }
+
+    #apparatSample(target: ApparatDeviceBox, sampleLabel: string): WerkstattSampleBox {
+        const slots = target.samples.pointerHub.incoming()
+            .map(({box}) => asInstanceOf(box, WerkstattSampleBox))
+        const slot = slots.find(candidate => candidate.label.getValue() === sampleLabel)
+        if (slot !== undefined) {return slot}
+        const available = slots.map(candidate => candidate.label.getValue())
+        throw new Error(`Apparat has no @sample declaration named '${sampleLabel}'. Available sample labels: `
+            + (available.length === 0 ? "(none)" : available.join(", ")))
     }
 
     #noteEvents(owner: NoteEventOwner): Field<Pointers.NoteEvents> {

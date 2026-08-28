@@ -40,7 +40,7 @@ export class ControlApi {
         if (!operation.async) {return this.call(request)}
         // Async canonical methods own any short live-model transaction after
         // their await. ControlApi never holds an editing transaction open here.
-        return this.#invoke(operation, request)
+        return this.#invokeAsync(operation, request)
     }
 
     batch(calls: ReadonlyArray<ControlBatchItem>): ReadonlyArray<JsonValue> {
@@ -67,9 +67,17 @@ export class ControlApi {
     }
 
     #invoke(operation: OperationDescriptor, request: ControlCall): JsonValue {
-        const {args, owner} = this.#decodeCall(operation, request)
-        const value = (owner as DynamicOwner)[operation.method](...args as never[])
+        return encodeType(operation.result, this.#invokeNative(operation, request), this.resolver)
+    }
+
+    async #invokeAsync(operation: OperationDescriptor, request: ControlCall): Promise<JsonValue> {
+        const value = await this.#invokeNative(operation, request)
         return encodeType(operation.result, value, this.resolver)
+    }
+
+    #invokeNative(operation: OperationDescriptor, request: ControlCall): JsonValue | object | undefined {
+        const {args, owner} = this.#decodeCall(operation, request)
+        return (owner as DynamicOwner)[operation.method](...args as never[])
     }
 
     #decodeCall(operation: OperationDescriptor, request: ControlCall): {args: ReadonlyArray<unknown>, owner: object} {

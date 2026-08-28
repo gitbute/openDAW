@@ -10,6 +10,7 @@ import type {
 import {
     operationInputSchema,
     instrumentInspectInputSchema,
+    deviceHelpInspectInputSchema,
     resourceInspectInputSchema,
     resourceQueryInputSchema,
     sampleQueryInputSchema
@@ -27,10 +28,10 @@ const namespaceDescriptions: Readonly<Record<string, string>> = {
     daw_modulation: "Create and connect canonical openDAW modulators.",
     daw_transport: "Control playback and transport state.",
     daw_parameter: "Read and edit discovered automatable parameters.",
-    daw_resources: "Discover and inspect live project resources, handles, and samples."
+    daw_resources: "Discover and inspect live project resources, handles, samples, and device help."
 }
 
-const resourceTools: ReadonlyArray<{readonly name: "query_resources" | "inspect_resource" | "query_samples" | "inspect_instrument", readonly schema: FunctionToolSpec["inputSchema"], readonly description: string}> = [
+const resourceTools: ReadonlyArray<{readonly name: "query_resources" | "inspect_resource" | "query_samples" | "inspect_instrument" | "inspect_device_help", readonly schema: FunctionToolSpec["inputSchema"], readonly description: string}> = [
     {
         name: "query_resources",
         schema: resourceQueryInputSchema,
@@ -50,6 +51,11 @@ const resourceTools: ReadonlyArray<{readonly name: "query_resources" | "inspect_
         name: "query_samples",
         schema: sampleQueryInputSchema,
         description: "Search the canonical sample catalog without loading sample audio."
+    },
+    {
+        name: "inspect_device_help",
+        schema: deviceHelpInspectInputSchema,
+        description: "Read the authoritative openDAW manual for a live device. Apparat help also includes its programming contract and bundled examples when available."
     }
 ]
 

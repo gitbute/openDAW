@@ -49,6 +49,28 @@ export type SampleCatalog = {
     list(): Promise<ReadonlyArray<Sample>>
 }
 
+export type DeviceHelpExample = {
+    readonly name: string
+    readonly code: string
+}
+
+export type DeviceHelpContent = {
+    readonly manualMarkdown: string
+    readonly programmingGuide?: string
+    readonly examples?: ReadonlyArray<DeviceHelpExample>
+}
+
+export type DeviceHelpCatalog = {
+    read(manualUrl: string): Promise<DeviceHelpContent>
+}
+
+export type DeviceHelpInspectionResult = DeviceHelpContent & {
+    readonly handle: ControlHandle
+    readonly type: string
+    readonly label: string
+    readonly manualUrl: string
+}
+
 export type ResourceQuery = {
     readonly kind?: ResourceKind
     readonly text?: string
@@ -59,7 +81,7 @@ export type ResourceQuery = {
 }
 
 export type ResourceToolName = "query_resources" | "inspect_resource"
-    | "query_samples" | "inspect_instrument"
+    | "query_samples" | "inspect_instrument" | "inspect_device_help"
 
 export type SampleQuery = {
     readonly text?: string

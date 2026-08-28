@@ -23,7 +23,7 @@ import {
     ValueEventCollectionBox,
     ValueRegionBox
 } from "@opendaw/studio-boxes"
-import {InterpolationFieldAdapter, ProjectSkeleton, ScriptCompiler, TrackType} from "@opendaw/studio-adapters"
+import {InterpolationFieldAdapter, ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs, TrackType} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./helpers/load-full-engine"
 import {connectSyncToEngine} from "./helpers/connect-sync"
 
@@ -141,7 +141,7 @@ describe("modulator parameter automation", () => {
         })
         source.endTransaction()
         new Function(ScriptCompiler.wrap(
-            {headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"},
+            ScriptDeviceConfigs.Apparat,
             UUID.toString(apparat.address.uuid), 1, DC))()
         const {engine, memory} = await loadFullEngine()
         const sync = connectSyncToEngine(engine, memory, source)

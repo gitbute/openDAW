@@ -6,7 +6,7 @@ import {describe, expect, it} from "vitest"
 import * as path from "node:path"
 import {readFileSync} from "node:fs"
 import {UUID} from "@opendaw/lib-std"
-import {ProjectSkeleton, ScriptCompiler} from "@opendaw/studio-adapters"
+import {ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./helpers/load-full-engine"
 import {connectSyncToEngine} from "./helpers/connect-sync"
 
@@ -14,9 +14,9 @@ const OD = path.resolve(__dirname, "../public/projects/303.od")
 
 // Mirror engine-host.loadScriptDevices, but register via `new Function(wrap(...))()` (node has no AudioWorklet).
 const SCRIPT_CONFIGS: Record<string, ScriptCompiler.Config> = {
-    ApparatDeviceBox: {headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"},
-    WerkstattDeviceBox: {headerTag: "werkstatt", registryName: "werkstattProcessors", functionName: "werkstatt"},
-    SpielwerkDeviceBox: {headerTag: "spielwerk", registryName: "spielwerkProcessors", functionName: "spielwerk"}
+    ApparatDeviceBox: ScriptDeviceConfigs.Apparat,
+    WerkstattDeviceBox: ScriptDeviceConfigs.Werkstatt,
+    SpielwerkDeviceBox: ScriptDeviceConfigs.Spielwerk
 }
 
 describe("load 303 project", () => {

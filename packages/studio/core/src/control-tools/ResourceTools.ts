@@ -2,7 +2,9 @@ import {Address, Box, Field, Float32Field, Int32Field, PointerField, PrimitiveFi
 import {
     AutomatableParameterFieldAdapter,
     BoxAdapter,
+    Devices,
     InstrumentSemantics,
+    ParameterOwner,
     SemanticFields,
     isSupportedInstrumentBox
 } from "@opendaw/studio-adapters"
@@ -16,6 +18,8 @@ import type {
     ResourceQueryResult,
     InstrumentInspectionResult,
     InstrumentPropertyInspection,
+    DeviceHelpCatalog,
+    DeviceHelpInspectionResult,
     SampleCatalog,
     SampleQuery,
     SampleQueryResult
@@ -194,12 +198,15 @@ const printValue = (parameter: AutomatableParameterFieldAdapter): JsonObject => 
 const parameterView = (resolver: ControlResolver,
                       parameter: AutomatableParameterFieldAdapter): JsonObject => {
     const value = asJsonValue(parameter.getValue())
+    const owner = ParameterOwner.ownerBoxOf(parameter.field)
     return {
         kind: "parameter",
         handle: resolver.handle(parameter),
         name: parameter.name,
         type: String(parameter.type),
-        owner: resolver.handle(parameter.field.box),
+        owner: resolver.handle(owner),
+        ownerType: owner.name,
+        ...(labelOf(owner) === undefined ? {} : {ownerLabel: labelOf(owner)}),
         field: resolver.handle(parameter.field),
         printValue: printValue(parameter),
         ...(value === undefined ? {} : {value})
@@ -297,10 +304,13 @@ const sampleView = (sample: Sample): Sample => ({
 export class ResourceTools {
     readonly #resolver: ControlResolver
     readonly #sampleCatalog: SampleCatalog | undefined
+    readonly #deviceHelpCatalog: DeviceHelpCatalog | undefined
 
-    constructor(resolver: ControlResolver, sampleCatalog?: SampleCatalog) {
+    constructor(resolver: ControlResolver, sampleCatalog?: SampleCatalog,
+                deviceHelpCatalog?: DeviceHelpCatalog) {
         this.#resolver = resolver
         this.#sampleCatalog = sampleCatalog
+        this.#deviceHelpCatalog = deviceHelpCatalog
     }
 
     query(input: ResourceQuery | JsonObject = {}): ResourceQueryResult {
@@ -409,6 +419,32 @@ export class ResourceTools {
         }
     }
 
+    async inspectDeviceHelp(input: JsonObject): Promise<DeviceHelpInspectionResult> {
+        const value = assertRecord(input, "inspect_device_help input")
+        assertKnownProperties(value, ["device"], "inspect_device_help input")
+        const handle = value.device
+        if (handle === undefined) {throw new Error("Missing argument 'device'")}
+        const resolved = this.#resolver.resolve(boxSpec, handle)
+        if (!(resolved instanceof Box)) {throw new Error("device must be a box handle")}
+        const adapter = this.#resolver.adapters().find(candidate => candidate.box === resolved)
+        if (adapter === undefined || !Devices.isAny(adapter)) {
+            throw new Error("Device help target must address a device.")
+        }
+        const catalog = this.#deviceHelpCatalog
+        if (catalog === undefined) {throw new Error("Device help catalog is unavailable.")}
+        const manualUrl = adapter.manualUrl
+        if (manualUrl.length === 0) {throw new Error(`Device '${resolved.name}' has no manual URL.`)}
+        const content = await catalog.read(manualUrl)
+        const label = adapter.labelField.getValue()
+        return {
+            handle: this.#resolver.handle(resolved),
+            type: resolved.name,
+            label: label.length === 0 ? resolved.name : label,
+            manualUrl,
+            ...content
+        }
+    }
+
     #entries(): ReadonlyArray<ResourceEntry> {
         const boxes = this.#resolver.boxes()
         const fields = this.#resolver.fields()
@@ -428,7 +464,8 @@ export class ResourceTools {
             adapter.constructor.name, adapter.box.address, [adapter.box.name])))
         parameters.forEach(parameter => entries.push(entry(
             "parameter", parameter.address, parameterView(this.#resolver, parameter),
-            String(parameter.type), parameter.field.box.address, [parameter.name, parameter.field.fieldName])))
+            String(parameter.type), ParameterOwner.ownerBoxOf(parameter.field).address,
+            [parameter.name, parameter.field.fieldName])))
         return entries.toSorted((left, right) =>
             kindOrder[left.kind] - kindOrder[right.kind]
             || left.address.localeCompare(right.address))

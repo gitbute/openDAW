@@ -6,7 +6,7 @@
 import {describe, expect, it} from "vitest"
 import {UUID} from "@opendaw/lib-std"
 import {ApparatDeviceBox, ArpeggioDeviceBox, AudioUnitBox, NoteEventBox, NoteEventCollectionBox, NoteRegionBox, TrackBox} from "@opendaw/studio-boxes"
-import {ProjectSkeleton, ScriptCompiler, TrackType} from "@opendaw/studio-adapters"
+import {ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs, TrackType} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./helpers/load-full-engine"
 import {connectSyncToEngine} from "./helpers/connect-sync"
 
@@ -63,7 +63,7 @@ const countSteps = async (rateIndex: number): Promise<number> => {
     })
     source.endTransaction()
     new Function(ScriptCompiler.wrap(
-        {headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"},
+        ScriptDeviceConfigs.Apparat,
         UUID.toString(apparat.address.uuid), 1, CODE))()
     const {engine, memory} = await loadFullEngine()
     const sync = connectSyncToEngine(engine, memory, source)

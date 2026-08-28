@@ -6,7 +6,7 @@ import {existsSync, mkdirSync, readFileSync, writeFileSync} from "node:fs"
 import {UUID} from "@opendaw/lib-std"
 import {WavFile} from "@opendaw/lib-dsp"
 import type {BoxGraph} from "@opendaw/lib-box"
-import {ProjectSkeleton, ScriptCompiler} from "@opendaw/studio-adapters"
+import {ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs} from "@opendaw/studio-adapters"
 import {WerkstattDeviceBox} from "@opendaw/studio-boxes"
 import {loadFullEngine} from "./load-full-engine"
 import {connectSyncToEngine} from "./connect-sync"
@@ -27,7 +27,7 @@ export const registerAtstilScripts = (boxGraph: BoxGraph): number => {
         const match = code.match(/^\/\/ @\w+ js \d+ (\d+)\n/)
         if (match === null) {continue}
         new Function(ScriptCompiler.wrap(
-            {headerTag: "werkstatt", registryName: "werkstattProcessors", functionName: "werkstatt"},
+            ScriptDeviceConfigs.Werkstatt,
             UUID.toString(box.address.uuid), parseInt(match[1]), code.slice(match[0].length)))()
         count++
     }

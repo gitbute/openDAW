@@ -7,7 +7,7 @@ import {describe, expect, it} from "vitest"
 import {UUID} from "@opendaw/lib-std"
 import {ApparatDeviceBox, AudioUnitBox, NoteEventBox, NoteEventCollectionBox, NoteRegionBox, TrackBox, ValueEventBox, ValueEventCollectionBox, ValueRegionBox} from "@opendaw/studio-boxes"
 import {Interpolation} from "@opendaw/lib-dsp"
-import {InterpolationFieldAdapter, ProjectSkeleton, ScriptCompiler, TrackType} from "@opendaw/studio-adapters"
+import {InterpolationFieldAdapter, ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs, TrackType} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./helpers/load-full-engine"
 import {connectSyncToEngine} from "./helpers/connect-sync"
 
@@ -94,7 +94,7 @@ describe("strip volume automation", () => {
         })
         source.endTransaction()
         new Function(ScriptCompiler.wrap(
-            {headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"},
+            ScriptDeviceConfigs.Apparat,
             UUID.toString(apparat.address.uuid), 1, DC))()
         const {engine, memory} = await loadFullEngine()
         const sync = connectSyncToEngine(engine, memory, source)

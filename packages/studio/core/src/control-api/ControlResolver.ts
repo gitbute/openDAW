@@ -155,8 +155,11 @@ export class ControlResolver {
     }
 
     #resolveParameter(spec: HandleSpec, address: Address): AutomatableParameterFieldAdapter {
-        const vertex = this.#boxGraph.findVertex(address).unwrap(`No parameter at ${address.toString()}`)
-        this.#boxAdapters.adapterFor(vertex.box, (candidate: BoxAdapter): candidate is BoxAdapter => true)
+        this.#boxGraph.findVertex(address).unwrap(`No parameter at ${address.toString()}`)
+        // Dynamic parameter fields (for example Apparat's WerkstattParameterBox.value) do not
+        // have a BoxAdapter of their own. Creating all canonical box adapters registers them in
+        // ParameterFieldAdapters, just as parameters() does, and keeps handle resolution generic.
+        this.adapters()
         const adapter = this.#parameterFieldAdapters.opt(address)
             .unwrap(`No parameter at ${address.toString()}`)
         if (!hasConstructorName(adapter, spec.name)) {

@@ -63,6 +63,7 @@ import {
     RemoteSelections,
     RootBoxAdapter,
     SampleLoaderManager,
+    ScriptDeviceConfigs,
     ScriptCompiler,
     SoundfontLoaderManager,
     TimelineBoxAdapter,
@@ -274,13 +275,25 @@ export class Project implements BoxAdaptersContext, Terminable, TerminableOwner 
         }
         for (const box of this.boxGraph.boxes()) {
             if (box instanceof ApparatDeviceBox) {
-                loadScript({headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"}, box)
+                loadScript(ScriptDeviceConfigs.Apparat, box)
             } else if (box instanceof WerkstattDeviceBox) {
-                loadScript({headerTag: "werkstatt", registryName: "werkstattProcessors", functionName: "werkstatt"}, box)
+                loadScript(ScriptDeviceConfigs.Werkstatt, box)
             } else if (box instanceof SpielwerkDeviceBox) {
-                loadScript({headerTag: "spielwerk", registryName: "spielwerkProcessors", functionName: "spielwerk"}, box)
+                loadScript(ScriptDeviceConfigs.Spielwerk, box)
             }
         }
+    }
+
+    compileScriptDevice(config: ScriptCompiler.Config,
+                        deviceBox: ScriptCompiler.ScriptDeviceBox,
+                        source: string): Promise<void> {
+        return ScriptCompiler.create(config).compile(
+            this.#env.audioWorklets.context, this.editing, deviceBox, source)
+    }
+
+    readScriptDeviceSource(config: ScriptCompiler.Config,
+                           deviceBox: ScriptCompiler.ScriptDeviceBox): string {
+        return ScriptCompiler.create(config).stripHeader(deviceBox.code.getValue())
     }
 
     startAudioWorklet(restart?: RestartWorklet, options?: ProcessorOptions): EngineWorklet {

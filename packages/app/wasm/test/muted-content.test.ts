@@ -7,7 +7,7 @@ import {UUID, ValueMapping} from "@opendaw/lib-std"
 import {Interpolation} from "@opendaw/lib-dsp"
 import {ApparatDeviceBox, AudioUnitBox, CaptureMidiBox, NoteClipBox, NoteEventBox, NoteEventCollectionBox, NoteRegionBox, TrackBox, ValueClipBox, ValueEventBox, ValueEventCollectionBox, ValueRegionBox, WerkstattParameterBox} from "@opendaw/studio-boxes"
 import type {BoxGraph} from "@opendaw/lib-box"
-import {InterpolationFieldAdapter, ProjectSkeleton, ScriptCompiler, TrackType} from "@opendaw/studio-adapters"
+import {InterpolationFieldAdapter, ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs, TrackType} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./helpers/load-full-engine"
 import {connectSyncToEngine} from "./helpers/connect-sync"
 
@@ -116,7 +116,7 @@ const build = (): Built => {
         box.clips.refer(ampTrack.clips); box.events.refer(clipAmpEvents.owners); box.duration.setValue(960)
     })
     source.endTransaction()
-    new Function(ScriptCompiler.wrap({headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"},
+    new Function(ScriptCompiler.wrap(ScriptDeviceConfigs.Apparat,
         UUID.toString(apparat.address.uuid), 1, CODE))()
     return {source, noteRegion, noteClip, valueRegion, valueClip, ampParam}
 }

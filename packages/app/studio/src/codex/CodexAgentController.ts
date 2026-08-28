@@ -18,7 +18,7 @@ import type {
     Unsubscribe
 } from "@opendaw/studio-codex"
 import {ControlApi, ToolCatalog, ToolExecutor} from "@opendaw/studio-core"
-import type {SampleCatalog} from "@opendaw/studio-core"
+import type {DeviceHelpCatalog, SampleCatalog} from "@opendaw/studio-core"
 import type {Project} from "@opendaw/studio-core"
 import {DefaultObservableValue, Terminable} from "@opendaw/lib-std"
 
@@ -81,6 +81,7 @@ export type CodexAgentControllerOptions = {
     readonly createSession?: CodexAgentSessionFactory
     readonly appServerUrl?: () => string
     readonly sampleCatalog?: SampleCatalog
+    readonly deviceHelpCatalog?: DeviceHelpCatalog
 }
 
 const emptyAccountState = {
@@ -104,10 +105,11 @@ const defaultAppServerUrl = (): string => {
 }
 
 const createSession = (url: string, project: Project, traceSink: CodexTraceSink,
-                       sampleCatalog?: SampleCatalog): CodexAgentSession => {
+                       sampleCatalog?: SampleCatalog,
+                       deviceHelpCatalog?: DeviceHelpCatalog): CodexAgentSession => {
     const controlApi = new ControlApi(project)
     const catalog = new ToolCatalog()
-    const executor = new ToolExecutor(controlApi, catalog, undefined, sampleCatalog)
+    const executor = new ToolExecutor(controlApi, catalog, undefined, sampleCatalog, deviceHelpCatalog)
     const transport = new WebSocketCodexTransport(url, undefined, traceSink)
     const rpc = new CodexRpcClient(transport, traceSink)
     return new CodexSession({rpc, catalog, executor, traceSink})
@@ -149,7 +151,8 @@ export class CodexAgentController {
             console.debug(`[Codex][${event.layer}] ${event.phase}`, event)
         }
         this.#createSession = options.createSession ?? ((project, traceSink) =>
-            createSession(this.#appServerUrl(), project, traceSink, options.sampleCatalog))
+            createSession(this.#appServerUrl(), project, traceSink,
+                options.sampleCatalog, options.deviceHelpCatalog))
         this.#modelSelectionSubscription = this.selectedModel.subscribe(() => this.#updateEffortSelection())
         this.#effortSelectionSubscription = this.models.subscribe(() => this.#reconcileModelSelection())
     }

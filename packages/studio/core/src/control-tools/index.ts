@@ -1,5 +1,9 @@
 export type {
     FunctionToolSpec,
+    DeviceHelpCatalog,
+    DeviceHelpContent,
+    DeviceHelpExample,
+    DeviceHelpInspectionResult,
     InstrumentInspectionResult,
     InstrumentPropertyInspection,
     JsonSchema,
@@ -24,7 +28,8 @@ export {
     typeSpecToJsonSchema,
     operationInputSchema,
     sampleQueryInputSchema,
-    instrumentInspectInputSchema
+    instrumentInspectInputSchema,
+    deviceHelpInspectInputSchema
 } from "./ToolSchema"
 export {ToolCatalog, toToolName} from "./ToolCatalog"
 export {ResourceTools} from "./ResourceTools"

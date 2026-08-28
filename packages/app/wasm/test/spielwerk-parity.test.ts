@@ -7,7 +7,7 @@
 import {describe, expect, it} from "vitest"
 import {UUID} from "@opendaw/lib-std"
 import {ApparatDeviceBox, AudioUnitBox, NoteEventBox, NoteEventCollectionBox, NoteRegionBox, SpielwerkDeviceBox, TrackBox} from "@opendaw/studio-boxes"
-import {ProjectSkeleton, ScriptCompiler, TrackType} from "@opendaw/studio-adapters"
+import {ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs, TrackType} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./helpers/load-full-engine"
 import {connectSyncToEngine} from "./helpers/connect-sync"
 import {maxDiff} from "./helpers/render-harness"
@@ -81,9 +81,9 @@ const renderTransform = async (spielwerkCode: string, transformedPitch: number |
     const apparatUuid = UUID.toString(apparat.address.uuid)
     const spielwerkUuid = UUID.toString(spielwerk.address.uuid)
     new Function(ScriptCompiler.wrap(
-        {headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"}, apparatUuid, 1, APPARAT))()
+        ScriptDeviceConfigs.Apparat, apparatUuid, 1, APPARAT))()
     new Function(ScriptCompiler.wrap(
-        {headerTag: "spielwerk", registryName: "spielwerkProcessors", functionName: "spielwerk"}, spielwerkUuid, 1, spielwerkCode))()
+        ScriptDeviceConfigs.Spielwerk, spielwerkUuid, 1, spielwerkCode))()
 
     const {engine, memory} = await loadFullEngine()
     const sync = connectSyncToEngine(engine, memory, source)

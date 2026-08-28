@@ -8,6 +8,12 @@ import {ModulationBoxAdapter} from "./modulation/ModulationBoxAdapter"
 import {Devices} from "./DeviceAdapter"
 
 export namespace ParameterOwner {
+    /// The box that owns a parameter field, following a script declaration's child-box owner pointer when needed.
+    export const ownerBoxOf = (vertex: Vertex): Box => {
+        const box = vertex.box
+        return resolveOwnerDeviceBox(box).mapOr(owner => owner, box)
+    }
+
     /// A scriptable device's dynamic parameter lives in its own child box, so the walk falls back to the
     /// device that owns it.
     export const nameOf = (context: BoxAdaptersContext, vertex: Vertex): Option<string> => {

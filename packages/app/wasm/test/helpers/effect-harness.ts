@@ -6,7 +6,7 @@ import {Procedure, UUID} from "@opendaw/lib-std"
 import {RenderQuantum} from "@opendaw/lib-dsp"
 import {ApparatDeviceBox, AudioUnitBox, NoteEventBox, NoteEventCollectionBox, NoteRegionBox, TrackBox} from "@opendaw/studio-boxes"
 import type {Box, BoxGraph} from "@opendaw/lib-box"
-import {ProjectSkeleton, ScriptCompiler, TrackType} from "@opendaw/studio-adapters"
+import {ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs, TrackType} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./load-full-engine"
 import {connectSyncToEngine} from "./connect-sync"
 
@@ -71,7 +71,7 @@ export const buildEffectProject = (gain: number, addEffect: (source: BoxGraph, u
     })
     source.endTransaction()
     new Function(ScriptCompiler.wrap(
-        {headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"}, apparatUuid, 1, code))()
+        ScriptDeviceConfigs.Apparat, apparatUuid, 1, code))()
     return source
 }
 

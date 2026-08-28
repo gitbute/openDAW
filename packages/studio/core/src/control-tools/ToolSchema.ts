@@ -203,3 +203,7 @@ export const instrumentInspectInputSchema: JsonSchema = strictObject({
         }))
     }
 }, ["instrument"])
+
+export const deviceHelpInspectInputSchema: JsonSchema = strictObject({
+    device: handleSchema()
+}, ["device"])

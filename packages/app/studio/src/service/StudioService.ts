@@ -83,6 +83,7 @@ import {CodeEditorState} from "@/ui/code-editor/CodeEditorState"
 import {RoomAwareness} from "@/service/RoomAwareness"
 import {ChatService} from "@/chat/ChatService"
 import {CodexAgentController} from "@/codex/CodexAgentController"
+import {OpenDawDeviceHelpCatalog} from "@/codex/OpenDawDeviceHelpCatalog"
 import {BrowseScope} from "@/ui/browse/BrowseScope"
 
 /**
@@ -159,7 +160,10 @@ export class StudioService implements ProjectEnv {
             type: "import-sample",
             sample
         }))
-        this.codexAgent = new CodexAgentController({sampleCatalog: this.#sampleService})
+        this.codexAgent = new CodexAgentController({
+            sampleCatalog: this.#sampleService,
+            deviceHelpCatalog: new OpenDawDeviceHelpCatalog()
+        })
         this.#soundfontService = new SoundfontService()
         this.#soundfontService.subscribe(([soundfont, _]) => this.#signals.notify({
             type: "import-soundfont",

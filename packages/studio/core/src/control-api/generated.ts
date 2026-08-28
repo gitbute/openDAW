@@ -720,6 +720,228 @@ export const generatedControlManifest: GeneratedManifest = {
             "description": "Remove the sample assigned to a Playfield absolute MIDI-note/sample slot."
         },
         {
+            "id": "project.readApparatSource",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "readApparatSource",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "target",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
+                    "type": {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ApparatDeviceBox"
+                    }
+                }
+            ],
+            "result": {
+                "kind": "primitive",
+                "type": "string"
+            },
+            "description": "Read an Apparat's user source without exposing the compiler's private version header."
+        },
+        {
+            "id": "project.programApparat",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "programApparat",
+            "target": "singleton",
+            "transaction": "none",
+            "async": true,
+            "parameters": [
+                {
+                    "name": "target",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
+                    "type": {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ApparatDeviceBox"
+                    }
+                },
+                {
+                    "name": "source",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "source"
+                    },
+                    "type": {
+                        "kind": "primitive",
+                        "type": "string"
+                    }
+                }
+            ],
+            "result": {
+                "kind": "void"
+            },
+            "description": "Compile and install JavaScript source for an Apparat instrument using openDAW's canonical script\ncompiler. Use device help for the authoritative Processor contract."
+        },
+        {
+            "id": "project.assignApparatSample",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "assignApparatSample",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "target",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
+                    "type": {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ApparatDeviceBox"
+                    }
+                },
+                {
+                    "name": "sampleLabel",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "sampleLabel"
+                    },
+                    "type": {
+                        "kind": "primitive",
+                        "type": "string"
+                    }
+                },
+                {
+                    "name": "sample",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "sample"
+                    },
+                    "type": {
+                        "kind": "object",
+                        "properties": [
+                            {
+                                "name": "bpm",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number"
+                                }
+                            },
+                            {
+                                "name": "custom",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "name": "duration",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number"
+                                }
+                            },
+                            {
+                                "name": "name",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "name": "origin",
+                                "optional": false,
+                                "type": {
+                                    "kind": "literal",
+                                    "values": [
+                                        "openDAW",
+                                        "recording",
+                                        "import"
+                                    ]
+                                }
+                            },
+                            {
+                                "name": "sample_rate",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number"
+                                }
+                            },
+                            {
+                                "name": "uuid",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "string"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ],
+            "result": {
+                "kind": "void"
+            },
+            "description": "Assign a canonical sample to an existing Apparat"
+        },
+        {
+            "id": "project.removeApparatSample",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "removeApparatSample",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "target",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "target"
+                    },
+                    "type": {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ApparatDeviceBox"
+                    }
+                },
+                {
+                    "name": "sampleLabel",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "sampleLabel"
+                    },
+                    "type": {
+                        "kind": "primitive",
+                        "type": "string"
+                    }
+                }
+            ],
+            "result": {
+                "kind": "void"
+            },
+            "description": "Remove an Apparat sample assignment while keeping its declared"
+        },
+        {
             "id": "project.insertEffect",
             "root": "project",
             "ownerType": "ProjectApi",

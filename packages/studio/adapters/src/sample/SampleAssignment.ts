@@ -1,5 +1,11 @@
 import {BoxGraph, PointerField} from "@opendaw/lib-box"
-import {AudioFileBox, NanoDeviceBox, PlayfieldDeviceBox, PlayfieldSampleBox} from "@opendaw/studio-boxes"
+import {
+    AudioFileBox,
+    NanoDeviceBox,
+    PlayfieldDeviceBox,
+    PlayfieldSampleBox,
+    WerkstattSampleBox
+} from "@opendaw/studio-boxes"
 import {Pointers} from "@opendaw/studio-enums"
 import {Option, UUID} from "@opendaw/lib-std"
 
@@ -57,6 +63,14 @@ export namespace SampleAssignment {
     }
 
     export const removeNano = (device: NanoDeviceBox): void => clearPointer(device.file)
+
+    // Script declaration slots are persistent: assigning or removing a sample only changes their file pointer.
+    export const assignScriptSample = (graph: BoxGraph,
+                                       slot: WerkstattSampleBox,
+                                       sample: SampleAssignmentInfo): void =>
+        changePointer(slot.file, Option.wrap(ensureFile(graph, sample)))
+
+    export const removeScriptSample = (slot: WerkstattSampleBox): void => clearPointer(slot.file)
 
     export const assignPlayfield = (graph: BoxGraph, device: PlayfieldDeviceBox,
                                     index: number, sample: SampleAssignmentInfo): PlayfieldSampleBox => {

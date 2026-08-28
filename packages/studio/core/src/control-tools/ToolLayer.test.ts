@@ -5,11 +5,13 @@ import type {Sample} from "@opendaw/studio-adapters"
 import {ProjectSkeleton} from "@opendaw/studio-adapters"
 import {
     AudioFileBox,
+    ApparatDeviceBox,
     NeonDeviceBox,
     NanoDeviceBox,
     NoteEventBox,
     PlayfieldDeviceBox,
-    PlayfieldSampleBox
+    PlayfieldSampleBox,
+    WerkstattSampleBox
 } from "@opendaw/studio-boxes"
 import {Project} from "../project/Project"
 import type {ProjectEnv} from "../project/ProjectEnv"
@@ -18,14 +20,19 @@ import {generatedControlManifest} from "../control-api/generated"
 import type {JsonObject, JsonValue} from "../control-api/types"
 import {EffectFactories} from "../EffectFactories"
 import {InstrumentFactories} from "@opendaw/studio-adapters"
+import type {DeviceBoxAdapter} from "@opendaw/studio-adapters"
 import {ResourceTools} from "./ResourceTools"
 import {ToolCatalog, toToolName} from "./ToolCatalog"
 import {ToolExecutor} from "./ToolExecutor"
 import {typeSpecToJsonSchema} from "./ToolSchema"
-import type {JsonSchema, SampleCatalog} from "./types"
+import type {DeviceHelpCatalog, JsonSchema, SampleCatalog} from "./types"
 
 if (!isDefined(Reflect.get(globalThis, "AudioWorkletNode"))) {
     Reflect.set(globalThis, "AudioWorkletNode", class {})
+}
+if (!isDefined(URL.createObjectURL)) {
+    Reflect.set(URL, "createObjectURL", () => "blob:opendaw-test")
+    Reflect.set(URL, "revokeObjectURL", () => {})
 }
 
 const createSampleManager = () => ({
@@ -43,23 +50,32 @@ const createSampleManager = () => ({
     register: () => Terminable.Empty
 })
 
-const createEnv = (): ProjectEnv => ({
+const createAudioWorklets = (addModule: () => Promise<void>): ProjectEnv["audioWorklets"] =>
+    ({context: {audioWorklet: {addModule}}} as unknown as ProjectEnv["audioWorklets"])
+
+const createEnv = (audioWorklets?: ProjectEnv["audioWorklets"]): ProjectEnv => ({
     audioContext: undefined,
-    audioWorklets: undefined,
+    audioWorklets,
     sampleManager: createSampleManager(),
     soundfontManager: undefined,
     sampleService: undefined,
     soundfontService: undefined
 }) as unknown as ProjectEnv
 
-const createLayer = (sampleCatalog?: SampleCatalog):
+const createLayer = (sampleCatalog?: SampleCatalog, deviceHelpCatalog?: DeviceHelpCatalog,
+                     audioWorklets?: ProjectEnv["audioWorklets"]):
     {project: Project, controlApi: ControlApi, catalog: ToolCatalog, executor: ToolExecutor} => {
-    const project = Project.fromSkeleton(createEnv(), ProjectSkeleton.empty({
+    const project = Project.fromSkeleton(createEnv(audioWorklets), ProjectSkeleton.empty({
         createDefaultUser: true, createOutputMaximizer: false
     }))
     const controlApi = new ControlApi(project)
     const catalog = new ToolCatalog()
-    return {project, controlApi, catalog, executor: new ToolExecutor(controlApi, catalog, undefined, sampleCatalog)}
+    return {
+        project,
+        controlApi,
+        catalog,
+        executor: new ToolExecutor(controlApi, catalog, undefined, sampleCatalog, deviceHelpCatalog)
+    }
 }
 
 const objectValue = (value: JsonValue): JsonObject => {
@@ -125,7 +141,7 @@ describe("Slice 2 control tools", () => {
         expect(JSON.stringify(generated)).not.toMatch(/\b(?:arg|param)\d+\b/)
         expect(generated.every(tool => tool.exposure === "deferred")).toBe(true)
         expect(first.tools.filter(tool => tool.exposure === "eager").map(tool => tool.name))
-            .toEqual(["query_resources", "inspect_resource", "inspect_instrument", "query_samples"])
+            .toEqual(["query_resources", "inspect_resource", "inspect_instrument", "query_samples", "inspect_device_help"])
         const sampleQuery = first.get("daw_resources", "query_samples")?.spec.inputSchema
         expect(sampleQuery?.properties?.origin?.enum).toEqual(["openDAW", "recording", "import"])
         expect(sampleQuery?.properties?.limit?.maximum).toBe(50)
@@ -136,6 +152,17 @@ describe("Slice 2 control tools", () => {
             const tool = first.get("daw_parameter", toToolName(operation.method))
             expect(tool?.spec.inputSchema.properties?.target).toBeDefined()
         })
+        for (const [method, name] of [
+            ["readApparatSource", "read_apparat_source"],
+            ["programApparat", "program_apparat"],
+            ["assignApparatSample", "assign_apparat_sample"],
+            ["removeApparatSample", "remove_apparat_sample"]
+        ] as const) {
+            const operation = generatedControlManifest.operations.find(candidate => candidate.method === method)
+            expect(operation).toBeDefined()
+            expect(first.get("daw_project", name)?.spec.exposure).toBe("deferred")
+            if (method === "programApparat") {expect(operation?.async).toBe(true)}
+        }
     })
 
     it("derives factory enums and instrument options from the canonical registries", () => {
@@ -332,6 +359,112 @@ describe("Slice 2 control tools", () => {
                     ok: false,
                     error: expect.stringContaining("midiNote must be an integer in the range 0..127")
                 })
+            }
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("programs Apparat through the generated tool and discovers ordinary parameters", async () => {
+        const {project, controlApi, executor} = createLayer(undefined, undefined,
+            createAudioWorklets(async () => {}))
+        try {
+            const product = objectValue(await run(executor, "daw_project", "create_any_instrument", {
+                factory: "Apparat"
+            }))
+            const target = handleValue(product.instrumentBox)
+            const source = "// @param tone 0.5\n// @param decay 0.1 0.001 1 exp s\n"
+                + "class Processor { noteOn() {} noteOff() {} reset() {} process() {} }"
+            await run(executor, "daw_project", "program_apparat", {target, source})
+            const resources = objectValue(await run(executor, "daw_resources", "query_resources", {
+                kind: "parameter", owner: target, limit: 10
+            }))
+            const parameters = arrayValue(resources.resources).map(objectValue)
+            expect(parameters.map(parameter => parameter.name)).toEqual(expect.arrayContaining(["Tone", "Decay"]))
+            expect(parameters.every(parameter => objectValue(parameter.owner).$address === target.$address)).toBe(true)
+            const tone = parameters.find(parameter => parameter.name === "Tone")!
+            const toneHandle = handleValue(tone.handle)
+            const before = objectValue(await run(executor, "daw_resources", "inspect_resource", {
+                handle: toneHandle
+            }))
+            await run(executor, "daw_parameter", "set_value", {target: toneHandle, value: 0.75})
+            const after = objectValue(await run(executor, "daw_resources", "inspect_resource", {
+                handle: toneHandle
+            }))
+            expect(JSON.stringify(after)).not.toBe(JSON.stringify(before))
+            expect(controlApi.resolver.parameters().some(parameter => parameter.name === "Tone")).toBe(true)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("assigns a queried sample to an Apparat declaration without deleting the slot", async () => {
+        const queried = sample("00000000-0000-4000-8000-000000000031", "Apparat Kick", "openDAW", 120, 0.5)
+        const sampleCatalog: SampleCatalog = {list: async () => [queried]}
+        const {project, controlApi, executor} = createLayer(sampleCatalog, undefined,
+            createAudioWorklets(async () => {}))
+        try {
+            const product = objectValue(await run(executor, "daw_project", "create_any_instrument", {
+                factory: "Apparat"
+            }))
+            const target = handleValue(product.instrumentBox)
+            const source = "// @sample kick\n"
+                + "class Processor { noteOn() {} noteOff() {} reset() {} process() {} }"
+            await run(executor, "daw_project", "program_apparat", {target, source})
+            const query = objectValue(await run(executor, "daw_resources", "query_samples", {text: "kick"}))
+            const returnedSample = objectValue(arrayValue(query.samples)[0])
+            await run(executor, "daw_project", "assign_apparat_sample", {
+                target, sampleLabel: "kick", sample: returnedSample
+            })
+            const apparat = controlApi.resolver.resolve({kind: "handle", handle: "box", name: "ApparatDeviceBox"}, target)
+            if (!(apparat instanceof ApparatDeviceBox)) {throw new Error("Missing Apparat box")}
+            const slot = apparat.samples.pointerHub.incoming()
+                .map(({box}) => box).find(box => box instanceof WerkstattSampleBox)
+            if (!(slot instanceof WerkstattSampleBox)) {throw new Error("Missing Apparat sample slot")}
+            const file = slot.file.targetVertex.unwrap("Missing assigned sample").box
+            if (!(file instanceof AudioFileBox)) {throw new Error("Missing Apparat audio file")}
+            expect(file.fileName.getValue()).toBe(queried.name)
+            await run(executor, "daw_project", "remove_apparat_sample", {target, sampleLabel: "kick"})
+            expect(slot.isAttached()).toBe(true)
+            expect(slot.file.targetVertex.isEmpty()).toBe(true)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("awaits generated async tools and reports rejected Apparat compilation", async () => {
+        const {project, executor} = createLayer(undefined, undefined,
+            createAudioWorklets(async () => {}))
+        try {
+            const product = objectValue(await run(executor, "daw_project", "create_any_instrument", {
+                factory: "Apparat"
+            }))
+            const result = await executor.execute({
+                namespace: "daw_project",
+                name: "program_apparat",
+                arguments: {target: handleValue(product.instrumentBox), source: "class Processor {"}
+            })
+            expect(result).toMatchObject({ok: false, error: expect.any(String)})
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("resolves generic device help from the live adapter manual URL", async () => {
+        const read = vi.fn(async (manualUrl: string) => ({manualMarkdown: `manual:${manualUrl}`}))
+        const deviceHelpCatalog: DeviceHelpCatalog = {read}
+        const {project, controlApi, executor} = createLayer(undefined, deviceHelpCatalog)
+        try {
+            for (const factory of ["Apparat", "Cubed"] as const) {
+                const product = objectValue(await run(executor, "daw_project", "create_any_instrument", {factory}))
+                const device = handleValue(product.instrumentBox)
+                const adapter = controlApi.resolver.adapters()
+                    .find(candidate => candidate.address.toString() === device.$address) as DeviceBoxAdapter | undefined
+                if (adapter === undefined) {throw new Error(`Missing ${factory} adapter`)}
+                const help = objectValue(await run(executor, "daw_resources", "inspect_device_help", {device}))
+                expect(help.manualUrl).toBe(adapter.manualUrl)
+                expect(help.manualMarkdown).toBe(`manual:${adapter.manualUrl}`)
+                expect(read).toHaveBeenCalledWith(adapter.manualUrl)
             }
         } finally {
             project.terminate()
@@ -542,7 +675,7 @@ describe("Slice 2 control tools", () => {
     })
 
     it("returns compact failures for unknown tools, invalid handles, and strict resource input", async () => {
-        const {project, executor} = createLayer()
+        const {project, controlApi, executor} = createLayer()
         try {
             await expect(executor.execute({namespace: "daw_nope", name: "missing"}))
                 .resolves.toMatchObject({ok: false})
@@ -552,6 +685,20 @@ describe("Slice 2 control tools", () => {
             await expect(executor.execute({namespace: "daw_resources", name: "query_resources", arguments: {
                 unexpected: true
             } as unknown as JsonObject})).resolves.toMatchObject({ok: false})
+            await expect(executor.execute({namespace: "daw_resources", name: "inspect_device_help"}))
+                .resolves.toEqual({ok: false, error: "Missing argument 'device'"})
+            await expect(executor.execute({namespace: "daw_resources", name: "inspect_device_help", arguments: {
+                device: controlApi.resolver.handle(project.timelineBox), extra: true
+            }})).resolves.toMatchObject({ok: false, error: expect.stringContaining("Unknown property 'extra'")})
+            await expect(executor.execute({namespace: "daw_resources", name: "inspect_device_help", arguments: {
+                device: controlApi.resolver.handle(project.timelineBox)
+            }})).resolves.toMatchObject({ok: false, error: "Device help target must address a device."})
+            const product = objectValue(await run(executor, "daw_project", "create_any_instrument", {
+                factory: "Apparat"
+            }))
+            await expect(executor.execute({namespace: "daw_resources", name: "inspect_device_help", arguments: {
+                device: handleValue(product.instrumentBox)
+            }})).resolves.toEqual({ok: false, error: "Device help catalog is unavailable."})
         } finally {
             project.terminate()
         }
