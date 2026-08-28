@@ -75,7 +75,8 @@ import {
     SemanticFields,
     SupportedInstrumentBox,
     TrackBoxAdapter,
-    TrackType
+    TrackType,
+    ValueEventCollectionBoxAdapter
 } from "@opendaw/studio-adapters"
 import type {Sample} from "@opendaw/studio-adapters"
 import {Project} from "./Project"
@@ -413,6 +414,10 @@ export class ProjectApi {
         return this.#createTrack({field: audioUnitBox.tracks, trackType: TrackType.Audio, insertIndex})
     }
 
+    /**
+     * Create a TrackType.Value timeline automation lane targeting the supplied automatable parameter field.
+     * This is the normal parameter automation lane, not a ValueClip slot.
+     */
     createAutomationTrack(audioUnitBox: AudioUnitBox, target: Field<Pointers.Automation>, insertIndex: int = Number.MAX_SAFE_INTEGER): TrackBox {
         return this.#createTrack({field: audioUnitBox.tracks, target, trackType: TrackType.Value, insertIndex})
     }
@@ -676,6 +681,11 @@ export class ProjectApi {
         })
     }
 
+    /**
+     * Create a ValueClip, a clip-slot style value sequence on a TrackType.Value track.
+     * This is not the normal timeline automation region beneath a parameter or instrument track;
+     * use createTrackRegion for that.
+     */
     createValueClip(trackBox: TrackBox, clipIndex: int, {name, hue}: ClipRegionOptions = {}): ValueClipBox {
         const {boxGraph} = this.#project
         const type = trackBox.type.getValue()
@@ -722,6 +732,10 @@ export class ProjectApi {
         })
     }
 
+    /**
+     * Create a region on a track. On a TrackType.Value track this creates the normal timeline
+     * ValueRegionBox automation region and automatically seeds it with the initial held/current value.
+     */
     createTrackRegion(trackBox: TrackBox,
                       position: ppqn,
                       duration: ppqn,
@@ -783,6 +797,28 @@ export class ProjectApi {
         return created
     }
 
+    /**
+     * Create a timeline automation region on a TrackType.Value track and add its local value events.
+     * The region is created through createTrackRegion, so its initial held/current value is preserved;
+     * a supplied (0, 0) event updates that seed through the canonical value-event collection.
+     */
+    createAutomationRegion(trackBox: TrackBox,
+                           position: ppqn,
+                           duration: ppqn,
+                           events: ReadonlyArray<ValueEventInput>,
+                           {name, hue}: ClipRegionOptions = {}): ValueRegionBox {
+        if (trackBox.type.getValue() !== TrackType.Value) {
+            throw new Error("createAutomationRegion requires a TrackType.Value automation track")
+        }
+        const region = this.createTrackRegion(trackBox, position, duration, {name, hue})
+            .unwrap("Could not create automation region")
+        if (!(region instanceof ValueRegionBox)) {
+            throw new Error("createAutomationRegion did not create a ValueRegionBox")
+        }
+        this.#createValueEvents(region.events, events)
+        return region
+    }
+
     // #271: the node a freshly drawn automation region should hold. Hold-from-left: the preceding region's
     // outgoing (held) value wins; else the following region's incoming value; else the parameter's current dial
     // value. Returns None only when the track's target parameter cannot be resolved (a bug — seed no node then).
@@ -825,11 +861,26 @@ export class ProjectApi {
         return this.#noteEventCollection(owner).events
     }
 
-    #valueEvents(field: Field<Pointers.ValueEventCollection>): Field<Pointers.ValueEvents> {
+    #valueEventCollection(field: Field<Pointers.ValueEventCollection> | PointerField<Pointers.ValueEventCollection>): ValueEventCollectionBox {
         const collection = field instanceof PointerField
             ? field.targetVertex.unwrap("Owner has no event-collection").box
             : field.box
-        return collection.asBox(ValueEventCollectionBox).events
+        return collection.asBox(ValueEventCollectionBox)
+    }
+
+    #valueEventCollectionAdapter(field: Field<Pointers.ValueEventCollection> | PointerField<Pointers.ValueEventCollection>): ValueEventCollectionBoxAdapter {
+        return this.#project.boxAdapters.adapterFor(this.#valueEventCollection(field), ValueEventCollectionBoxAdapter)
+    }
+
+    #createValueEvents(collection: Field<Pointers.ValueEventCollection> | PointerField<Pointers.ValueEventCollection>,
+                       events: ReadonlyArray<ValueEventInput>): ReadonlyArray<ValueEventBox> {
+        const adapter = this.#valueEventCollectionAdapter(collection)
+        return events.map(({position, index, value, interpolation, slope}) => adapter.createEvent({
+            position,
+            index,
+            value,
+            interpolation: this.#valueInterpolation(interpolation ?? "linear", slope)
+        }).box)
     }
 
     /**
@@ -874,23 +925,23 @@ export class ProjectApi {
         events.forEach(event => event.isAttached() && event.delete())
     }
 
+    /**
+     * Create or update value events in a ValueRegionBox or ValueClipBox event collection.
+     * Positions are local to the owning collection, and (position, index) identifies ordering.
+     * An existing pair is updated through the canonical collection adapter instead of duplicated.
+     */
     createValueEvents(collection: Field<Pointers.ValueEventCollection>,
                       events: ReadonlyArray<ValueEventInput>): ReadonlyArray<ValueEventBox> {
-        return events.map(({position, index, value, interpolation, slope}) => {
-            const event = ValueEventBox.create(this.#project.boxGraph, UUID.generate(), box => {
-                box.position.setValue(position)
-                box.index.setValue(index)
-                box.value.setValue(value)
-                box.events.refer(this.#valueEvents(collection))
-            })
-            this.#writeInterpolation(event, interpolation ?? "linear", slope)
-            return event
-        })
+        return this.#createValueEvents(collection, events)
     }
 
     replaceValueEvents(collection: Field<Pointers.ValueEventCollection>,
                        events: ReadonlyArray<ValueEventInput>): void {
-        this.#valueEvents(collection).pointerHub.incoming().forEach(({box}) => box.delete())
+        const adapter = this.#valueEventCollectionAdapter(collection)
+        Array.from(adapter.events.asArray()).forEach(event => {
+            adapter.events.remove(event)
+            event.box.delete()
+        })
         this.createValueEvents(collection, events)
     }
 
@@ -900,6 +951,20 @@ export class ProjectApi {
                      value?: unitValue,
                      interpolation?: "none" | "linear" | "curve",
                      slope?: unitValue): void {
+        const targetPosition = position ?? event.position.getValue()
+        const targetIndex = index ?? event.index.getValue()
+        const collection = event.events.targetVertex
+            .unwrap("ValueEventBox is not attached to an event collection").box
+            .asBox(ValueEventCollectionBox)
+        const collision = collection.events.pointerHub.incoming().find(({box}) =>
+            box !== event
+            && box instanceof ValueEventBox
+            && box.position.getValue() === targetPosition
+            && box.index.getValue() === targetIndex)
+        if (collision !== undefined) {
+            throw new Error(`Cannot update ValueEventBox to position ${targetPosition} index ${targetIndex}: `
+                + "another event already occupies that canonical position/index")
+        }
         if (position !== undefined) {event.position.setValue(position)}
         if (index !== undefined) {event.index.setValue(index)}
         if (value !== undefined) {event.value.setValue(value)}
@@ -945,15 +1010,18 @@ export class ProjectApi {
         this.#project.loadScriptDevices()
     }
 
-    #writeInterpolation(event: ValueEventBox,
-                        interpolation: "none" | "linear" | "curve",
-                        slope?: unitValue): void {
-        const value: Interpolation = interpolation === "none"
+    #valueInterpolation(interpolation: "none" | "linear" | "curve", slope?: unitValue): Interpolation {
+        return interpolation === "none"
             ? Interpolation.None
             : interpolation === "linear"
                 ? Interpolation.Linear
                 : {type: "curve", slope: slope ?? 0.0}
-        InterpolationFieldAdapter.write(event.interpolation, value)
+    }
+
+    #writeInterpolation(event: ValueEventBox,
+                        interpolation: "none" | "linear" | "curve",
+                        slope?: unitValue): void {
+        InterpolationFieldAdapter.write(event.interpolation, this.#valueInterpolation(interpolation, slope))
     }
 
     deleteAudioUnit(audioUnitBox: AudioUnitBox): void {

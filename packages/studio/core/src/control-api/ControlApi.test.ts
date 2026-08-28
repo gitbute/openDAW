@@ -6,6 +6,9 @@ import {
     ApparatDeviceBox,
     AudioFileBox,
     NoteClipBox,
+    ValueEventBox,
+    ValueEventCollectionBox,
+    ValueRegionBox,
     NoteEventCollectionBox,
     NoteRegionBox,
     WerkstattParameterBox,
@@ -283,6 +286,112 @@ describe("ControlApi", () => {
         }
     })
 
+    it("uses canonical value-event creation, reuses seeds, and rejects update collisions", async () => {
+        const {project, api} = await createProject()
+        try {
+            const parameter = parameterOf(api, "Volume")
+            const audioUnit = api.resolver.handle(parameter.field.box)
+            const target = api.resolver.handle(parameter.field)
+            const track = asHandle(call(api, "project.createAutomationTrack", {
+                audioUnitBox: audioUnit, target
+            }))
+            const region = asHandle(call(api, "project.createTrackRegion", {
+                trackBox: track, position: 0, duration: 960
+            }))
+            const regionBox = api.resolver.boxes()
+                .find(box => box.address.toString() === region.$address)
+            if (!(regionBox instanceof ValueRegionBox)) {throw new Error("Missing value region")}
+            const collection = regionBox.events.targetVertex.unwrap("Missing value collection").box
+            if (!(collection instanceof ValueEventCollectionBox)) {throw new Error("Missing value collection")}
+            const collectionHandle = api.resolver.handle(regionBox.events)
+            const eventInput: ReadonlyArray<JsonObject> = [
+                {position: 0, index: 0, value: 0.8, interpolation: "linear"},
+                {position: 240, index: 0, value: 0.5},
+                {position: 240, index: 1, value: 0.6},
+                {position: 480, index: 0, value: 0.3}
+            ]
+
+            const created = asHandles(call(api, "project.createValueEvents", {
+                collection: collectionHandle, events: eventInput
+            }))
+            const valueEvents = (): ReadonlyArray<ValueEventBox> => collection.events.pointerHub.incoming()
+                .map(({box}) => box).filter((box): box is ValueEventBox => box instanceof ValueEventBox)
+            const pairs = (): ReadonlyArray<string> => valueEvents()
+                .map(event => `${event.position.getValue()}:${event.index.getValue()}`)
+
+            expect(created).toHaveLength(eventInput.length)
+            expect(valueEvents()).toHaveLength(4)
+            expect(pairs()).toEqual(expect.arrayContaining(["0:0", "240:0", "240:1", "480:0"]))
+
+            const seed = valueEvents().find(event => event.position.getValue() === 0 && event.index.getValue() === 0)
+            if (seed === undefined) {throw new Error("Missing automation seed")}
+            const seedAddress = seed.address.toString()
+            asHandles(call(api, "project.createValueEvents", {
+                collection: collectionHandle,
+                events: [{position: 0, index: 0, value: 0.2}]
+            }))
+            expect(valueEvents()).toHaveLength(4)
+            expect(valueEvents().find(event => event.position.getValue() === 0 && event.index.getValue() === 0)?.address.toString())
+                .toBe(seedAddress)
+            expect(seed.value.getValue()).toBeCloseTo(0.2)
+
+            const first = valueEvents().find(event => event.position.getValue() === 240 && event.index.getValue() === 0)
+            const second = valueEvents().find(event => event.position.getValue() === 240 && event.index.getValue() === 1)
+            if (first === undefined || second === undefined) {throw new Error("Missing same-position value events")}
+            expect(() => call(api, "project.updateValueEvent", {
+                event: api.resolver.handle(first), position: 240, index: 1
+            })).toThrow(/another event already occupies that canonical position\/index/)
+            expect(first.position.getValue()).toBe(240)
+            expect(first.index.getValue()).toBe(0)
+            expect(second.index.getValue()).toBe(1)
+
+            call(api, "project.replaceValueEvents", {
+                collection: collectionHandle,
+                events: [
+                    {position: 0, index: 0, value: 0.4},
+                    {position: 120, index: 0, value: 0.7},
+                    {position: 120, index: 1, value: 0.9}
+                ]
+            })
+            expect(valueEvents()).toHaveLength(3)
+            expect(pairs()).toEqual(expect.arrayContaining(["0:0", "120:0", "120:1"]))
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("creates a timeline automation region with local events through the semantic operation", async () => {
+        const {project, api} = await createProject()
+        try {
+            const parameter = parameterOf(api, "Volume")
+            const track = asHandle(call(api, "project.createAutomationTrack", {
+                audioUnitBox: api.resolver.handle(parameter.field.box),
+                target: api.resolver.handle(parameter.field)
+            }))
+            const region = asHandle(call(api, "project.createAutomationRegion", {
+                trackBox: track,
+                position: 0,
+                duration: 960,
+                events: [
+                    {position: 0, index: 0, value: 0.25},
+                    {position: 480, index: 0, value: 0.75}
+                ]
+            }))
+            const regionBox = api.resolver.boxes()
+                .find(box => box.address.toString() === region.$address)
+            if (!(regionBox instanceof ValueRegionBox)) {throw new Error("Missing semantic value region")}
+            const collection = regionBox.events.targetVertex.unwrap("Missing semantic value collection").box
+            if (!(collection instanceof ValueEventCollectionBox)) {throw new Error("Missing semantic value collection")}
+            const events = collection.events.pointerHub.incoming()
+                .map(({box}) => box).filter((box): box is ValueEventBox => box instanceof ValueEventBox)
+            expect(events).toHaveLength(2)
+            expect(events.map(event => `${event.position.getValue()}:${event.index.getValue()}`))
+                .toEqual(expect.arrayContaining(["0:0", "480:0"]))
+        } finally {
+            project.terminate()
+        }
+    })
+
     it("rejects wrong addresses and wrong runtime types", async () => {
         const {project, api} = await createProject()
         try {
@@ -510,6 +619,20 @@ describe("generated Slice 1 manifest", () => {
             .toMatchObject({kind: "primitive", type: "number", semantic: "unitValue"})
         expect(operation("project.insertEffect").parameters[0].type)
             .toMatchObject({kind: "handle", handle: "field", constraint: "EffectPointerType"})
+        expect(operation("project.createAutomationTrack").description)
+            .toMatch(/timeline automation lane[\s\S]*ValueClip slot/i)
+        expect(operation("project.createValueClip").description)
+            .toMatch(/clip-slot style[\s\S]*not the normal timeline automation/i)
+        expect(operation("project.createTrackRegion").description)
+            .toMatch(/ValueRegionBox automation region[\s\S]*seeds/i)
+        expect(operation("project.createValueEvents").description)
+            .toMatch(/local to the owning collection[\s\S]*position, index[\s\S]*canonical collection adapter/i)
+        expect(operation("project.createAutomationRegion").description)
+            .toMatch(/timeline automation region[\s\S]*local value events/i)
+        expect(operation("project.createAutomationRegion").parameters.map(parameter => parameter.name))
+            .toEqual(["trackBox", "position", "duration", "events", undefined])
+        expect(operation("project.createAutomationRegion").result)
+            .toEqual({kind: "handle", handle: "box", name: "ValueRegionBox"})
         expect(operation("transport.scheduleClipPlay").parameters[0].type)
             .toEqual({kind: "array", element: {kind: "uuid"}})
         expect(Object.keys(generatedControlManifest.operations).some(id => id.includes("resources"))).toBe(false)

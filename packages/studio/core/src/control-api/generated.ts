@@ -1827,7 +1827,8 @@ export const generatedControlManifest: GeneratedManifest = {
                 "kind": "handle",
                 "handle": "box",
                 "name": "TrackBox"
-            }
+            },
+            "description": "Create a TrackType.Value timeline automation lane targeting the supplied automatable parameter field.\nThis is the normal parameter automation lane, not a ValueClip slot."
         },
         {
             "id": "project.compactTracks",
@@ -2486,7 +2487,8 @@ export const generatedControlManifest: GeneratedManifest = {
                 "kind": "handle",
                 "handle": "box",
                 "name": "ValueClipBox"
-            }
+            },
+            "description": "Create a ValueClip, a clip-slot style value sequence on a TrackType.Value track.\nThis is not the normal timeline automation region beneath a parameter or instrument track;\nuse createTrackRegion for that."
         },
         {
             "id": "project.createNoteRegion",
@@ -2821,7 +2823,175 @@ export const generatedControlManifest: GeneratedManifest = {
                         }
                     ]
                 }
-            }
+            },
+            "description": "Create a region on a track. On a TrackType.Value track this creates the normal timeline\nValueRegionBox automation region and automatically seeds it with the initial held/current value."
+        },
+        {
+            "id": "project.createAutomationRegion",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "createAutomationRegion",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "trackBox",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "trackBox"
+                    },
+                    "type": {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "TrackBox"
+                    }
+                },
+                {
+                    "name": "position",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "position"
+                    },
+                    "type": {
+                        "kind": "primitive",
+                        "type": "number",
+                        "semantic": "ppqn"
+                    }
+                },
+                {
+                    "name": "duration",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "duration"
+                    },
+                    "type": {
+                        "kind": "primitive",
+                        "type": "number",
+                        "semantic": "ppqn"
+                    }
+                },
+                {
+                    "name": "events",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "events"
+                    },
+                    "type": {
+                        "kind": "array",
+                        "element": {
+                            "kind": "object",
+                            "name": "ValueEventInput",
+                            "properties": [
+                                {
+                                    "name": "index",
+                                    "optional": false,
+                                    "type": {
+                                        "kind": "primitive",
+                                        "type": "number",
+                                        "semantic": "int"
+                                    }
+                                },
+                                {
+                                    "name": "interpolation",
+                                    "optional": true,
+                                    "type": {
+                                        "kind": "literal",
+                                        "values": [
+                                            "none",
+                                            "linear",
+                                            "curve"
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "position",
+                                    "optional": false,
+                                    "type": {
+                                        "kind": "primitive",
+                                        "type": "number",
+                                        "semantic": "ppqn"
+                                    }
+                                },
+                                {
+                                    "name": "slope",
+                                    "optional": true,
+                                    "type": {
+                                        "kind": "primitive",
+                                        "type": "number",
+                                        "semantic": "unitValue"
+                                    }
+                                },
+                                {
+                                    "name": "value",
+                                    "optional": false,
+                                    "type": {
+                                        "kind": "primitive",
+                                        "type": "number",
+                                        "semantic": "unitValue"
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "optional": true,
+                    "binding": {
+                        "kind": "object",
+                        "properties": [
+                            {
+                                "name": "name",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "name"
+                                }
+                            },
+                            {
+                                "name": "hue",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "hue"
+                                }
+                            }
+                        ]
+                    },
+                    "type": {
+                        "kind": "object",
+                        "name": "ClipRegionOptions",
+                        "properties": [
+                            {
+                                "name": "hue",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number"
+                                }
+                            },
+                            {
+                                "name": "name",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "string"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ],
+            "result": {
+                "kind": "handle",
+                "handle": "box",
+                "name": "ValueRegionBox"
+            },
+            "description": "Create a timeline automation region on a TrackType.Value track and add its local value events.\nThe region is created through createTrackRegion, so its initial held/current value is preserved;\na supplied (0, 0) event updates that seed through the canonical value-event collection."
         },
         {
             "id": "project.createNoteEvent",
@@ -3243,7 +3413,8 @@ export const generatedControlManifest: GeneratedManifest = {
                     "handle": "box",
                     "name": "ValueEventBox"
                 }
-            }
+            },
+            "description": "Create or update value events in a ValueRegionBox or ValueClipBox event collection.\nPositions are local to the owning collection, and (position, index) identifies ordering.\nAn existing pair is updated through the canonical collection adapter instead of duplicated."
         },
         {
             "id": "project.replaceValueEvents",
