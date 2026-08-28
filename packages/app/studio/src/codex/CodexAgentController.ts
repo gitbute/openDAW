@@ -36,6 +36,14 @@ export type CodexConversationEntry =
         readonly complete: boolean
     }
     | {
+        readonly type: "reasoning"
+        readonly itemId: string
+        readonly turnId: string
+        readonly summaryIndex: number | null
+        readonly text: string
+        readonly complete: boolean
+    }
+    | {
         readonly type: "tool"
         readonly itemId: string
         readonly turnId: string
@@ -383,6 +391,10 @@ export class CodexAgentController {
             case "agentTextDelta":
                 this.#appendAssistantDelta(event)
                 break
+            case "reasoningSummaryDelta":
+            case "reasoningSummaryPartAdded":
+                this.#appendReasoningSummary(event)
+                break
             case "dynamicToolStarted":
                 this.#startToolActivity(event)
                 break
@@ -391,6 +403,7 @@ export class CodexAgentController {
                 break
             case "turnCompleted":
                 this.#completeAssistantMessages(event.turnId)
+                this.#completeReasoningSummaries(event.turnId)
                 if (this.activeTurnId.getValue() === event.turnId || this.turnRunning.getValue()) {
                     this.turnRunning.setValue(false)
                     this.activeTurnId.setValue(null)
@@ -434,6 +447,32 @@ export class CodexAgentController {
         }
         const existing = entries[index]
         if (existing.type !== "assistant") {return}
+        const next = entries.slice()
+        next[index] = {...existing, text: existing.text + event.text}
+        this.conversation.setValue(next)
+    }
+
+    #appendReasoningSummary(event: Extract<CodexSessionEvent, {
+        type: "reasoningSummaryDelta" | "reasoningSummaryPartAdded"
+    }>): void {
+        const entries = this.conversation.getValue()
+        const index = entries.findIndex(entry => entry.type === "reasoning"
+            && entry.itemId === event.itemId
+            && entry.summaryIndex === event.summaryIndex)
+        if (index < 0) {
+            if (event.text.length === 0) {return}
+            this.#appendConversation({
+                type: "reasoning",
+                itemId: event.itemId,
+                turnId: event.turnId,
+                summaryIndex: event.summaryIndex,
+                text: event.text,
+                complete: false
+            })
+            return
+        }
+        const existing = entries[index]
+        if (existing.type !== "reasoning") {return}
         const next = entries.slice()
         next[index] = {...existing, text: existing.text + event.text}
         this.conversation.setValue(next)
@@ -487,6 +526,17 @@ export class CodexAgentController {
         let changed = false
         const next = entries.map(entry => {
             if (entry.type !== "assistant" || entry.turnId !== turnId || entry.complete) {return entry}
+            changed = true
+            return {...entry, complete: true}
+        })
+        if (changed) {this.conversation.setValue(next)}
+    }
+
+    #completeReasoningSummaries(turnId: string): void {
+        const entries = this.conversation.getValue()
+        let changed = false
+        const next = entries.map(entry => {
+            if (entry.type !== "reasoning" || entry.turnId !== turnId || entry.complete) {return entry}
             changed = true
             return {...entry, complete: true}
         })

@@ -51,6 +51,18 @@ const stringAt = (value: Record<string, unknown>, name: string, context: string)
     return result
 }
 
+const nullableIntegerAt = (value: Record<string, unknown>, name: string): number | null => {
+    const result = value[name]
+    return typeof result === "number" && Number.isInteger(result) ? result : null
+}
+
+const reasoningSummaryPartText = (value: Record<string, unknown>): string => {
+    if (typeof value.text === "string") {return value.text}
+    const part = value.part
+    if (typeof part === "string") {return part}
+    return isRecord(part) && typeof part.text === "string" ? part.text : ""
+}
+
 const nullableStringAt = (value: Record<string, unknown>, name: string): string | null => {
     const result = value[name]
     return result === null || result === undefined ? null : typeof result === "string" ? result : null
@@ -346,6 +358,8 @@ export class CodexSession {
                 case "thread/started": this.#onThreadStarted(notification.params); break
                 case "turn/started": this.#onTurnStarted(notification.params); break
                 case "item/agentMessage/delta": this.#onAgentMessageDelta(notification.params); break
+                case "item/reasoning/summaryTextDelta": this.#onReasoningSummaryDelta(notification.params); break
+                case "item/reasoning/summaryPartAdded": this.#onReasoningSummaryPartAdded(notification.params); break
                 case "item/started": this.#onItemStarted(notification.params); break
                 case "item/completed": this.#onItemCompleted(notification.params); break
                 case "turn/completed": this.#onTurnCompleted(notification.params); break
@@ -384,6 +398,30 @@ export class CodexSession {
             turnId: stringAt(value, "turnId", "item/agentMessage/delta notification"),
             itemId: stringAt(value, "itemId", "item/agentMessage/delta notification"),
             text: stringAt(value, "delta", "item/agentMessage/delta notification")
+        })
+    }
+
+    #onReasoningSummaryDelta(params: JsonValue | undefined): void {
+        const value = asRecord(params, "item/reasoning/summaryTextDelta notification")
+        this.#emit({
+            type: "reasoningSummaryDelta",
+            threadId: stringAt(value, "threadId", "item/reasoning/summaryTextDelta notification"),
+            turnId: stringAt(value, "turnId", "item/reasoning/summaryTextDelta notification"),
+            itemId: stringAt(value, "itemId", "item/reasoning/summaryTextDelta notification"),
+            summaryIndex: nullableIntegerAt(value, "summaryIndex"),
+            text: stringAt(value, "delta", "item/reasoning/summaryTextDelta notification")
+        })
+    }
+
+    #onReasoningSummaryPartAdded(params: JsonValue | undefined): void {
+        const value = asRecord(params, "item/reasoning/summaryPartAdded notification")
+        this.#emit({
+            type: "reasoningSummaryPartAdded",
+            threadId: stringAt(value, "threadId", "item/reasoning/summaryPartAdded notification"),
+            turnId: stringAt(value, "turnId", "item/reasoning/summaryPartAdded notification"),
+            itemId: stringAt(value, "itemId", "item/reasoning/summaryPartAdded notification"),
+            summaryIndex: nullableIntegerAt(value, "summaryIndex"),
+            text: reasoningSummaryPartText(value)
         })
     }
 
@@ -461,6 +499,8 @@ export class CodexSession {
     }
 
     #emit(event: CodexSessionEvent): void {
+        const isReasoningSummary = event.type === "reasoningSummaryDelta"
+            || event.type === "reasoningSummaryPartAdded"
         const phase = event.type === "error"
             ? "error"
             : event.type === "connectionChanged"
@@ -469,7 +509,7 @@ export class CodexSession {
                     ? "tool-start"
                     : event.type === "dynamicToolCompleted"
                         ? "tool-complete"
-                        : event.type === "agentTextDelta" ? "notification" : "state"
+                        : event.type === "agentTextDelta" || isReasoningSummary ? "notification" : "state"
         const payload = event.type === "agentTextDelta"
             ? {
                 type: event.type,
@@ -479,6 +519,16 @@ export class CodexSession {
                 textLength: event.text.length,
                 textPreview: event.text.slice(0, 120)
             }
+            : isReasoningSummary
+                ? {
+                    type: event.type,
+                    threadId: event.threadId,
+                    turnId: event.turnId,
+                    itemId: event.itemId,
+                    summaryIndex: event.summaryIndex,
+                    textLength: event.text.length,
+                    textPreview: event.text.slice(0, 120)
+                }
             : event as unknown as JsonValue
         emitCodexTrace(this.#traceSink, {
             layer: "session",

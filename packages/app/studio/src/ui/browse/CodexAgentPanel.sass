@@ -69,9 +69,28 @@ component
     font-weight: bold
 
   .text,
+  .reasoning-text,
   .tool-error
     color: var(--color-gray)
     white-space: pre-wrap
+
+  .reasoning
+    color: var(--color-dark)
+
+    .reasoning-header
+      cursor: pointer
+      color: var(--color-dark)
+      font-weight: bold
+      list-style: none
+
+      &::-webkit-details-marker
+        display: none
+
+    .reasoning-text
+      margin: 0.2em 0 0 1.35em
+
+    &.complete .reasoning-header
+      color: var(--color-gray)
 
   .tool-line
     gap: 0.35em

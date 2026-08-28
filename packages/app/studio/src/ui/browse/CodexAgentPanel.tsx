@@ -43,6 +43,11 @@ const renderEntry = (entry: CodexConversationEntry): HTMLElement => {
                 <div className="label">Codex</div>
                 <div className="text">{entry.text}</div>
             </div>
+        case "reasoning":
+            return <details className={`entry reasoning${entry.complete ? " complete" : ""}`} open={!entry.complete}>
+                <summary className="reasoning-header">⌁ Thinking</summary>
+                <div className="reasoning-text">{entry.text}</div>
+            </details>
         case "tool":
             return <div className={`entry tool ${entry.status}`}>
                 <div className="tool-line">

@@ -5,6 +5,7 @@ import {CodexRpcClient} from "./CodexRpcClient"
 import {CodexSession} from "./CodexSession"
 import type {CodexTransport} from "./CodexTransport"
 import type {
+    CodexSessionEvent,
     CodexTransportState,
     RpcMessage,
     RpcRequest,
@@ -411,6 +412,97 @@ describe("CodexSession", () => {
             await session.connect()
             const replacement = await session.startThread()
             expect(replacement).toEqual({threadId: "thread-2", sessionId: "session-2"})
+        } finally {
+            await session.disconnect()
+        }
+    })
+
+    it("normalizes readable reasoning summaries and ignores raw reasoning text", async () => {
+        const transport = new FakeTransport()
+        installServer(transport)
+        const catalog = new ToolCatalog()
+        const controlApi = {
+            resolver: {},
+            call: vi.fn(() => "ok"),
+            callAsync: vi.fn(async () => "ok")
+        } as unknown as ControlApi
+        const session = new CodexSession({
+            rpc: new CodexRpcClient(transport),
+            catalog,
+            executor: new ToolExecutor(controlApi, catalog)
+        })
+        const events: CodexSessionEvent[] = []
+        session.subscribe(event => events.push(event))
+
+        try {
+            await session.connect()
+            transport.emit({
+                method: "item/reasoning/summaryPartAdded",
+                params: {
+                    threadId: "thread-1",
+                    turnId: "turn-1",
+                    itemId: "reasoning-1",
+                    summaryIndex: 0,
+                    part: {type: "summaryText"}
+                }
+            })
+            transport.emit({
+                method: "item/reasoning/summaryTextDelta",
+                params: {
+                    threadId: "thread-1",
+                    turnId: "turn-1",
+                    itemId: "reasoning-1",
+                    summaryIndex: 0,
+                    delta: "Inspecting the project…"
+                }
+            })
+            transport.emit({
+                method: "item/reasoning/summaryTextDelta",
+                params: {
+                    threadId: "thread-1",
+                    turnId: "turn-1",
+                    itemId: "reasoning-1",
+                    summaryIndex: 1,
+                    delta: "Choosing suitable samples…"
+                }
+            })
+            transport.emit({
+                method: "item/reasoning/textDelta",
+                params: {
+                    threadId: "thread-1",
+                    turnId: "turn-1",
+                    itemId: "reasoning-1",
+                    delta: "hidden raw reasoning"
+                }
+            })
+
+            expect(events.filter(event => event.type === "reasoningSummaryPartAdded")).toEqual([{
+                type: "reasoningSummaryPartAdded",
+                threadId: "thread-1",
+                turnId: "turn-1",
+                itemId: "reasoning-1",
+                summaryIndex: 0,
+                text: ""
+            }])
+            expect(events.filter(event => event.type === "reasoningSummaryDelta")).toEqual([
+                {
+                    type: "reasoningSummaryDelta",
+                    threadId: "thread-1",
+                    turnId: "turn-1",
+                    itemId: "reasoning-1",
+                    summaryIndex: 0,
+                    text: "Inspecting the project…"
+                },
+                {
+                    type: "reasoningSummaryDelta",
+                    threadId: "thread-1",
+                    turnId: "turn-1",
+                    itemId: "reasoning-1",
+                    summaryIndex: 1,
+                    text: "Choosing suitable samples…"
+                }
+            ])
+            expect(events).not.toContainEqual(expect.objectContaining({text: "hidden raw reasoning"}))
         } finally {
             await session.disconnect()
         }

@@ -157,6 +157,22 @@ export type CodexSessionEvent =
         readonly text: string
     }
     | {
+        readonly type: "reasoningSummaryDelta"
+        readonly threadId: string
+        readonly turnId: string
+        readonly itemId: string
+        readonly summaryIndex: number | null
+        readonly text: string
+    }
+    | {
+        readonly type: "reasoningSummaryPartAdded"
+        readonly threadId: string
+        readonly turnId: string
+        readonly itemId: string
+        readonly summaryIndex: number | null
+        readonly text: string
+    }
+    | {
         readonly type: "dynamicToolStarted"
         readonly threadId: string
         readonly turnId: string

@@ -166,7 +166,7 @@ describe("CodexAgentController", () => {
         controller.dispose()
     })
 
-    it("keeps one user entry, aggregates assistant deltas, and updates tool activity", async () => {
+    it("keeps reasoning summaries separate, ordered, and compactly aggregated", async () => {
         const {controller, session} = controllerWithSession()
         await controller.ensureConnected()
         expect(await controller.send("Make a beat")).toBe(true)
@@ -177,6 +177,26 @@ describe("CodexAgentController", () => {
             options: {model: "model-alpha", effort: "balanced"}
         }])
 
+        session.emit({
+            type: "reasoningSummaryPartAdded", threadId: "thread-1", turnId: "turn-1", itemId: "reasoning-1",
+            summaryIndex: 0, text: ""
+        })
+        session.emit({
+            type: "reasoningSummaryDelta", threadId: "thread-1", turnId: "turn-1", itemId: "reasoning-1",
+            summaryIndex: 0, text: "Inspecting the project…"
+        })
+        session.emit({
+            type: "reasoningSummaryDelta", threadId: "thread-1", turnId: "turn-1", itemId: "reasoning-1",
+            summaryIndex: 0, text: " Choosing suitable samples…"
+        })
+        session.emit({
+            type: "reasoningSummaryPartAdded", threadId: "thread-1", turnId: "turn-1", itemId: "reasoning-1",
+            summaryIndex: 1, text: ""
+        })
+        session.emit({
+            type: "reasoningSummaryDelta", threadId: "thread-1", turnId: "turn-1", itemId: "reasoning-1",
+            summaryIndex: 1, text: "Creating the pattern…"
+        })
         session.emit({
             type: "agentTextDelta", threadId: "thread-1", turnId: "turn-1", itemId: "message-1", text: "Done "
         })
@@ -200,12 +220,24 @@ describe("CodexAgentController", () => {
         expect(controller.turnRunning.getValue()).toBe(false)
         expect(controller.conversation.getValue()).toEqual([
             {type: "user", id: "user-1", text: "Make a beat"},
+            {
+                type: "reasoning", itemId: "reasoning-1", turnId: "turn-1", summaryIndex: 0,
+                text: "Inspecting the project… Choosing suitable samples…", complete: true
+            },
+            {
+                type: "reasoning", itemId: "reasoning-1", turnId: "turn-1", summaryIndex: 1,
+                text: "Creating the pattern…", complete: true
+            },
             {type: "assistant", itemId: "message-1", turnId: "turn-1", text: "Done groove.", complete: true},
             {
                 type: "tool", itemId: "tool-1", turnId: "turn-1", namespace: "daw_project",
                 tool: "create_note_track", status: "failed", error: "failed"
             }
         ])
+        expect(controller.conversation.getValue()
+            .filter(entry => entry.type === "assistant")
+            .some(entry => entry.text.includes("Inspecting"))).toBe(false)
+        expect(JSON.stringify(controller.conversation.getValue())).not.toContain("raw reasoning payload")
         controller.dispose()
     })
 
