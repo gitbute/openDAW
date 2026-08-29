@@ -159,6 +159,20 @@ describe("Slice 2 control tools", () => {
         expect(audioTool?.spec.inputSchema.properties?.target?.description)
             .toBe("Handle to an AudioUnitBox.")
         expect(audioTool?.spec.inputSchema.required).toEqual([])
+        expect(first.get("daw_transport", "play")).toBeDefined()
+        expect(first.get("daw_transport", "stop")).toBeDefined()
+        expect(first.get("daw_transport", "set_position")).toBeDefined()
+        expect(first.get("daw_transport", "sleep")).toBeUndefined()
+        expect(first.get("daw_transport", "wake")).toBeUndefined()
+        expect(generatedControlManifest.operations.some(operation => operation.id === "transport.sleep")).toBe(false)
+        expect(generatedControlManifest.operations.some(operation => operation.id === "transport.wake")).toBe(false)
+        expect(first.get("daw_resources", "inspect_device_help")?.spec.inputSchema.properties?.device)
+            .toMatchObject({
+                anyOf: expect.arrayContaining([
+                    expect.objectContaining({description: "Handle to an ApparatDeviceBox."}),
+                    expect.objectContaining({description: "Handle to a WerkstattDeviceBox."})
+                ])
+            })
         const sampleQuery = first.get("daw_resources", "query_samples")?.spec.inputSchema
         expect(sampleQuery?.properties?.origin?.enum).toEqual(["openDAW", "recording", "import"])
         expect(sampleQuery?.properties?.limit?.maximum).toBe(50)
@@ -947,6 +961,31 @@ describe("Slice 2 control tools", () => {
         }
     })
 
+    it("rejects invalid audio analysis without touching live engine state", async () => {
+        const {project, controlApi, catalog} = createLayer()
+        const render = vi.fn(async () => AudioData.create(48_000, 0, 2))
+        const analysis = new AudioAnalysisTools(project, controlApi.resolver, render)
+        const executor = new ToolExecutor(controlApi, catalog, undefined, undefined, undefined, analysis)
+        const sleep = vi.spyOn(project.engine, "sleep")
+        const wake = vi.spyOn(project.engine, "wake")
+        const stop = vi.spyOn(project.engine, "stop")
+        try {
+            await expect(executor.execute({namespace: "daw_analysis", name: "inspect_audio", arguments: {
+                target: controlApi.resolver.handle(project.timelineBox), startPosition: 0, endPosition: 960
+            }})).resolves.toMatchObject({
+                ok: false,
+                error: expect.stringContaining("Expected box AudioUnitBox")
+            })
+            expect(render).not.toHaveBeenCalled()
+            expect(sleep).not.toHaveBeenCalled()
+            expect(wake).not.toHaveBeenCalled()
+            expect(stop).not.toHaveBeenCalled()
+            expect(project.engine.isPlaying.getValue()).toBe(false)
+        } finally {
+            project.terminate()
+        }
+    })
+
     it("returns compact failures for unknown tools, invalid handles, and strict resource input", async () => {
         const {project, controlApi, executor} = createLayer()
         try {
@@ -965,10 +1004,19 @@ describe("Slice 2 control tools", () => {
             }})).resolves.toMatchObject({ok: false, error: expect.stringContaining("Unknown property 'extra'")})
             await expect(executor.execute({namespace: "daw_resources", name: "inspect_device_help", arguments: {
                 device: controlApi.resolver.handle(project.timelineBox)
-            }})).resolves.toMatchObject({ok: false, error: "Device help target must address a device."})
+            }})).resolves.toMatchObject({
+                ok: false,
+                error: expect.stringContaining("supported device box")
+            })
             const product = objectValue(await run(executor, "daw_project", "create_any_instrument", {
                 factory: "Apparat"
             }))
+            await expect(executor.execute({namespace: "daw_resources", name: "inspect_device_help", arguments: {
+                device: handleValue(product.audioUnitBox)
+            }})).resolves.toEqual({
+                ok: false,
+                error: "Device help target 'AudioUnitBox' is not a supported device box."
+            })
             await expect(executor.execute({namespace: "daw_resources", name: "inspect_device_help", arguments: {
                 device: handleValue(product.instrumentBox)
             }})).resolves.toEqual({ok: false, error: "Device help catalog is unavailable."})

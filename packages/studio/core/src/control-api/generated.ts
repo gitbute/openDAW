@@ -5525,32 +5525,6 @@ export const generatedControlManifest: GeneratedManifest = {
             }
         },
         {
-            "id": "transport.sleep",
-            "root": "transport",
-            "ownerType": "EngineFacade",
-            "method": "sleep",
-            "target": "singleton",
-            "transaction": "none",
-            "async": false,
-            "parameters": [],
-            "result": {
-                "kind": "void"
-            }
-        },
-        {
-            "id": "transport.wake",
-            "root": "transport",
-            "ownerType": "EngineFacade",
-            "method": "wake",
-            "target": "singleton",
-            "transaction": "none",
-            "async": false,
-            "parameters": [],
-            "result": {
-                "kind": "void"
-            }
-        },
-        {
             "id": "transport.ignoreNoteRegion",
             "root": "transport",
             "ownerType": "EngineFacade",
@@ -6129,6 +6103,16 @@ export const generatedControlManifest: GeneratedManifest = {
             "root": "EngineFacade",
             "method": "releaseWorklet",
             "reason": "lifecycle/worklet infrastructure method"
+        },
+        {
+            "root": "EngineFacade",
+            "method": "sleep",
+            "reason": "engine lifecycle/power method is not producer-facing"
+        },
+        {
+            "root": "EngineFacade",
+            "method": "wake",
+            "reason": "engine lifecycle/power method is not producer-facing"
         },
         {
             "root": "EngineFacade",

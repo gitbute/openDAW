@@ -257,7 +257,11 @@ export const instrumentInspectInputSchema: JsonSchema = strictObject({
 }, ["instrument"])
 
 export const deviceHelpInspectInputSchema: JsonSchema = strictObject({
-    device: handleSchema()
+    device: {
+        anyOf: SupportedDeviceBoxNames.map(name => handleSchema({
+            kind: "handle", handle: "box", name
+        }))
+    }
 }, ["device"])
 
 export const timingInspectInputSchema: JsonSchema = strictObject({

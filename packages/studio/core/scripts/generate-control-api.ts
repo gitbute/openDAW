@@ -26,6 +26,7 @@ type RootConfig = {
     readonly idPrefix: string
     readonly target: OperationDescriptor["target"]
     readonly transaction: OperationDescriptor["transaction"]
+    readonly excludedMethods?: ReadonlySet<string>
 }
 
 const roots: ReadonlyArray<RootConfig> = [
@@ -51,7 +52,8 @@ const roots: ReadonlyArray<RootConfig> = [
         root: "transport",
         idPrefix: "transport",
         target: "singleton",
-        transaction: "none"
+        transaction: "none",
+        excludedMethods: new Set(["sleep", "wake"])
     },
     {
         sourceFile: adapterParameterSource,
@@ -454,6 +456,10 @@ const generateManifest = (program: ts.Program): GeneratedManifest => {
             const reportMethod = `${reportRoot}.${method}`
             if (isLifecycleMethod(method)) {
                 skipped.push({root: reportRoot, method, reason: "lifecycle/worklet infrastructure method"})
+                continue
+            }
+            if (root.excludedMethods?.has(method) === true) {
+                skipped.push({root: reportRoot, method, reason: "engine lifecycle/power method is not producer-facing"})
                 continue
             }
             if (member.typeParameters !== undefined && member.typeParameters.length > 0) {

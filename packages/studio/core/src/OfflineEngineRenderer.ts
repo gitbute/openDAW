@@ -13,6 +13,7 @@ import {
     UUID
 } from "@opendaw/lib-std"
 import {AudioData, ppqn} from "@opendaw/lib-dsp"
+import {LiveStreamReceiver} from "@opendaw/lib-fusion"
 import {ApparatDeviceBox, SpielwerkDeviceBox, WerkstattDeviceBox} from "@opendaw/studio-boxes"
 import {Communicator, Messenger, Promises, Wait} from "@opendaw/lib-runtime"
 import {AnimationFrame} from "@opendaw/lib-dom"
@@ -151,7 +152,8 @@ export class OfflineEngineRenderer {
 
         channel.port2.start()
 
-        terminator.own(source.liveStreamReceiver.connect(engineMessenger.channel("engine-live-data")))
+        const liveStreamReceiver = terminator.own(new LiveStreamReceiver())
+        terminator.own(liveStreamReceiver.connect(engineMessenger.channel("engine-live-data")))
 
         const {port, sab} = terminator.own(MIDIReceiver.create(() => 0,
             (deviceId, data, relativeTimeInMs) => source.receivedMIDIFromEngine(deviceId, data, relativeTimeInMs)))

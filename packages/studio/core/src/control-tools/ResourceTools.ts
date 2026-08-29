@@ -8,6 +8,7 @@ import {
     InstrumentFactories,
     InstrumentSemantics,
     ParameterOwner,
+    SupportedDeviceBoxNames,
     SemanticFields,
     TimelineBoxAdapter,
     TrackType
@@ -592,14 +593,24 @@ export class ResourceTools {
         if (handle === undefined) {throw new Error("Missing argument 'device'")}
         const resolved = this.#resolver.resolve(boxSpec, handle)
         if (!(resolved instanceof Box)) {throw new Error("device must be a box handle")}
+        if (!(SupportedDeviceBoxNames as ReadonlyArray<string>).includes(resolved.name)) {
+            throw new Error(`Device help target '${resolved.name}' is not a supported device box.`)
+        }
         const adapter = this.#resolver.adapters().find(candidate => candidate.box === resolved)
         if (adapter === undefined || !Devices.isAny(adapter)) {
             throw new Error("Device help target must address a device.")
         }
-        const manualUrl = adapter.manualUrl
-        if (manualUrl.length === 0) {throw new Error(`Device '${resolved.name}' has no manual URL.`)}
+        const manualUrl = (adapter as {readonly manualUrl?: unknown}).manualUrl
+        if (typeof manualUrl !== "string" || manualUrl.length === 0) {
+            throw new Error(`Device '${resolved.name}' has no valid manual URL.`)
+        }
         const content = await this.#readDeviceHelp(manualUrl)
-        const label = adapter.labelField.getValue()
+        const label = (adapter as {
+            readonly labelField?: {readonly getValue?: () => unknown}
+        }).labelField?.getValue?.()
+        if (typeof label !== "string") {
+            throw new Error(`Device '${resolved.name}' has invalid label metadata.`)
+        }
         return {
             handle: this.#resolver.handle(resolved),
             type: resolved.name,
