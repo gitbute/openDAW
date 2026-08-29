@@ -1,5 +1,6 @@
 import {describe, expect, it, vi} from "vitest"
 import {BoxEditing} from "@opendaw/lib-box"
+import {AudioData} from "@opendaw/lib-dsp"
 import {isDefined, Option, Terminable, UUID} from "@opendaw/lib-std"
 import type {Sample} from "@opendaw/studio-adapters"
 import {ProjectSkeleton} from "@opendaw/studio-adapters"
@@ -24,6 +25,7 @@ import {EffectFactories} from "../EffectFactories"
 import {InstrumentFactories} from "@opendaw/studio-adapters"
 import type {DeviceBoxAdapter} from "@opendaw/studio-adapters"
 import {ResourceTools} from "./ResourceTools"
+import {AudioAnalysisTools} from "./AudioAnalysisTools"
 import {ToolCatalog, toToolName} from "./ToolCatalog"
 import {ToolExecutor} from "./ToolExecutor"
 import {typeSpecToJsonSchema} from "./ToolSchema"
@@ -133,11 +135,11 @@ describe("Slice 2 control tools", () => {
     it("projects every generated operation exactly once with deterministic strict tools", () => {
         const first = new ToolCatalog()
         const second = new ToolCatalog()
-        const generated = first.tools.filter(tool => tool.namespace !== "daw_resources")
+        const generated = first.tools.filter(tool => tool.exposure === "deferred")
         expect(generated).toHaveLength(generatedControlManifest.operations.length)
         expect(new Set(generated.map(tool => `${tool.namespace}.${tool.name}`)).size).toBe(generated.length)
         expect(generated.map(tool => `${tool.namespace}.${tool.name}`))
-            .toEqual(second.tools.filter(tool => tool.namespace !== "daw_resources")
+            .toEqual(second.tools.filter(tool => tool.exposure === "deferred")
                 .map(tool => `${tool.namespace}.${tool.name}`))
         expect(generated.every(tool => /^[A-Za-z0-9_]+$/.test(tool.name))).toBe(true)
         expect(JSON.stringify(generated)).not.toMatch(/\b(?:arg|param)\d+\b/)
@@ -145,8 +147,18 @@ describe("Slice 2 control tools", () => {
         expect(first.tools.filter(tool => tool.exposure === "eager").map(tool => tool.name))
             .toEqual([
                 "query_resources", "inspect_resource", "query_samples", "query_device_catalog",
-                "inspect_device_definition", "inspect_device", "inspect_device_help", "inspect_timing"
+                "inspect_device_definition", "inspect_device", "inspect_instrument", "inspect_device_help",
+                "inspect_timing", "inspect_audio"
             ])
+        const audioTool = first.get("daw_analysis", "inspect_audio")
+        expect(audioTool?.spec.exposure).toBe("eager")
+        expect(audioTool?.spec.inputSchema).toMatchObject({
+            type: "object",
+            additionalProperties: false
+        })
+        expect(audioTool?.spec.inputSchema.properties?.target?.description)
+            .toBe("Handle to an AudioUnitBox.")
+        expect(audioTool?.spec.inputSchema.required).toEqual([])
         const sampleQuery = first.get("daw_resources", "query_samples")?.spec.inputSchema
         expect(sampleQuery?.properties?.origin?.enum).toEqual(["openDAW", "recording", "import"])
         expect(sampleQuery?.properties?.limit?.maximum).toBe(50)
@@ -266,6 +278,11 @@ describe("Slice 2 control tools", () => {
                 "Handle to a NoteEventCollectionBox."
             ]))
         }
+
+        const inspectInstrument = catalog.get("daw_resources", "inspect_instrument")?.spec
+        expect(inspectInstrument?.inputSchema.properties?.instrument?.anyOf
+            ?.map(schema => schema.description)).toContain("Handle to an ApparatDeviceBox.")
+        expect(inspectInstrument?.description).toContain("dynamically")
 
         const generatedOperation = generatedControlManifest.operations
             .find(operation => operation.method === "setDeviceProperties")
@@ -493,7 +510,7 @@ describe("Slice 2 control tools", () => {
     })
 
     it("programs Apparat through the generated tool and discovers ordinary parameters", async () => {
-        const {project, controlApi, executor} = createLayer(undefined, undefined,
+        const {project, controlApi, catalog, executor} = createLayer(undefined, undefined,
             createAudioWorklets(async () => {}))
         try {
             const product = objectValue(await run(executor, "daw_project", "create_any_instrument", {
@@ -511,12 +528,32 @@ describe("Slice 2 control tools", () => {
             expect(parameters.every(parameter => objectValue(parameter.owner).$address === target.$address)).toBe(true)
             const tone = parameters.find(parameter => parameter.name === "Tone")!
             const toneHandle = handleValue(tone.handle)
-            const before = objectValue(await run(executor, "daw_resources", "inspect_resource", {
-                handle: toneHandle
+            const inspection = objectValue(await run(executor, "daw_resources", "inspect_instrument", {
+                instrument: target
             }))
-            await run(executor, "daw_parameter", "set_value", {target: toneHandle, value: 0.75})
+            expect(inspection).toMatchObject({
+                type: "ApparatDeviceBox",
+                guidance: expect.stringContaining("dynamically declared")
+            })
+            const inspectedTone = arrayValue(inspection.properties).map(objectValue)
+                .find(property => property.parameterName === "Tone")
+            expect(inspectedTone).toMatchObject({
+                path: "Tone",
+                automatable: true,
+                parameterName: "Tone",
+                parameterHandle: {$address: toneHandle.$address},
+                printValue: {value: expect.anything()}
+            })
+            if (inspectedTone === undefined) {throw new Error("Missing inspected Tone property")}
+            const inspectedToneHandle = handleValue(inspectedTone.parameterHandle as JsonValue)
+            expect(inspectedToneHandle).toEqual(toneHandle)
+            expect(catalog.get("daw_project", "set_instrument_properties")).toBeUndefined()
+            const before = objectValue(await run(executor, "daw_resources", "inspect_resource", {
+                handle: inspectedToneHandle
+            }))
+            await run(executor, "daw_parameter", "set_value", {target: inspectedToneHandle, value: 0.75})
             const after = objectValue(await run(executor, "daw_resources", "inspect_resource", {
-                handle: toneHandle
+                handle: inspectedToneHandle
             }))
             expect(JSON.stringify(after)).not.toBe(JSON.stringify(before))
             expect(controlApi.resolver.parameters().some(parameter => parameter.name === "Tone")).toBe(true)
@@ -867,6 +904,44 @@ describe("Slice 2 control tools", () => {
             expect(call).toHaveBeenCalledWith({operation: "project.setBpm", arguments: {value: 123}})
             await executorWithResources.execute({namespace: "daw_resources", name: "query_resources", arguments: {kind: "box"}})
             expect(query).toHaveBeenCalled()
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("dispatches audio analysis with a master range or one canonical AudioUnit stem", async () => {
+        const {project, controlApi, catalog} = createLayer()
+        const audio = AudioData.create(48_000, 0, 2)
+        const render = vi.fn(async () => audio)
+        const analysis = new AudioAnalysisTools(project, controlApi.resolver, render)
+        const executor = new ToolExecutor(controlApi, catalog, undefined, undefined, undefined, analysis)
+        try {
+            const master = objectValue(await run(executor, "daw_analysis", "inspect_audio", {
+                startPosition: 0, endPosition: 960
+            }))
+            expect(master.target).toBe("master")
+            expect(render).toHaveBeenLastCalledWith({range: {start: 0, end: 960}})
+
+            const product = objectValue(await run(executor, "daw_project", "create_any_instrument", {
+                factory: "Neon"
+            }))
+            const audioUnit = handleValue(product.audioUnitBox)
+            const audioUnitAddress = audioUnit.$address as string
+            const unit = objectValue(await run(executor, "daw_analysis", "inspect_audio", {
+                target: audioUnit, startPosition: 0, endPosition: 960
+            }))
+            expect(objectValue(unit.target)).toMatchObject({handle: audioUnit})
+            expect(render).toHaveBeenLastCalledWith({
+                range: {start: 0, end: 960},
+                stems: {
+                    [audioUnitAddress]: {
+                        includeAudioEffects: true,
+                        includeSends: true,
+                        useInstrumentOutput: false,
+                        fileName: "analysis"
+                    }
+                }
+            })
         } finally {
             project.terminate()
         }

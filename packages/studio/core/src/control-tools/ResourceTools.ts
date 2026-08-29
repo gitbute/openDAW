@@ -6,12 +6,14 @@ import {
     Devices,
     DeviceSemantics,
     InstrumentFactories,
+    InstrumentSemantics,
     ParameterOwner,
     SemanticFields,
     TimelineBoxAdapter,
     TrackType
 } from "@opendaw/studio-adapters"
 import type {Sample} from "@opendaw/studio-adapters"
+import {ApparatDeviceBox} from "@opendaw/studio-boxes"
 import {ControlResolver} from "../control-api/ControlResolver"
 import type {JsonObject, JsonValue} from "../control-api/types"
 import {EffectFactories} from "../EffectFactories"
@@ -36,7 +38,8 @@ import type {
     SampleCatalog,
     SampleQuery,
     SampleQueryResult,
-    TimingInspectionResult
+    TimingInspectionResult,
+    InstrumentInspectionResult
 } from "./types"
 
 type ResourceEntry = {
@@ -230,7 +233,7 @@ const parameterView = (resolver: ControlResolver,
     } as JsonObject
 }
 
-const semanticPropertyView = (path: string, field: PrimitiveField,
+const semanticPropertyView = (resolver: ControlResolver, path: string, field: PrimitiveField<any, any>,
                               parameter: AutomatableParameterFieldAdapter | undefined): DevicePropertyInspection => {
     const constraints = field instanceof Float32Field || field instanceof Int32Field
         ? asJsonValue(field.constraints) ?? null
@@ -243,6 +246,7 @@ const semanticPropertyView = (path: string, field: PrimitiveField,
         automatable: parameter !== undefined,
         ...(parameter === undefined ? {} : {
             parameterName: parameter.name,
+            parameterHandle: resolver.handle(parameter),
             printValue: printValue(parameter)
         })
     }
@@ -523,7 +527,7 @@ export class ResourceTools {
             const field = SemanticFields.resolve(semantics.spec, path)
             if (field === undefined) {throw new Error(`Missing semantic field '${path}'`)}
             const parameter = parameters.find(candidate => candidate.field.address.equals(field.address))
-            return semanticPropertyView(path, field, parameter)
+            return semanticPropertyView(this.#resolver, path, field, parameter)
         })
         const deviceParameters = parameters
             .filter(parameter => ParameterOwner.ownerBoxOf(parameter.field) === resolved)
@@ -539,12 +543,46 @@ export class ResourceTools {
         }
     }
 
-    /** @deprecated Use inspectDevice; kept as an internal compatibility adapter. */
-    inspectInstrument(input: JsonObject): DeviceInspectionResult {
+    inspectInstrument(input: JsonObject): InstrumentInspectionResult {
         const value = assertRecord(input, "inspect_instrument input")
         assertKnownProperties(value, ["instrument"], "inspect_instrument input")
-        if (value.instrument === undefined) {throw new Error("Missing argument 'instrument'")}
-        return this.inspectDevice({device: value.instrument})
+        const handle = value.instrument
+        if (handle === undefined) {throw new Error("Missing argument 'instrument'")}
+        const resolved = this.#resolver.resolve(boxSpec, handle)
+        if (!(resolved instanceof Box)) {throw new Error("instrument must be a box handle")}
+
+        if (resolved instanceof ApparatDeviceBox) {
+            const properties = this.#resolver.parameters()
+                .filter(parameter => ParameterOwner.ownerBoxOf(parameter.field) === resolved)
+                .map(parameter => semanticPropertyView(this.#resolver, parameter.name, parameter.field, parameter))
+            return {
+                handle: this.#resolver.handle(resolved),
+                type: resolved.name,
+                label: labelOf(resolved) ?? resolved.name,
+                properties,
+                groups: [],
+                guidance: "Apparat controls are dynamically declared by its script. Mutate the returned parameterHandle values with daw_parameter tools. Use inspect_device_help and read_apparat_source/program_apparat to inspect or change the program."
+            }
+        }
+
+        const semantics = InstrumentSemantics.forBox(resolved)
+        if (semantics === null) {
+            throw new Error(`Unsupported instrument '${resolved.name}'.`)
+        }
+        const parameters = this.#resolver.parameters()
+        const properties = SemanticFields.paths(semantics.spec).map(path => {
+            const field = SemanticFields.resolve(semantics.spec, path)
+            if (field === undefined) {throw new Error(`Missing semantic field '${path}'`)}
+            const parameter = parameters.find(candidate => candidate.field.address.equals(field.address))
+            return semanticPropertyView(this.#resolver, path, field, parameter)
+        })
+        return {
+            handle: this.#resolver.handle(resolved),
+            type: resolved.name,
+            label: labelOf(resolved) ?? resolved.name,
+            properties,
+            groups: semantics.groups
+        }
     }
 
     async inspectDeviceHelp(input: JsonObject): Promise<DeviceHelpInspectionResult> {

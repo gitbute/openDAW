@@ -82,7 +82,8 @@ export type ResourceQuery = {
 
 export type ResourceToolName = "query_resources" | "inspect_resource"
     | "query_samples" | "query_device_catalog" | "inspect_device_definition"
-    | "inspect_device" | "inspect_device_help" | "inspect_timing"
+    | "inspect_device" | "inspect_instrument" | "inspect_device_help" | "inspect_timing"
+    | "inspect_audio"
 
 export type DeviceCatalogCategory = "instrument" | "midi-effect" | "audio-effect"
 
@@ -175,6 +176,7 @@ export type InstrumentPropertyInspection = {
     readonly constraints: JsonValue
     readonly automatable: boolean
     readonly parameterName?: string
+    readonly parameterHandle?: ControlHandle
     readonly printValue?: JsonObject
 }
 
@@ -206,6 +208,37 @@ export type InstrumentInspectionResult = {
     readonly label: string
     readonly properties: ReadonlyArray<InstrumentPropertyInspection>
     readonly groups: ReadonlyArray<{readonly prefix: string, readonly label: string}>
+    readonly guidance?: string
+}
+
+export type AudioAnalysisTarget = "master" | {
+    readonly handle: ControlHandle
+    readonly label: string
+}
+
+export type AudioAnalysisLevel = {
+    readonly peakDbfs: number
+    readonly rmsDbfs: number
+    readonly crestDb: number
+}
+
+export type AudioAnalysisBand = {
+    readonly fromHz: number
+    readonly toHz: number
+    readonly relativeDb: number
+}
+
+export type AudioAnalysisResult = {
+    readonly target: AudioAnalysisTarget
+    readonly range: {
+        readonly startPosition: number
+        readonly endPosition: number
+    }
+    readonly sampleRate: number
+    readonly durationSeconds: number
+    readonly level: AudioAnalysisLevel
+    readonly spectrum: ReadonlyArray<AudioAnalysisBand>
+    readonly waveform: ReadonlyArray<number>
 }
 
 export type TimingSignatureEvent = {

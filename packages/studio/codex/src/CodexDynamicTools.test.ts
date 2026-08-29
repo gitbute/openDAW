@@ -34,7 +34,9 @@ describe("CodexDynamicTools", () => {
 
         const resources = projected.find(namespace => namespace.name === "daw_resources")
         expect(resources?.tools.every(tool => tool.deferLoading === false)).toBe(true)
-        expect(projected.filter(namespace => namespace.name !== "daw_resources")
+        const analysis = projected.find(namespace => namespace.name === "daw_analysis")
+        expect(analysis?.tools.every(tool => tool.deferLoading === false)).toBe(true)
+        expect(projected.filter(namespace => !["daw_resources", "daw_analysis"].includes(namespace.name))
             .flatMap(namespace => namespace.tools)
             .every(tool => tool.deferLoading === true)).toBe(true)
         expect(() => validateCodexToolCatalog(catalog)).not.toThrow()

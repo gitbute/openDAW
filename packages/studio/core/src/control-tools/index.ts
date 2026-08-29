@@ -1,4 +1,8 @@
 export type {
+    AudioAnalysisBand,
+    AudioAnalysisLevel,
+    AudioAnalysisResult,
+    AudioAnalysisTarget,
     FunctionToolSpec,
     DeviceCatalogCategory,
     DeviceCatalogEntry,
@@ -42,8 +46,11 @@ export {
     deviceInspectInputSchema,
     instrumentInspectInputSchema,
     deviceHelpInspectInputSchema,
-    timingInspectInputSchema
+    timingInspectInputSchema,
+    audioInspectInputSchema
 } from "./ToolSchema"
 export {ToolCatalog, toToolName} from "./ToolCatalog"
 export {ResourceTools} from "./ResourceTools"
+export {AudioAnalysisTools, summarizeAudio} from "./AudioAnalysisTools"
+export type {AudioAnalysisRenderer} from "./AudioAnalysisTools"
 export {ToolExecutor} from "./ToolExecutor"

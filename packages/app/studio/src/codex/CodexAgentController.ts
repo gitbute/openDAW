@@ -17,7 +17,7 @@ import type {
     CodexTransportState,
     Unsubscribe
 } from "@opendaw/studio-codex"
-import {ControlApi, ToolCatalog, ToolExecutor} from "@opendaw/studio-core"
+import {AudioAnalysisTools, ControlApi, ToolCatalog, ToolExecutor} from "@opendaw/studio-core"
 import type {DeviceHelpCatalog, SampleCatalog} from "@opendaw/studio-core"
 import type {Project} from "@opendaw/studio-core"
 import {DefaultObservableValue, Terminable} from "@opendaw/lib-std"
@@ -109,7 +109,9 @@ const createSession = (url: string, project: Project, traceSink: CodexTraceSink,
                        deviceHelpCatalog?: DeviceHelpCatalog): CodexAgentSession => {
     const controlApi = new ControlApi(project)
     const catalog = new ToolCatalog()
-    const executor = new ToolExecutor(controlApi, catalog, undefined, sampleCatalog, deviceHelpCatalog)
+    const audioAnalysis = new AudioAnalysisTools(project, controlApi.resolver)
+    const executor = new ToolExecutor(controlApi, catalog, undefined, sampleCatalog, deviceHelpCatalog,
+        audioAnalysis)
     const transport = new WebSocketCodexTransport(url, undefined, traceSink)
     const rpc = new CodexRpcClient(transport, traceSink)
     return new CodexSession({rpc, catalog, executor, traceSink})

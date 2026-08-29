@@ -12,12 +12,15 @@ import {
     deviceCatalogQueryInputSchema,
     deviceDefinitionInspectInputSchema,
     deviceInspectInputSchema,
+    instrumentInspectInputSchema,
     deviceHelpInspectInputSchema,
     resourceInspectInputSchema,
     resourceQueryInputSchema,
     sampleQueryInputSchema,
-    timingInspectInputSchema
+    timingInspectInputSchema,
+    audioInspectInputSchema
 } from "./ToolSchema"
+import type {ResourceToolName} from "./types"
 
 const namespacesForRoots = {
     project: "daw_project",
@@ -31,49 +34,75 @@ const namespaceDescriptions: Readonly<Record<string, string>> = {
     daw_modulation: "Create and connect canonical openDAW modulators.",
     daw_transport: "Control playback and transport state.",
     daw_parameter: "Read and edit discovered automatable parameters.",
-    daw_resources: "Discover live project resources, samples, available device definitions, device help, and project timing."
+    daw_resources: "Discover live project resources, samples, available device definitions, device help, and project timing.",
+    daw_analysis: "Inspect rendered audio and acoustic measurements."
 }
 
-const resourceTools: ReadonlyArray<{readonly name: "query_resources" | "inspect_resource" | "query_samples" | "query_device_catalog" | "inspect_device_definition" | "inspect_device" | "inspect_device_help" | "inspect_timing", readonly schema: FunctionToolSpec["inputSchema"], readonly description: string}> = [
+const eagerTools: ReadonlyArray<{
+    readonly namespace: "daw_resources" | "daw_analysis"
+    readonly name: ResourceToolName
+    readonly schema: FunctionToolSpec["inputSchema"]
+    readonly description: string
+}> = [
     {
+        namespace: "daw_resources",
         name: "query_resources",
         schema: resourceQueryInputSchema,
         description: "Search the live project for boxes, fields, adapters, or parameters."
     },
     {
+        namespace: "daw_resources",
         name: "inspect_resource",
         schema: resourceInspectInputSchema,
         description: "Inspect all generic live-project views available for one handle."
     },
     {
+        namespace: "daw_resources",
         name: "query_samples",
         schema: sampleQueryInputSchema,
         description: "Search the canonical sample catalog without loading sample audio."
     },
     {
+        namespace: "daw_resources",
         name: "query_device_catalog",
         schema: deviceCatalogQueryInputSchema,
         description: "Search the public canonical instrument, MIDI effect, and audio effect definitions before creating a device."
     },
     {
+        namespace: "daw_resources",
         name: "inspect_device_definition",
         schema: deviceDefinitionInspectInputSchema,
         description: "Inspect canonical factory metadata and authoritative help for a public device definition without creating it."
     },
     {
+        namespace: "daw_resources",
         name: "inspect_device",
         schema: deviceInspectInputSchema,
         description: "Inspect semantic properties and generic automatable parameters for a live public device."
     },
     {
+        namespace: "daw_resources",
+        name: "inspect_instrument",
+        schema: instrumentInspectInputSchema,
+        description: "Inspect a live instrument's semantic properties. Apparat controls are dynamically declared: use the returned parameterHandle values with daw_parameter tools, not set_instrument_properties."
+    },
+    {
+        namespace: "daw_resources",
         name: "inspect_device_help",
         schema: deviceHelpInspectInputSchema,
         description: "Read the authoritative openDAW manual for a live device. Apparat help also includes its programming contract and bundled examples when available."
     },
     {
+        namespace: "daw_resources",
         name: "inspect_timing",
         schema: timingInspectInputSchema,
         description: "Inspect canonical project tempo, signature context, musical pulse resolution, and note lengths."
+    },
+    {
+        namespace: "daw_analysis",
+        name: "inspect_audio",
+        schema: audioInspectInputSchema,
+        description: "Render and inspect the acoustic output of the master or one AudioUnit. Returns compact level, waveform-envelope, and broad-spectrum measurements; use when actual sound feedback would help."
     }
 ]
 
@@ -128,9 +157,9 @@ export class ToolCatalog implements ToolCatalogSpec {
             add({spec, operation})
         })
 
-        resourceTools.forEach(resource => {
+        eagerTools.forEach(resource => {
             const spec: ToolSpec = {
-                namespace: "daw_resources",
+                namespace: resource.namespace,
                 name: resource.name,
                 description: resource.description,
                 inputSchema: resource.schema,
@@ -146,7 +175,8 @@ export class ToolCatalog implements ToolCatalogSpec {
             "daw_modulation",
             "daw_transport",
             "daw_parameter",
-            "daw_resources"
+            "daw_resources",
+            "daw_analysis"
         ].map(namespace => Object.freeze({
             namespace,
             description: namespaceDescriptions[namespace],

@@ -56,6 +56,10 @@ const handleSchema = (spec?: HandleSpec): JsonSchema => ({
     ...(spec === undefined ? {} : {description: handleDescription(spec)})
 })
 
+// Apparat's controls are declared dynamically by its script, so it is inspectable even though it is
+// intentionally absent from the static semantic instrument-property union.
+const inspectableInstrumentBoxNames = [...SupportedInstrumentBoxNames, "ApparatDeviceBox"] as const
+
 const semanticDescription = (semantic: string): string => {
     switch (semantic) {
         case "ppqn":
@@ -246,7 +250,7 @@ export const deviceInspectInputSchema: JsonSchema = strictObject({
 /** @deprecated Use deviceInspectInputSchema. */
 export const instrumentInspectInputSchema: JsonSchema = strictObject({
     instrument: {
-        anyOf: SupportedInstrumentBoxNames.map(name => handleSchema({
+        anyOf: inspectableInstrumentBoxNames.map(name => handleSchema({
             kind: "handle", handle: "box", name
         }))
     }
@@ -260,5 +264,17 @@ export const timingInspectInputSchema: JsonSchema = strictObject({
     positionPulses: {
         type: "number",
         description: "OpenDAW musical pulses at which to inspect the current signature and tempo; 960 pulses equal one quarter note and pulse distances are independent of BPM."
+    }
+}, [])
+
+export const audioInspectInputSchema: JsonSchema = strictObject({
+    target: handleSchema({kind: "handle", handle: "box", name: "AudioUnitBox"}),
+    startPosition: {
+        type: "number",
+        description: semanticDescription("ppqn")
+    },
+    endPosition: {
+        type: "number",
+        description: semanticDescription("ppqn")
     }
 }, [])
