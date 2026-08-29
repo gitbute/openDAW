@@ -118,6 +118,25 @@ describe("CodexRpcClient", () => {
         await expect(rejected).rejects.toThrow("nope (-32000)")
     })
 
+    it("normalizes the incompatible model-cache RPC error", async () => {
+        const transport = new FakeTransport()
+        const client = new CodexRpcClient(transport)
+        await initialize(client, transport)
+
+        const pending = client.request("model/list")
+        const request = transport.sent.at(-1)
+        if (!isRequest(request)) {throw new Error("Expected model/list request")}
+        transport.emit({
+            id: request.id,
+            error: {
+                code: -32000,
+                message: "failed to renew cache TTL: missing field `supports_parallel_tool_calls`"
+            }
+        })
+        await expect(pending).rejects.toThrow(
+            "The connected Codex client has an incompatible model cache/schema. Update Codex and remove only CODEX_HOME/models_cache.json, then reconnect.")
+    })
+
     it("delivers notifications and answers server requests with the original id", async () => {
         const transport = new FakeTransport()
         const client = new CodexRpcClient(transport)

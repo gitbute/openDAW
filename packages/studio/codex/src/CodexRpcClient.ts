@@ -1,4 +1,5 @@
 import type {CodexTransport} from "./CodexTransport"
+import {CODEX_MODEL_CACHE_DIAGNOSTIC, normalizeCodexErrorMessage} from "./CodexCompatibility"
 import {compactTracePayload, emitCodexTrace, type CodexTraceSink} from "./CodexTrace"
 import type {
     CodexClientInfo,
@@ -31,8 +32,9 @@ const asError = (error: unknown): Error => error instanceof Error ? error : new 
 const errorFromRpc = (error: unknown): Error => {
     if (!isRecord(error)) {return new Error("Codex App Server returned an invalid RPC error")}
     const code = typeof error.code === "number" ? ` (${error.code})` : ""
-    const message = typeof error.message === "string" ? error.message : "Unknown RPC error"
-    return new Error(`${message}${code}`)
+    const message = normalizeCodexErrorMessage(typeof error.message === "string"
+        ? error.message : "Unknown RPC error")
+    return new Error(message === CODEX_MODEL_CACHE_DIAGNOSTIC ? message : `${message}${code}`)
 }
 
 const errorReply = (code: number, message: string): RpcServerRequestResult => ({

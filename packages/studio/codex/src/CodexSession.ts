@@ -1,9 +1,14 @@
 import type {ToolCatalogSpec, ToolExecutor} from "@opendaw/studio-core"
 import {CodexAccount} from "./CodexAccount"
+import {
+    CODEX_MODEL_CACHE_DIAGNOSTIC,
+    normalizeCodexErrorMessage
+} from "./CodexCompatibility"
 import {CodexDynamicTools} from "./CodexDynamicTools"
 import {PRODUCER_DEVELOPER_INSTRUCTIONS} from "./CodexInstructions"
 import {CodexModels} from "./CodexModels"
 import {CodexRpcClient} from "./CodexRpcClient"
+import {ProducerToolPolicy} from "./ProducerToolPolicy"
 import {emitCodexTrace, type CodexTraceSink} from "./CodexTrace"
 import type {
     CodexAccountEvent,
@@ -155,12 +160,14 @@ export class CodexSession {
     readonly #developerInstructions: string
     readonly #dynamicTools: CodexDynamicTools
     readonly #models: CodexModels
+    readonly #producerToolPolicy = new ProducerToolPolicy()
     readonly #traceSink: CodexTraceSink | undefined
     readonly #listeners = new Set<(event: CodexSessionEvent) => void>()
     #threadId: string | undefined
     #sessionId: string | null = null
     #activeTurnId: string | undefined
     #lastDisconnectError: string | null = null
+    #modelCacheDiagnosticReported = false
     readonly #reasoningSummaryTextByKey = new Map<string, string>()
 
     constructor(options: CodexSessionOptions) {
@@ -182,8 +189,9 @@ export class CodexSession {
         this.#models = new CodexModels(options.rpc, options.traceSink)
         this.#rpc.subscribeNotifications(notification => this.#onNotification(notification))
         this.#rpc.subscribeErrors(error => {
-            this.#lastDisconnectError = error.message
-            this.#emit({type: "error", error: error.message})
+            const message = normalizeCodexErrorMessage(error.message)
+            this.#lastDisconnectError = message
+            this.#emitError(message)
         })
         this.#rpc.subscribeState(state => this.#onConnectionState(state))
         this.#account.subscribe(event => this.#onAccountEvent(event))
@@ -304,9 +312,11 @@ export class CodexSession {
     }
 
     #releaseThread(): void {
-        if (this.#threadId !== undefined && activeThreads.get(this.#threadId) === this) {
-            activeThreads.delete(this.#threadId)
+        const threadId = this.#threadId
+        if (threadId !== undefined && activeThreads.get(threadId) === this) {
+            activeThreads.delete(threadId)
         }
+        this.#producerToolPolicy.clear()
         this.#threadId = undefined
         this.#sessionId = null
         this.#reasoningSummaryTextByKey.clear()
@@ -331,6 +341,8 @@ export class CodexSession {
         }
         const threadId = typeof request.params.threadId === "string" ? request.params.threadId : undefined
         const turnId = typeof request.params.turnId === "string" ? request.params.turnId : undefined
+        const policyThreadId = threadId ?? this.#threadId
+        const invocation = {namespace, name: tool, arguments: argumentsValue as JsonObject}
         emitCodexTrace(this.#traceSink, {
             layer: "tool",
             phase: "tool-start",
@@ -342,15 +354,17 @@ export class CodexSession {
             payload: argumentsValue as JsonValue
         })
         let result
-        try {
-            result = await this.#executor.execute({
-                namespace,
-                name: tool,
-                arguments: argumentsValue as JsonObject
-            })
-        } catch (error) {
-            result = {ok: false as const, error: errorMessage(error)}
+        const policyFailure = this.#producerToolPolicy.beforeToolCall(policyThreadId, invocation)
+        if (policyFailure !== undefined) {
+            result = {ok: false as const, error: policyFailure}
+        } else {
+            try {
+                result = await this.#executor.execute(invocation)
+            } catch (error) {
+                result = {ok: false as const, error: errorMessage(error)}
+            }
         }
+        this.#producerToolPolicy.afterToolCall(policyThreadId, invocation, result)
         emitCodexTrace(this.#traceSink, {
             layer: "tool",
             phase: "tool-complete",
@@ -548,7 +562,7 @@ export class CodexSession {
 
     #onServerError(params: JsonValue | undefined): void {
         const value = asRecord(params, "error notification")
-        this.#emit({type: "error", error: stringAt(value, "message", "error notification")})
+        this.#emitError(stringAt(value, "message", "error notification"))
     }
 
     #onAccountEvent(event: CodexAccountEvent): void {
@@ -574,6 +588,15 @@ export class CodexSession {
             this.#emit({type: "disconnected", error: this.#lastDisconnectError})
             this.#lastDisconnectError = null
         }
+    }
+
+    #emitError(message: string): void {
+        const normalized = normalizeCodexErrorMessage(message)
+        if (normalized === CODEX_MODEL_CACHE_DIAGNOSTIC) {
+            if (this.#modelCacheDiagnosticReported) {return}
+            this.#modelCacheDiagnosticReported = true
+        }
+        this.#emit({type: "error", error: normalized})
     }
 
     #emit(event: CodexSessionEvent): void {

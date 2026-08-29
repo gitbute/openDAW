@@ -184,6 +184,116 @@ const installServer = (transport: FakeTransport): void => {
 }
 
 describe("CodexSession", () => {
+    it("enforces first-use device discovery before producer mutations and apply_edit", async () => {
+        const transport = new FakeTransport()
+        installServer(transport)
+        const catalog = new ToolCatalog()
+        const execute = vi.fn(async (invocation: {readonly name: string}) => ({
+            ok: true as const,
+            value: {tool: invocation.name}
+        }))
+        const session = new CodexSession({
+            rpc: new CodexRpcClient(transport),
+            catalog,
+            executor: {execute} as unknown as ToolExecutor
+        })
+        const call = async (id: number, tool: string, arguments_: JsonObject): Promise<RpcMessage> => {
+            transport.emit({
+                method: "item/tool/call",
+                id,
+                params: {
+                    threadId: "thread-1",
+                    turnId: "turn-1",
+                    namespace: tool === "inspect_device_definition" ? "daw_resources" : "daw_project",
+                    tool,
+                    arguments: arguments_
+                }
+            })
+            await tick()
+            const reply = transport.sent.findLast(message => "id" in message && message.id === id)
+            if (reply === undefined) {throw new Error(`Missing reply for ${tool}`)}
+            return reply
+        }
+
+        try {
+            await session.connect()
+            await session.startThread()
+
+            const blocked = await call(101, "create_any_instrument", {factory: "Apparat"})
+            expect(blocked).toMatchObject({
+                result: {
+                    success: false,
+                    contentItems: [{type: "inputText", text: expect.stringContaining(
+                        'daw_resources.inspect_device_definition({"category":"instrument","factory":"Apparat"})')
+                    }]
+                }
+            })
+            expect(execute).not.toHaveBeenCalled()
+
+            await call(102, "inspect_device_definition", {category: "instrument", factory: "Apparat"})
+            await call(103, "create_any_instrument", {factory: "Apparat"})
+            expect(execute).toHaveBeenCalledTimes(2)
+
+            const blockedEdit = await call(104, "apply_edit", {
+                steps: [{
+                    id: "delay",
+                    namespace: "daw_project",
+                    tool: "insert_audio_effect",
+                    arguments: {factory: "Delay"}
+                }]
+            })
+            expect(blockedEdit).toMatchObject({
+                result: {
+                    success: false,
+                    contentItems: [{type: "inputText", text: expect.stringContaining(
+                        'daw_resources.inspect_device_definition({"category":"audio-effect","factory":"Delay"})')
+                    }]
+                }
+            })
+            expect(execute).toHaveBeenCalledTimes(2)
+
+            await call(105, "inspect_device_definition", {category: "audio-effect", factory: "Delay"})
+            await call(106, "apply_edit", {
+                steps: [{
+                    id: "delay",
+                    namespace: "daw_project",
+                    tool: "insert_audio_effect",
+                    arguments: {factory: "Delay"}
+                }]
+            })
+            expect(execute).toHaveBeenCalledTimes(4)
+        } finally {
+            await session.disconnect()
+        }
+    })
+
+    it("deduplicates the incompatible Codex model-cache diagnostic", async () => {
+        const transport = new FakeTransport()
+        installServer(transport)
+        const catalog = new ToolCatalog()
+        const session = new CodexSession({
+            rpc: new CodexRpcClient(transport),
+            catalog,
+            executor: {execute: vi.fn()} as unknown as ToolExecutor
+        })
+        const events: CodexSessionEvent[] = []
+        session.subscribe(event => events.push(event))
+
+        try {
+            await session.connect()
+            const message = "failed to renew cache TTL: missing field `supports_parallel_tool_calls`"
+            transport.emit({method: "error", params: {message}})
+            transport.emit({method: "error", params: {message}})
+            const errors = events.filter((event): event is Extract<CodexSessionEvent, {type: "error"}> =>
+                event.type === "error")
+            expect(errors).toHaveLength(1)
+            expect(errors[0].error).toBe(
+                "The connected Codex client has an incompatible model cache/schema. Update Codex and remove only CODEX_HOME/models_cache.json, then reconnect.")
+        } finally {
+            await session.disconnect()
+        }
+    })
+
     it("composes account, thread, turns, and the real Slice-2 executor bridge", async () => {
         const transport = new FakeTransport()
         installServer(transport)

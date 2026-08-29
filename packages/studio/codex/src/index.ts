@@ -52,5 +52,12 @@ export type {
     CodexTraceSink
 } from "./CodexTrace"
 export {PRODUCER_DEVELOPER_INSTRUCTIONS} from "./CodexInstructions"
+export {
+    CODEX_MODEL_CACHE_DIAGNOSTIC,
+    isCodexModelCacheCompatibilityError,
+    normalizeCodexErrorMessage
+} from "./CodexCompatibility"
+export {ProducerToolPolicy} from "./ProducerToolPolicy"
+export type {ProducerFactoryCategory, ProducerToolInvocation} from "./ProducerToolPolicy"
 export type {CodexSessionOptions} from "./CodexSession"
 export {CodexSession} from "./CodexSession"
