@@ -57,13 +57,16 @@ const requirementForDirectCall = (invocation: ProducerToolInvocation): {
     return factory === undefined ? undefined : {category, factory}
 }
 
-const requirementForApplyEdit = (invocation: ProducerToolInvocation): {
+type FactoryRequirement = {
     readonly category: ProducerFactoryCategory
     readonly factory: string
-} | undefined => {
-    if (invocation.namespace !== "daw_project" || invocation.name !== "apply_edit") {return undefined}
+}
+
+const requirementsForApplyEdit = (invocation: ProducerToolInvocation): readonly FactoryRequirement[] => {
+    if (invocation.namespace !== "daw_project" || invocation.name !== "apply_edit") {return []}
     const steps = invocation.arguments.steps
-    if (!Array.isArray(steps)) {return undefined}
+    if (!Array.isArray(steps)) {return []}
+    const requirements: FactoryRequirement[] = []
     for (const rawStep of steps) {
         if (!isRecord(rawStep)) {continue}
         const tool = rawStep.tool
@@ -72,20 +75,14 @@ const requirementForApplyEdit = (invocation: ProducerToolInvocation): {
         const category = factoryCategories[tool]
         if (category === undefined) {continue}
         const factory = factoryAt(stepArguments as JsonObject)
-        if (factory !== undefined) {return {category, factory}}
+        if (factory !== undefined) {requirements.push({category, factory})}
     }
-    return undefined
+    return requirements
 }
 
-const requirementFor = (invocation: ProducerToolInvocation): {
-    readonly category: ProducerFactoryCategory
-    readonly factory: string
-    readonly fromApplyEdit: boolean
-} | undefined => {
+const requirementsFor = (invocation: ProducerToolInvocation): readonly FactoryRequirement[] => {
     const direct = requirementForDirectCall(invocation)
-    if (direct !== undefined) {return {...direct, fromApplyEdit: false}}
-    const applyEdit = requirementForApplyEdit(invocation)
-    return applyEdit === undefined ? undefined : {...applyEdit, fromApplyEdit: true}
+    return direct === undefined ? requirementsForApplyEdit(invocation) : [direct]
 }
 
 export class ProducerToolPolicy {
@@ -94,14 +91,19 @@ export class ProducerToolPolicy {
     beforeToolCall(threadId: string | undefined, invocation: ProducerToolInvocation): string | undefined {
         if (invocation.namespace !== "daw_project") {return undefined}
         const programmable = programmableFactories[invocation.name]
-        const requirement = programmable === undefined
-            ? requirementFor(invocation)
-            : {category: programmable.category, factory: programmable.factory, fromApplyEdit: false}
-        if (requirement === undefined) {return undefined}
-        if (this.#isKnown(threadId, requirement.category, requirement.factory)) {return undefined}
-        return requirement.fromApplyEdit
-            ? missingApplyEditDefinitionMessage(requirement.category, requirement.factory)
-            : missingDefinitionMessage(requirement.category, requirement.factory)
+        if (programmable !== undefined) {
+            if (this.#isKnown(threadId, programmable.category, programmable.factory)) {return undefined}
+            return missingDefinitionMessage(programmable.category, programmable.factory)
+        }
+        const fromApplyEdit = invocation.name === "apply_edit"
+        for (const requirement of requirementsFor(invocation)) {
+            if (!this.#isKnown(threadId, requirement.category, requirement.factory)) {
+                return fromApplyEdit
+                    ? missingApplyEditDefinitionMessage(requirement.category, requirement.factory)
+                    : missingDefinitionMessage(requirement.category, requirement.factory)
+            }
+        }
+        return undefined
     }
 
     afterToolCall(threadId: string | undefined, invocation: ProducerToolInvocation, result: ToolResult): void {
