@@ -6,7 +6,6 @@ import {
     Devices,
     DeviceSemantics,
     InstrumentFactories,
-    InstrumentSemantics,
     ParameterOwner,
     SupportedDeviceBoxNames,
     SemanticFields,
@@ -14,7 +13,6 @@ import {
     TrackType
 } from "@opendaw/studio-adapters"
 import type {Sample} from "@opendaw/studio-adapters"
-import {ApparatDeviceBox} from "@opendaw/studio-boxes"
 import {ControlResolver} from "../control-api/ControlResolver"
 import type {JsonObject, JsonValue} from "../control-api/types"
 import {EffectFactories} from "../EffectFactories"
@@ -40,9 +38,16 @@ import type {
     SampleCatalog,
     SampleQuery,
     SampleQueryResult,
-    TimingInspectionResult,
-    InstrumentInspectionResult
+    TimingInspectionResult
 } from "./types"
+import {
+    assertKnownProperties,
+    assertRecord,
+    optionalFiniteNumber,
+    optionalNonNegativeInteger,
+    optionalString,
+    requiredString
+} from "./ToolInput"
 
 type ResourceEntry = {
     readonly kind: ResourceKind
@@ -50,6 +55,7 @@ type ResourceEntry = {
     readonly owner?: string
     readonly type: string
     readonly search: string
+    readonly summary: JsonObject
     readonly view: JsonObject
 }
 
@@ -67,7 +73,7 @@ const boxSpec = {
 
 const knownKinds: ReadonlyArray<ResourceKind> = ["box", "field", "adapter", "parameter"]
 const kindOrder: Readonly<Record<ResourceKind, number>> = {box: 0, field: 1, adapter: 2, parameter: 3}
-const defaultLimit = 100
+const defaultLimit = 50
 const sampleDefaultLimit = 50
 const sampleMaxLimit = 50
 const deviceDefaultLimit = 50
@@ -192,6 +198,7 @@ const fieldView = (resolver: ControlResolver, field: Field): JsonObject => {
             ? field.type
             : field instanceof PointerField ? "pointer" : field.constructor.name,
         owner: resolver.handle(field.box),
+        ...(labelOf(field.box) === undefined ? {} : {ownerLabel: labelOf(field.box)}),
         ...(primitive === undefined ? {} : {value: primitive}),
         ...(pointerTypes.length === 0 ? {} : {pointerTypes}),
         ...(target === undefined ? {} : {target}),
@@ -335,6 +342,46 @@ const parameterInspectionView = (resolver: ControlResolver,
 const entrySearchText = (view: JsonObject, extra: ReadonlyArray<string> = []): string =>
     `${JSON.stringify(view)} ${extra.join(" ")}`.toLocaleLowerCase()
 
+const resourceSummary = (kind: ResourceKind, view: JsonObject): JsonObject => {
+    switch (kind) {
+        case "box":
+            return {
+                kind,
+                handle: view.handle,
+                type: view.type,
+                ...(view.label === undefined ? {} : {label: view.label})
+            }
+        case "field":
+            return {
+                kind,
+                handle: view.handle,
+                type: view.fieldKind ?? view.type,
+                name: view.name,
+                owner: view.owner,
+                ...(view.ownerLabel === undefined ? {} : {ownerLabel: view.ownerLabel})
+            }
+        case "adapter":
+            return {
+                kind,
+                handle: view.handle,
+                type: view.adapterType ?? view.type,
+                box: view.box,
+                boxType: view.boxType,
+                ...(view.label === undefined ? {} : {label: view.label})
+            }
+        case "parameter":
+            return {
+                kind,
+                handle: view.handle,
+                name: view.name,
+                type: view.type,
+                owner: view.owner,
+                ...(view.ownerLabel === undefined ? {} : {ownerLabel: view.ownerLabel}),
+                ...(view.printValue === undefined ? {} : {printValue: view.printValue})
+            }
+    }
+}
+
 const entry = (kind: ResourceKind, address: Address, view: JsonObject,
               type: string, owner?: Address, extra: ReadonlyArray<string> = []): ResourceEntry => ({
     kind,
@@ -342,36 +389,9 @@ const entry = (kind: ResourceKind, address: Address, view: JsonObject,
     ...(owner === undefined ? {} : {owner: owner.toString()}),
     type,
     search: entrySearchText(view, extra),
+    summary: resourceSummary(kind, view),
     view
 })
-
-const assertRecord = (value: unknown, context: string): JsonObject => {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-        throw new Error(`${context} must be an object`)
-    }
-    return value as JsonObject
-}
-
-const assertKnownProperties = (value: JsonObject, known: ReadonlyArray<string>, context: string): void => {
-    Object.keys(value).forEach(name => {
-        if (!known.includes(name)) {throw new Error(`Unknown property '${name}' for ${context}`)}
-    })
-}
-
-const optionalString = (value: JsonObject, name: string): string | undefined => {
-    const candidate = value[name]
-    if (candidate === undefined) {return undefined}
-    if (typeof candidate !== "string") {throw new Error(`${name} must be a string`)}
-    return candidate
-}
-
-const requiredString = (value: JsonObject, name: string, context: string): string => {
-    const candidate = value[name]
-    if (typeof candidate !== "string" || candidate.length === 0) {
-        throw new Error(`${name} must be a non-empty string for ${context}`)
-    }
-    return candidate
-}
 
 const optionalDeviceCategory = (value: JsonObject): DeviceCatalogCategory | undefined => {
     const candidate = value.category
@@ -380,24 +400,6 @@ const optionalDeviceCategory = (value: JsonObject): DeviceCatalogCategory | unde
         throw new Error("category must be one of instrument, midi-effect, audio-effect")
     }
     return candidate as DeviceCatalogCategory
-}
-
-const optionalNonNegativeInteger = (value: JsonObject, name: string): number | undefined => {
-    const candidate = value[name]
-    if (candidate === undefined) {return undefined}
-    if (typeof candidate !== "number" || !Number.isInteger(candidate) || candidate < 0) {
-        throw new Error(`${name} must be a non-negative integer`)
-    }
-    return candidate
-}
-
-const optionalFiniteNumber = (value: JsonObject, name: string): number | undefined => {
-    const candidate = value[name]
-    if (candidate === undefined) {return undefined}
-    if (typeof candidate !== "number" || !Number.isFinite(candidate)) {
-        throw new Error(`${name} must be a finite number`)
-    }
-    return candidate
 }
 
 const optionalSampleOrigin = (value: JsonObject): Sample["origin"] | undefined => {
@@ -455,7 +457,7 @@ export class ResourceTools {
             .filter(candidate => type === undefined || candidate.type.toLocaleLowerCase().includes(type))
             .filter(candidate => owner === undefined || candidate.owner === owner)
             .filter(candidate => text === undefined || candidate.search.includes(text))
-        const resources = matching.slice(offset, offset + limit).map(candidate => candidate.view)
+        const resources = matching.slice(offset, offset + limit).map(candidate => candidate.summary)
         return {resources, total: matching.length, limit, offset}
     }
 
@@ -583,48 +585,6 @@ export class ResourceTools {
             parameters: deviceParameters,
             groups: semantics.groups,
             ...(selectedGroup === undefined ? {} : {group: selectedGroup})
-        }
-    }
-
-    inspectInstrument(input: JsonObject): InstrumentInspectionResult {
-        const value = assertRecord(input, "inspect_instrument input")
-        assertKnownProperties(value, ["instrument"], "inspect_instrument input")
-        const handle = value.instrument
-        if (handle === undefined) {throw new Error("Missing argument 'instrument'")}
-        const resolved = this.#resolver.resolve(boxSpec, handle)
-        if (!(resolved instanceof Box)) {throw new Error("instrument must be a box handle")}
-
-        if (resolved instanceof ApparatDeviceBox) {
-            const properties = this.#resolver.parameters()
-                .filter(parameter => ParameterOwner.ownerBoxOf(parameter.field) === resolved)
-                .map(parameter => semanticPropertyView(this.#resolver, parameter.name, parameter.field, parameter))
-            return {
-                handle: this.#resolver.handle(resolved),
-                type: resolved.name,
-                label: labelOf(resolved) ?? resolved.name,
-                properties,
-                groups: [],
-                guidance: "Apparat controls are dynamically declared by its script. Mutate the returned parameterHandle values with daw_parameter tools. Use inspect_device_help and read_apparat_source/program_apparat to inspect or change the program."
-            }
-        }
-
-        const semantics = InstrumentSemantics.forBox(resolved)
-        if (semantics === null) {
-            throw new Error(`Unsupported instrument '${resolved.name}'.`)
-        }
-        const parameters = this.#resolver.parameters()
-        const properties = SemanticFields.paths(semantics.spec).map(path => {
-            const field = SemanticFields.resolve(semantics.spec, path)
-            if (field === undefined) {throw new Error(`Missing semantic field '${path}'`)}
-            const parameter = parameters.find(candidate => candidate.field.address.equals(field.address))
-            return semanticPropertyView(this.#resolver, path, field, parameter)
-        })
-        return {
-            handle: this.#resolver.handle(resolved),
-            type: resolved.name,
-            label: labelOf(resolved) ?? resolved.name,
-            properties,
-            groups: semantics.groups
         }
     }
 

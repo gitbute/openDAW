@@ -3,29 +3,9 @@ import type {JsonObject, JsonValue, OperationDescriptor} from "../control-api/ty
 import {ToolCatalog} from "./ToolCatalog"
 import {toControlBatchItem} from "./OperationToolCall"
 import type {ApplyEditResult, ApplyEditStep} from "./types"
+import {assertKnownProperties, assertRecord, requiredString} from "./ToolInput"
 
 const namespaces = ["daw_project", "daw_modulation", "daw_parameter"] as const
-
-const assertRecord = (value: unknown, context: string): JsonObject => {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-        throw new Error(`${context} must be an object`)
-    }
-    return value as JsonObject
-}
-
-const assertKnownProperties = (value: JsonObject, known: ReadonlyArray<string>, context: string): void => {
-    Object.keys(value).forEach(name => {
-        if (!known.includes(name)) {throw new Error(`Unknown property '${name}' for ${context}`)}
-    })
-}
-
-const requiredString = (value: JsonObject, name: string, context: string): string => {
-    const candidate = value[name]
-    if (typeof candidate !== "string" || candidate.trim().length === 0) {
-        throw new Error(`${name} must be a non-empty string for ${context}`)
-    }
-    return candidate
-}
 
 const parseSteps = (input: JsonObject): ReadonlyArray<ApplyEditStep> => {
     assertKnownProperties(input, ["steps"], "daw_project.apply_edit input")

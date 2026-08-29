@@ -7,33 +7,13 @@ import {ControlResolver} from "../control-api/ControlResolver"
 import type {JsonObject} from "../control-api/types"
 import type {Project} from "../project/Project"
 import type {AudioAnalysisResult, AudioAnalysisBand} from "./types"
+import {resolveMusicalRange} from "./MusicalTime"
+import {assertKnownProperties, assertRecord} from "./ToolInput"
 
 const WAVEFORM_BUCKETS = 64
 const FFT_SIZE = AudioAnalyser.DEFAULT_SIZE << 1
 const DB_FLOOR = -120
 const SPECTRUM_EDGES = [20, 40, 80, 160, 315, 630, 1250, 2500, 5000, 10000, 20000]
-
-const assertRecord = (value: unknown, context: string): JsonObject => {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-        throw new Error(`${context} must be an object`)
-    }
-    return value as JsonObject
-}
-
-const assertKnownProperties = (value: JsonObject, known: ReadonlyArray<string>, context: string): void => {
-    Object.keys(value).forEach(name => {
-        if (!known.includes(name)) {throw new Error(`Unknown property '${name}' for ${context}`)}
-    })
-}
-
-const optionalFiniteNumber = (value: JsonObject, name: string): number | undefined => {
-    const candidate = value[name]
-    if (candidate === undefined) {return undefined}
-    if (typeof candidate !== "number" || !Number.isFinite(candidate)) {
-        throw new Error(`${name} must be a finite number`)
-    }
-    return candidate
-}
 
 const rounded = (value: number, digits: number = 3): number => {
     if (!Number.isFinite(value)) {return 0}
@@ -125,7 +105,8 @@ const summarizeSpectrum = (audioData: AudioData, frames: ReadonlyArray<Float32Ar
 }
 
 /** Summarize rendered PCM without exposing the PCM itself. */
-export const summarizeAudio = (audioData: AudioData): Omit<AudioAnalysisResult, "target" | "range"> => {
+export const summarizeAudio = (audioData: AudioData):
+    Omit<AudioAnalysisResult, "target" | "range" | "requestedDurationSeconds" | "tailDurationSeconds"> => {
     const frames = channelFrames(audioData)
     const numberOfFrames = Math.max(0, audioData.numberOfFrames)
     let peak = 0
@@ -153,7 +134,7 @@ export const summarizeAudio = (audioData: AudioData): Omit<AudioAnalysisResult, 
     })
     return {
         sampleRate: Number.isFinite(audioData.sampleRate) ? audioData.sampleRate : 0,
-        durationSeconds: rounded(numberOfFrames / (audioData.sampleRate || 1)),
+        renderedDurationSeconds: rounded(numberOfFrames / (audioData.sampleRate || 1)),
         level: {
             peakDbfs: rounded(peakDbfs),
             rmsDbfs: rounded(rmsDbfs),
@@ -193,23 +174,7 @@ export class AudioAnalysisTools {
 
     async inspect(input: JsonObject = {}): Promise<AudioAnalysisResult> {
         const value = assertRecord(input, "inspect_audio input")
-        assertKnownProperties(value, ["target", "startPosition", "endPosition"], "inspect_audio input")
-        const hasStart = Object.hasOwn(value, "startPosition")
-        const hasEnd = Object.hasOwn(value, "endPosition")
-        if (hasStart !== hasEnd) {
-            throw new Error("startPosition and endPosition must be supplied together")
-        }
-        const startArgument = optionalFiniteNumber(value, "startPosition")
-        const endArgument = optionalFiniteNumber(value, "endPosition")
-        if (startArgument !== undefined && startArgument < 0) {
-            throw new Error("startPosition must be non-negative")
-        }
-        if (endArgument !== undefined && endArgument < 0) {
-            throw new Error("endPosition must be non-negative")
-        }
-        if (startArgument !== undefined && endArgument !== undefined && endArgument <= startArgument) {
-            throw new Error("endPosition must be greater than startPosition")
-        }
+        assertKnownProperties(value, ["target", "startPosition", "endPosition", "startMusical", "endMusical"], "inspect_audio input")
 
         const targetArgument = value.target
         let target: AudioUnitBox | undefined
@@ -220,11 +185,17 @@ export class AudioAnalysisTools {
             }
             target = resolved
         }
-        const startPosition = startArgument ?? 0
-        const endPosition = endArgument ?? this.#project.lastRegionAction()
-        const range = startArgument === undefined
+        const timeline = this.#project.timelineBoxAdapter
+        const hasExplicitRange = Object.hasOwn(value, "startPosition") || Object.hasOwn(value, "endPosition")
+            || Object.hasOwn(value, "startMusical") || Object.hasOwn(value, "endMusical")
+        const resolvedRange = resolveMusicalRange(value, timeline.signatureTrack,
+            {startPosition: 0, endPosition: this.#project.lastRegionAction()}, "inspect_audio input")
+        if (hasExplicitRange && resolvedRange.endPosition <= resolvedRange.startPosition) {
+            throw new Error("endPosition must be greater than startPosition")
+        }
+        const range = !hasExplicitRange
             ? "full" as const
-            : {start: startPosition, end: endPosition}
+            : {start: resolvedRange.startPosition, end: resolvedRange.endPosition}
         const configuration: ExportConfiguration = target === undefined
             ? {range}
             : {
@@ -237,14 +208,21 @@ export class AudioAnalysisTools {
                         fileName: "analysis"
                     }
                 }
-            }
+        }
         const audioData = await this.#render(configuration)
+        const summary = summarizeAudio(audioData)
+        const renderedDurationSeconds = summary.renderedDurationSeconds
+        const requestedDurationSeconds = this.#project.tempoMap.intervalToSeconds(
+            resolvedRange.startPosition, resolvedRange.endPosition)
         return {
             target: target === undefined
                 ? "master"
                 : {handle: this.#resolver.handle(target), label: audioUnitLabel(this.#resolver, target)},
-            range: {startPosition, endPosition},
-            ...summarizeAudio(audioData)
+            range: resolvedRange,
+            ...summary,
+            requestedDurationSeconds: rounded(requestedDurationSeconds),
+            renderedDurationSeconds,
+            tailDurationSeconds: rounded(Math.max(0, renderedDurationSeconds - requestedDurationSeconds))
         }
     }
 }

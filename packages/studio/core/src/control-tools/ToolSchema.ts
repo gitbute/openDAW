@@ -1,4 +1,4 @@
-import {InstrumentFactories, SupportedDeviceBoxNames, SupportedInstrumentBoxNames} from "@opendaw/studio-adapters"
+import {InstrumentFactories, SupportedDeviceBoxNames} from "@opendaw/studio-adapters"
 import {EffectFactories} from "../EffectFactories"
 import type {OperationDescriptor, ParameterSpec, PropertySpec, TypeSpec} from "../control-api/types"
 import type {JsonSchema} from "./types"
@@ -59,10 +59,6 @@ const handleSchema = (spec?: HandleSpec): JsonSchema => ({
     }, ["$address"]),
     description: handleDescription(spec)
 })
-
-// Apparat's controls are declared dynamically by its script, so it is inspectable even though it is
-// intentionally absent from the static semantic instrument-property union.
-const inspectableInstrumentBoxNames = [...SupportedInstrumentBoxNames, "ApparatDeviceBox"] as const
 
 const semanticDescription = (semantic: string): string => {
     switch (semantic) {
@@ -255,15 +251,6 @@ export const deviceInspectInputSchema: JsonSchema = strictObject({
     }
 }, ["device"])
 
-/** @deprecated Use deviceInspectInputSchema. */
-export const instrumentInspectInputSchema: JsonSchema = strictObject({
-    instrument: {
-        anyOf: inspectableInstrumentBoxNames.map(name => handleSchema({
-            kind: "handle", handle: "box", name
-        }))
-    }
-}, ["instrument"])
-
 export const deviceHelpInspectInputSchema: JsonSchema = strictObject({
     device: {
         anyOf: SupportedDeviceBoxNames.map(name => handleSchema({
@@ -288,8 +275,70 @@ export const arrangementInspectInputSchema: JsonSchema = strictObject({
     endPosition: {
         type: "number",
         description: semanticDescription("ppqn")
+    },
+    startMusical: {
+        type: "object",
+        properties: {
+            bar: {type: "integer", minimum: 1},
+            beat: {type: "integer", minimum: 1},
+            sixteenth: {type: "integer", minimum: 1},
+            ticks: {type: "integer", minimum: 0}
+        },
+        required: ["bar"],
+        additionalProperties: false,
+        description: "One-based global musical position. Prefer this over PPQN for normal production work."
+    },
+    endMusical: {
+        type: "object",
+        properties: {
+            bar: {type: "integer", minimum: 1},
+            beat: {type: "integer", minimum: 1},
+            sixteenth: {type: "integer", minimum: 1},
+            ticks: {type: "integer", minimum: 0}
+        },
+        required: ["bar"],
+        additionalProperties: false,
+        description: "Paired global musical end position; pulse positions remain available for exact cases."
     }
 }, [])
+
+const patternRegionHandleSchema: JsonSchema = {
+    anyOf: ["NoteRegionBox", "ValueRegionBox"].map(name => handleSchema({
+        kind: "handle", handle: "box", name
+    }))
+}
+
+export const patternInspectInputSchema: JsonSchema = strictObject({
+    regions: {
+        type: "array",
+        minItems: 1,
+        maxItems: 8,
+        items: patternRegionHandleSchema,
+        description: "Timeline NoteRegionBox or ValueRegionBox handles to inspect."
+    },
+    startMusical: {
+        type: "object",
+        properties: {
+            bar: {type: "integer", minimum: 1},
+            beat: {type: "integer", minimum: 1},
+            sixteenth: {type: "integer", minimum: 1},
+            ticks: {type: "integer", minimum: 0}
+        },
+        required: ["bar"],
+        additionalProperties: false
+    },
+    endMusical: {
+        type: "object",
+        properties: {
+            bar: {type: "integer", minimum: 1},
+            beat: {type: "integer", minimum: 1},
+            sixteenth: {type: "integer", minimum: 1},
+            ticks: {type: "integer", minimum: 0}
+        },
+        required: ["bar"],
+        additionalProperties: false
+    }
+}, ["regions"])
 
 // Deliberately keep apply_edit step arguments as an empty schema: generated
 // operation descriptors remain the canonical argument source, this avoids
@@ -322,5 +371,28 @@ export const audioInspectInputSchema: JsonSchema = strictObject({
     endPosition: {
         type: "number",
         description: semanticDescription("ppqn")
+    },
+    startMusical: {
+        type: "object",
+        properties: {
+            bar: {type: "integer", minimum: 1},
+            beat: {type: "integer", minimum: 1},
+            sixteenth: {type: "integer", minimum: 1},
+            ticks: {type: "integer", minimum: 0}
+        },
+        required: ["bar"],
+        additionalProperties: false,
+        description: "Prefer startMusical/endMusical for normal production work; pulse positions are available for exact low-level cases."
+    },
+    endMusical: {
+        type: "object",
+        properties: {
+            bar: {type: "integer", minimum: 1},
+            beat: {type: "integer", minimum: 1},
+            sixteenth: {type: "integer", minimum: 1},
+            ticks: {type: "integer", minimum: 0}
+        },
+        required: ["bar"],
+        additionalProperties: false
     }
 }, [])

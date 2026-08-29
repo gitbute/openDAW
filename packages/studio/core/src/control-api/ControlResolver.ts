@@ -135,6 +135,11 @@ export class ControlResolver {
 
     #resolveBox(spec: HandleSpec, address: Address): Box {
         if (!address.isBox()) {
+            const actual = this.#describeAddress(address)
+            if (actual !== undefined) {
+                throw new Error(`[ControlApi] Expected a ${spec.name} box handle, but the supplied address points to ${actual}. `
+                    + "Pass the box handle returned for the expected object, not one of its field handles.")
+            }
             throw new Error(`[ControlApi] ${spec.name} handle must address a box`)
         }
         const box = this.#boxGraph.findBox(address.uuid).unwrap(`No box at ${address.toString()}`)
@@ -155,13 +160,20 @@ export class ControlResolver {
     }
 
     #resolveParameter(spec: HandleSpec, address: Address): AutomatableParameterFieldAdapter {
-        this.#boxGraph.findVertex(address).unwrap(`No parameter at ${address.toString()}`)
+        const vertex = this.#boxGraph.findVertex(address).unwrap(`No parameter at ${address.toString()}`)
+        if (vertex instanceof Box) {
+            throw new Error(`[ControlApi] Expected parameter ${spec.name}, but the supplied address points to box '${vertex.name}'. `
+                + "Use a parameter handle returned by inspect_device or query_resources.")
+        }
         // Dynamic parameter fields (for example Apparat's WerkstattParameterBox.value) do not
         // have a BoxAdapter of their own. Creating all canonical box adapters registers them in
         // ParameterFieldAdapters, just as parameters() does, and keeps handle resolution generic.
         this.adapters()
         const adapter = this.#parameterFieldAdapters.opt(address)
-            .unwrap(`No parameter at ${address.toString()}`)
+            .unwrap(vertex instanceof Field
+                ? `[ControlApi] Expected parameter ${spec.name}, but the supplied address points to ordinary field '${vertex.fieldName}' on ${vertex.box.name}. `
+                    + "Use a parameter handle returned by inspect_device or query_resources."
+                : `No parameter at ${address.toString()}`)
         if (!hasConstructorName(adapter, spec.name)) {
             throw new Error(`[ControlApi] Expected parameter ${spec.name}, received ${adapter.constructor.name}`)
         }
@@ -171,7 +183,9 @@ export class ControlResolver {
     #resolveField(spec: HandleSpec, address: Address): Field {
         const vertex = this.#boxGraph.findVertex(address).unwrap(`No field at ${address.toString()}`)
         if (!(vertex instanceof Field)) {
-            throw new Error(`[ControlApi] ${address.toString()} does not address a field`)
+            const box = vertex instanceof Box ? `box '${vertex.name}'` : "a non-field resource"
+            throw new Error(`[ControlApi] Expected a ${spec.handle} handle, but the supplied address points to ${box}. `
+                + "Use the field handle returned by inspect_resource or query_resources.")
         }
         if (spec.handle === "pointerField" && !(vertex instanceof PointerField)) {
             throw new Error(`[ControlApi] Expected PointerField at ${address.toString()}`)
@@ -189,6 +203,15 @@ export class ControlResolver {
                 + (accepted.length === 0 ? "" : ` (accepts ${accepted})`))
         }
         return vertex
+    }
+
+    #describeAddress(address: Address): string | undefined {
+        const vertex = this.#boxGraph.findVertex(address).unwrapOrUndefined()
+        if (vertex instanceof Field) {
+            return `field '${vertex.fieldName}' on ${vertex.box.name}`
+        }
+        if (vertex instanceof Box) {return `box '${vertex.name}'`}
+        return undefined
     }
 
     #assertRuntimeType(spec: HandleSpec, value: object): void {

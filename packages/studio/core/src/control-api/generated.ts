@@ -128,7 +128,8 @@ export const generatedControlManifest: GeneratedManifest = {
                         }
                     }
                 ]
-            }
+            },
+            "description": "Create an instrument from a canonical factory. On first use in a producer thread, inspect the\nfactory with daw_resources.inspect_device_definition before configuring the returned device."
         },
         {
             "id": "project.setDeviceProperties",
@@ -921,7 +922,7 @@ export const generatedControlManifest: GeneratedManifest = {
             "result": {
                 "kind": "void"
             },
-            "description": "Compile and install JavaScript source for an Apparat instrument using openDAW's canonical script\ncompiler. Use device help for the authoritative Processor contract."
+            "description": "Compile and install JavaScript source for an Apparat instrument using openDAW's canonical script\ncompiler. Read inspect_device_definition/device help first for the authoritative Processor contract."
         },
         {
             "id": "project.readWerkstattSource",
@@ -990,7 +991,7 @@ export const generatedControlManifest: GeneratedManifest = {
             "result": {
                 "kind": "void"
             },
-            "description": "Compile and install JavaScript source for a Werkstatt audio effect."
+            "description": "Compile and install JavaScript source for a Werkstatt audio effect. Read its canonical device\ndefinition/help and programming contract before first use in a producer thread."
         },
         {
             "id": "project.readSpielwerkSource",
@@ -1059,7 +1060,7 @@ export const generatedControlManifest: GeneratedManifest = {
             "result": {
                 "kind": "void"
             },
-            "description": "Compile and install JavaScript source for a Spielwerk MIDI effect."
+            "description": "Compile and install JavaScript source for a Spielwerk MIDI effect. Read its canonical device\ndefinition/help and programming contract before first use in a producer thread."
         },
         {
             "id": "project.assignApparatSample",
@@ -1407,6 +1408,386 @@ export const generatedControlManifest: GeneratedManifest = {
                     }
                 ]
             }
+        },
+        {
+            "id": "project.insertAudioEffect",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "insertAudioEffect",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "audioUnitBox",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "audioUnitBox"
+                    },
+                    "type": {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "AudioUnitBox"
+                    }
+                },
+                {
+                    "name": "factory",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "factory"
+                    },
+                    "type": {
+                        "kind": "factory",
+                        "factory": "effect"
+                    }
+                },
+                {
+                    "name": "insertIndex",
+                    "optional": true,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "insertIndex"
+                    },
+                    "type": {
+                        "kind": "primitive",
+                        "type": "number",
+                        "semantic": "int"
+                    }
+                }
+            ],
+            "result": {
+                "kind": "union",
+                "alternatives": [
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ArpeggioDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "PitchDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "SpielwerkDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "VelocityDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ZeitgeistDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "AudioEffectCompositeBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "StereoCompositeBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "AutotuneDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "CompressorDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ConvolverDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "CrusherDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "DattorroReverbDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "DelayDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "FoldDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ReverbDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "GateDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "MaximizerDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "RevampDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "StereoToolDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "TidalDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "NeuralAmpDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "VocoderDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "WaveshaperDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "WerkstattDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "UnknownMidiEffectDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ModularDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "UnknownAudioEffectDeviceBox"
+                    }
+                ]
+            },
+            "description": "Insert an audio effect into an AudioUnit's canonical audio chain. Inspect the factory definition\nfirst, then inspect the returned live device before configuring unfamiliar controls."
+        },
+        {
+            "id": "project.insertMidiEffect",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "insertMidiEffect",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "audioUnitBox",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "audioUnitBox"
+                    },
+                    "type": {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "AudioUnitBox"
+                    }
+                },
+                {
+                    "name": "factory",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "factory"
+                    },
+                    "type": {
+                        "kind": "factory",
+                        "factory": "effect"
+                    }
+                },
+                {
+                    "name": "insertIndex",
+                    "optional": true,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "insertIndex"
+                    },
+                    "type": {
+                        "kind": "primitive",
+                        "type": "number",
+                        "semantic": "int"
+                    }
+                }
+            ],
+            "result": {
+                "kind": "union",
+                "alternatives": [
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ArpeggioDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "PitchDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "SpielwerkDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "VelocityDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ZeitgeistDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "AudioEffectCompositeBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "StereoCompositeBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "AutotuneDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "CompressorDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ConvolverDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "CrusherDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "DattorroReverbDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "DelayDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "FoldDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ReverbDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "GateDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "MaximizerDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "RevampDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "StereoToolDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "TidalDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "NeuralAmpDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "VocoderDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "WaveshaperDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "WerkstattDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "UnknownMidiEffectDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ModularDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "UnknownAudioEffectDeviceBox"
+                    }
+                ]
+            },
+            "description": "Insert a MIDI effect into an AudioUnit's canonical MIDI chain. Inspect the factory definition\nfirst, then inspect the returned live device before configuring unfamiliar controls."
         },
         {
             "id": "project.moveEffects",
@@ -2572,6 +2953,132 @@ export const generatedControlManifest: GeneratedManifest = {
             }
         },
         {
+            "id": "project.duplicateTrackRegion",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "duplicateTrackRegion",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "region",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "region"
+                    },
+                    "type": {
+                        "kind": "union",
+                        "alternatives": [
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "AudioRegionBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "NoteRegionBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "ValueRegionBox"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "position",
+                    "optional": true,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "position"
+                    },
+                    "type": {
+                        "kind": "object",
+                        "name": "MusicalPosition",
+                        "properties": [
+                            {
+                                "name": "bar",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            },
+                            {
+                                "name": "beat",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            },
+                            {
+                                "name": "sixteenth",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            },
+                            {
+                                "name": "ticks",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            }
+                        ],
+                        "description": "One-based musical position used by producer-facing control operations."
+                    }
+                },
+                {
+                    "name": "findFreeSpace",
+                    "optional": true,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "findFreeSpace"
+                    },
+                    "type": {
+                        "kind": "primitive",
+                        "type": "boolean"
+                    }
+                }
+            ],
+            "result": {
+                "kind": "option",
+                "value": {
+                    "kind": "union",
+                    "alternatives": [
+                        {
+                            "kind": "handle",
+                            "handle": "box",
+                            "name": "AudioRegionBox"
+                        },
+                        {
+                            "kind": "handle",
+                            "handle": "box",
+                            "name": "NoteRegionBox"
+                        },
+                        {
+                            "kind": "handle",
+                            "handle": "box",
+                            "name": "ValueRegionBox"
+                        }
+                    ]
+                }
+            },
+            "description": "Duplicate a timeline region using the canonical overlap solver and optional musical position."
+        },
+        {
             "id": "project.quantiseNotes",
             "root": "project",
             "ownerType": "ProjectApi",
@@ -3051,7 +3558,7 @@ export const generatedControlManifest: GeneratedManifest = {
                                 }
                             }
                         ],
-                        "description": "One-based musical position. `beat` follows the active signature's\ndenominator unit; `sixteenth` is the one-based sixteenth-note subdivision\ninside that beat. `ticks` is the remaining openDAW pulse offset."
+                        "description": "One-based musical position used by producer-facing control operations."
                     }
                 },
                 {
@@ -3077,7 +3584,7 @@ export const generatedControlManifest: GeneratedManifest = {
                             "triplet-quarter",
                             "triplet-eighth"
                         ],
-                        "description": "A musical note length resolved through the canonical project signature/PPQN helpers."
+                        "description": "Named musical lengths resolved through the active project signature."
                     }
                 },
                 {
@@ -3490,6 +3997,14 @@ export const generatedControlManifest: GeneratedManifest = {
                                     "kind": "identifier",
                                     "name": "cent"
                                 }
+                            },
+                            {
+                                "name": "playCount",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "playCount"
+                                }
                             }
                         ]
                     },
@@ -3550,6 +4065,15 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "name": "pitch",
                                 "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            },
+                            {
+                                "name": "playCount",
+                                "optional": true,
                                 "type": {
                                     "kind": "primitive",
                                     "type": "number",
@@ -3781,6 +4305,14 @@ export const generatedControlManifest: GeneratedManifest = {
                                     "kind": "identifier",
                                     "name": "cent"
                                 }
+                            },
+                            {
+                                "name": "playCount",
+                                "optional": false,
+                                "binding": {
+                                    "kind": "identifier",
+                                    "name": "playCount"
+                                }
                             }
                         ]
                     },
@@ -3824,7 +4356,7 @@ export const generatedControlManifest: GeneratedManifest = {
                                         "triplet-quarter",
                                         "triplet-eighth"
                                     ],
-                                    "description": "A musical note length resolved through the canonical project signature/PPQN helpers."
+                                    "description": "Named musical lengths resolved through the active project signature."
                                 }
                             },
                             {
@@ -3854,6 +4386,15 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "name": "pitch",
                                 "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            },
+                            {
+                                "name": "playCount",
+                                "optional": true,
                                 "type": {
                                     "kind": "primitive",
                                     "type": "number",
@@ -3904,7 +4445,7 @@ export const generatedControlManifest: GeneratedManifest = {
                                             }
                                         }
                                     ],
-                                    "description": "One-based musical position. `beat` follows the active signature's\ndenominator unit; `sixteenth` is the one-based sixteenth-note subdivision\ninside that beat. `ticks` is the remaining openDAW pulse offset."
+                                    "description": "One-based musical position used by producer-facing control operations."
                                 }
                             },
                             {
@@ -3925,7 +4466,7 @@ export const generatedControlManifest: GeneratedManifest = {
                 "handle": "box",
                 "name": "NoteEventBox"
             },
-            "description": "Create one note event from a one-based musical position and named\nduration. The position is relative to the owner's note collection; bar\n1, beat 1 is the collection start. Signature changes use the active\nproject signature at that owner."
+            "description": "Create one note event from a one-based musical position and named\nduration. The position is relative to the owner's note collection; bar\n1, beat 1 is the collection start. Signature changes use the active\nproject signature at that owner. Pass the semantic owner box directly:\nthe NoteRegionBox, NoteClipBox, or NoteEventCollectionBox itself; do not\npass an events field handle."
         },
         {
             "id": "project.createMusicalNoteEvents",
@@ -4013,7 +4554,7 @@ export const generatedControlManifest: GeneratedManifest = {
                                             "triplet-quarter",
                                             "triplet-eighth"
                                         ],
-                                        "description": "A musical note length resolved through the canonical project signature/PPQN helpers."
+                                        "description": "Named musical lengths resolved through the active project signature."
                                     }
                                 },
                                 {
@@ -4078,7 +4619,7 @@ export const generatedControlManifest: GeneratedManifest = {
                                                 }
                                             }
                                         ],
-                                        "description": "One-based musical position. `beat` follows the active signature's\ndenominator unit; `sixteenth` is the one-based sixteenth-note subdivision\ninside that beat. `ticks` is the remaining openDAW pulse offset."
+                                        "description": "One-based musical position used by producer-facing control operations."
                                     }
                                 },
                                 {
@@ -4103,7 +4644,353 @@ export const generatedControlManifest: GeneratedManifest = {
                     "name": "NoteEventBox"
                 }
             },
-            "description": "Create note events from one-based musical positions and named durations.\nPositions are relative to the owner's note collection, so a regular\nfour-on-the-floor pattern uses beats 1, 2, 3, and 4 directly."
+            "description": "Create note events from one-based musical positions and named durations.\nPositions are relative to the owner's note collection, so a regular\nfour-on-the-floor pattern uses beats 1, 2, 3, and 4 directly. Pass the\nsemantic owner box directly; do not pass an events field handle."
+        },
+        {
+            "id": "project.updateMusicalNoteEvent",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "updateMusicalNoteEvent",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "event",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "event"
+                    },
+                    "type": {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "NoteEventBox"
+                    }
+                },
+                {
+                    "name": "position",
+                    "optional": true,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "position"
+                    },
+                    "type": {
+                        "kind": "object",
+                        "name": "MusicalPosition",
+                        "properties": [
+                            {
+                                "name": "bar",
+                                "optional": false,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            },
+                            {
+                                "name": "beat",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            },
+                            {
+                                "name": "sixteenth",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            },
+                            {
+                                "name": "ticks",
+                                "optional": true,
+                                "type": {
+                                    "kind": "primitive",
+                                    "type": "number",
+                                    "semantic": "int"
+                                }
+                            }
+                        ],
+                        "description": "One-based musical position used by producer-facing control operations."
+                    }
+                },
+                {
+                    "name": "duration",
+                    "optional": true,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "duration"
+                    },
+                    "type": {
+                        "kind": "literal",
+                        "values": [
+                            "bar",
+                            "whole",
+                            "half",
+                            "quarter",
+                            "eighth",
+                            "sixteenth",
+                            "dotted-half",
+                            "dotted-quarter",
+                            "dotted-eighth",
+                            "triplet-half",
+                            "triplet-quarter",
+                            "triplet-eighth"
+                        ]
+                    }
+                },
+                {
+                    "name": "pitch",
+                    "optional": true,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "pitch"
+                    },
+                    "type": {
+                        "kind": "primitive",
+                        "type": "number",
+                        "semantic": "int"
+                    }
+                },
+                {
+                    "name": "cent",
+                    "optional": true,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "cent"
+                    },
+                    "type": {
+                        "kind": "primitive",
+                        "type": "number"
+                    }
+                },
+                {
+                    "name": "velocity",
+                    "optional": true,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "velocity"
+                    },
+                    "type": {
+                        "kind": "primitive",
+                        "type": "number",
+                        "semantic": "float"
+                    }
+                },
+                {
+                    "name": "chance",
+                    "optional": true,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "chance"
+                    },
+                    "type": {
+                        "kind": "primitive",
+                        "type": "number",
+                        "semantic": "int"
+                    }
+                },
+                {
+                    "name": "playCount",
+                    "optional": true,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "playCount"
+                    },
+                    "type": {
+                        "kind": "primitive",
+                        "type": "number",
+                        "semantic": "int"
+                    }
+                }
+            ],
+            "result": {
+                "kind": "void"
+            },
+            "description": "Update only the supplied properties of a note using one-based musical coordinates."
+        },
+        {
+            "id": "project.replaceMusicalNoteEvents",
+            "root": "project",
+            "ownerType": "ProjectApi",
+            "method": "replaceMusicalNoteEvents",
+            "target": "singleton",
+            "transaction": "editing",
+            "async": false,
+            "parameters": [
+                {
+                    "name": "owner",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "owner"
+                    },
+                    "type": {
+                        "kind": "union",
+                        "alternatives": [
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "NoteClipBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "NoteRegionBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "NoteEventCollectionBox"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "events",
+                    "optional": false,
+                    "binding": {
+                        "kind": "identifier",
+                        "name": "events"
+                    },
+                    "type": {
+                        "kind": "array",
+                        "element": {
+                            "kind": "object",
+                            "name": "MusicalNoteEventInput",
+                            "properties": [
+                                {
+                                    "name": "cent",
+                                    "optional": true,
+                                    "type": {
+                                        "kind": "primitive",
+                                        "type": "number"
+                                    }
+                                },
+                                {
+                                    "name": "chance",
+                                    "optional": true,
+                                    "type": {
+                                        "kind": "primitive",
+                                        "type": "number",
+                                        "semantic": "int"
+                                    }
+                                },
+                                {
+                                    "name": "duration",
+                                    "optional": false,
+                                    "type": {
+                                        "kind": "literal",
+                                        "values": [
+                                            "bar",
+                                            "whole",
+                                            "half",
+                                            "quarter",
+                                            "eighth",
+                                            "sixteenth",
+                                            "dotted-half",
+                                            "dotted-quarter",
+                                            "dotted-eighth",
+                                            "triplet-half",
+                                            "triplet-quarter",
+                                            "triplet-eighth"
+                                        ],
+                                        "description": "Named musical lengths resolved through the active project signature."
+                                    }
+                                },
+                                {
+                                    "name": "pitch",
+                                    "optional": false,
+                                    "type": {
+                                        "kind": "primitive",
+                                        "type": "number",
+                                        "semantic": "int"
+                                    }
+                                },
+                                {
+                                    "name": "playCount",
+                                    "optional": true,
+                                    "type": {
+                                        "kind": "primitive",
+                                        "type": "number",
+                                        "semantic": "int"
+                                    }
+                                },
+                                {
+                                    "name": "position",
+                                    "optional": false,
+                                    "type": {
+                                        "kind": "object",
+                                        "name": "MusicalPosition",
+                                        "properties": [
+                                            {
+                                                "name": "bar",
+                                                "optional": false,
+                                                "type": {
+                                                    "kind": "primitive",
+                                                    "type": "number",
+                                                    "semantic": "int"
+                                                }
+                                            },
+                                            {
+                                                "name": "beat",
+                                                "optional": true,
+                                                "type": {
+                                                    "kind": "primitive",
+                                                    "type": "number",
+                                                    "semantic": "int"
+                                                }
+                                            },
+                                            {
+                                                "name": "sixteenth",
+                                                "optional": true,
+                                                "type": {
+                                                    "kind": "primitive",
+                                                    "type": "number",
+                                                    "semantic": "int"
+                                                }
+                                            },
+                                            {
+                                                "name": "ticks",
+                                                "optional": true,
+                                                "type": {
+                                                    "kind": "primitive",
+                                                    "type": "number",
+                                                    "semantic": "int"
+                                                }
+                                            }
+                                        ],
+                                        "description": "One-based musical position used by producer-facing control operations."
+                                    }
+                                },
+                                {
+                                    "name": "velocity",
+                                    "optional": true,
+                                    "type": {
+                                        "kind": "primitive",
+                                        "type": "number",
+                                        "semantic": "float"
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            ],
+            "result": {
+                "kind": "array",
+                "element": {
+                    "kind": "handle",
+                    "handle": "box",
+                    "name": "NoteEventBox"
+                }
+            },
+            "description": "Replace one owner's note pattern through the existing musical-event creation path."
         },
         {
             "id": "project.deleteNoteEvents",

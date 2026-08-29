@@ -3,6 +3,7 @@ import type {AudioAnalysisTools} from "./AudioAnalysisTools"
 import {ArrangementTools} from "./ArrangementTools"
 import {EditTools} from "./EditTools"
 import {toControlCall} from "./OperationToolCall"
+import {PatternTools} from "./PatternTools"
 import {ResourceTools} from "./ResourceTools"
 import {ToolCatalog} from "./ToolCatalog"
 import type {JsonObject, JsonValue} from "../control-api/types"
@@ -18,6 +19,7 @@ export class ToolExecutor {
     readonly #catalog: ToolCatalog
     readonly #resources: ResourceTools
     readonly #arrangement: ArrangementTools
+    readonly #patterns: PatternTools
     readonly #edits: EditTools
     readonly #audioAnalysis: AudioAnalysisTools | undefined
 
@@ -29,6 +31,7 @@ export class ToolExecutor {
         this.#catalog = catalog
         this.#resources = resources ?? new ResourceTools(controlApi.resolver, sampleCatalog, deviceHelpCatalog)
         this.#arrangement = new ArrangementTools(controlApi.resolver)
+        this.#patterns = new PatternTools(controlApi.resolver)
         this.#edits = new EditTools(controlApi, catalog)
         this.#audioAnalysis = audioAnalysis
     }
@@ -61,8 +64,8 @@ export class ToolExecutor {
                         return {ok: true, value: this.#resources.inspectTiming(input) as unknown as JsonValue}
                     case "inspect_arrangement":
                         return {ok: true, value: this.#arrangement.inspect(input) as unknown as JsonValue}
-                    case "inspect_instrument":
-                        return {ok: true, value: this.#resources.inspectInstrument(input) as unknown as JsonValue}
+                    case "inspect_patterns":
+                        return {ok: true, value: this.#patterns.inspect(input) as unknown as JsonValue}
                     case "inspect_audio":
                         if (this.#audioAnalysis === undefined) {
                             throw new Error("Audio analysis is unavailable.")

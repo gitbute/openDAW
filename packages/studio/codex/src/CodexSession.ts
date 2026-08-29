@@ -369,7 +369,9 @@ export class CodexSession {
         return {
             contentItems: [{
                 type: "inputText",
-                text: result.ok ? JSON.stringify(result.value) ?? "null" : result.error
+                text: result.ok
+                    ? result.value === null ? "{\"ok\":true}" : JSON.stringify(result.value) ?? "null"
+                    : result.error
             }],
             success: result.ok
         }

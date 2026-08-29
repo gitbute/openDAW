@@ -559,4 +559,44 @@ describe("CodexSession", () => {
             await session.disconnect()
         }
     })
+
+    it("presents successful void dynamic tools as an explicit acknowledgement", async () => {
+        const transport = new FakeTransport()
+        installServer(transport)
+        const catalog = new ToolCatalog()
+        const controlApi = {
+            resolver: {},
+            call: vi.fn(() => null),
+            callAsync: vi.fn(async () => null)
+        } as unknown as ControlApi
+        const session = new CodexSession({
+            rpc: new CodexRpcClient(transport),
+            catalog,
+            executor: new ToolExecutor(controlApi, catalog)
+        })
+        try {
+            await session.connect()
+            transport.emit({
+                method: "item/tool/call",
+                id: 101,
+                params: {
+                    threadId: "thread-1",
+                    turnId: "turn-1",
+                    namespace: "daw_project",
+                    tool: "set_bpm",
+                    arguments: {value: 123}
+                }
+            })
+            await tick()
+            expect(transport.sent.at(-1)).toMatchObject({
+                id: 101,
+                result: {
+                    success: true,
+                    contentItems: [{type: "inputText", text: "{\"ok\":true}"}]
+                }
+            })
+        } finally {
+            await session.disconnect()
+        }
+    })
 })

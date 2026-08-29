@@ -19,6 +19,7 @@ import {
     timingInspectInputSchema,
     audioInspectInputSchema,
     arrangementInspectInputSchema,
+    patternInspectInputSchema,
     applyEditInputSchema
 } from "./ToolSchema"
 import type {ManualToolName} from "./types"
@@ -35,7 +36,7 @@ const namespaceDescriptions: Readonly<Record<string, string>> = {
     daw_modulation: "Create and connect canonical openDAW modulators.",
     daw_transport: "Control playback and transport state.",
     daw_parameter: "Read and edit discovered automatable parameters.",
-    daw_resources: "Discover live project resources, compact arrangement context, samples, available device definitions, device help, and project timing.",
+    daw_resources: "Discover live project resources, arrangement and pattern context, samples, device definitions/help, and project timing.",
     daw_analysis: "Inspect rendered audio and acoustic measurements."
 }
 
@@ -49,7 +50,7 @@ const eagerTools: ReadonlyArray<{
         namespace: "daw_resources",
         name: "query_resources",
         schema: resourceQueryInputSchema,
-        description: "Search the live project for boxes, fields, adapters, or parameters."
+        description: "Search compact live-project resource summaries. Use inspect_resource on a returned handle for full graph detail."
     },
     {
         namespace: "daw_resources",
@@ -100,6 +101,12 @@ const eagerTools: ReadonlyArray<{
         description: "Return a compact multiscale map of the current arrangement, grouped by audio unit and timeline lane. Use it to regain global song context or inspect a broad section; use query_resources/inspect_resource for exact notes, automation events, devices, or parameters."
     },
     {
+        namespace: "daw_resources",
+        name: "inspect_patterns",
+        schema: patternInspectInputSchema,
+        description: "Read exact musical event timing for one or several note or automation regions. Use this pattern/piano-roll zoom to verify rhythm, melody, automation, or alignment without walking raw resources."
+    },
+    {
         namespace: "daw_project",
         name: "apply_edit",
         schema: applyEditInputSchema,
@@ -109,11 +116,19 @@ const eagerTools: ReadonlyArray<{
         namespace: "daw_analysis",
         name: "inspect_audio",
         schema: audioInspectInputSchema,
-        description: "Render and inspect the acoustic output of the master or one AudioUnit. Returns compact level, waveform-envelope, and broad-spectrum measurements; use when actual sound feedback would help."
+        description: "Render and inspect the acoustic output of the master or one AudioUnit. Returns compact level, waveform-envelope, and broad-spectrum measurements plus requested, rendered, and tail durations; rendered audio may include effect or reverb tails. Use when actual sound feedback would help."
     }
 ]
 
 const keyOf = (namespace: string, name: string): string => `${namespace}\u0000${name}`
+
+// These raw generated operations remain in ControlApi for complete/internal access. The
+// producer catalog exposes their musical equivalents instead of presenting two ways to author notes.
+const hiddenProducerOperationIds = new Set([
+    "project.createNoteEvent",
+    "project.createNoteEvents",
+    "project.insertEffect"
+])
 
 export const toToolName = (method: string): string => method
     .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
@@ -151,7 +166,7 @@ export class ToolCatalog implements ToolCatalogSpec {
             tools.push(binding.spec)
         }
 
-        manifest.operations.forEach(operation => {
+        manifest.operations.filter(operation => !hiddenProducerOperationIds.has(operation.id)).forEach(operation => {
             const namespace = namespacesForRoots[operation.root]
             const name = toToolName(operation.method)
             const spec: ToolSpec = {

@@ -72,6 +72,7 @@ import {
     PresetDecoder,
     PresetHeader,
     ProjectQueries,
+    RegionAdapters,
     SampleAssignment,
     ScriptCompiler,
     ScriptDeviceConfigs,
@@ -91,6 +92,9 @@ import {PresetSource} from "../presets"
 import {AudioContentFactory} from "./audio"
 import {NoteMidiExport} from "./NoteMidiExport"
 import {AudioWavExport} from "./AudioWavExport"
+import {musicalDurationToPulses, musicalPositionToPulses} from "../control-tools/MusicalTime"
+import type {MusicalDuration, MusicalPosition} from "../control-tools/MusicalTime"
+export type {MusicalDuration, MusicalPosition} from "../control-tools/MusicalTime"
 
 export type ClipRegionOptions = {
     name?: string
@@ -108,33 +112,6 @@ export type NoteEventInput = {
     chance?: int
     playCount?: int
 }
-
-/**
- * One-based musical position. `beat` follows the active signature's
- * denominator unit; `sixteenth` is the one-based sixteenth-note subdivision
- * inside that beat. `ticks` is the remaining openDAW pulse offset.
- */
-export type MusicalPosition = {
-    bar: int
-    beat?: int
-    sixteenth?: int
-    ticks?: int
-}
-
-/** A musical note length resolved through the canonical project signature/PPQN helpers. */
-export type MusicalDuration =
-    | "bar"
-    | "whole"
-    | "half"
-    | "quarter"
-    | "eighth"
-    | "sixteenth"
-    | "dotted-half"
-    | "dotted-quarter"
-    | "dotted-eighth"
-    | "triplet-half"
-    | "triplet-quarter"
-    | "triplet-eighth"
 
 export type MusicalNoteEventInput = {
     position: MusicalPosition
@@ -169,9 +146,6 @@ export type DevicePropertyChange = {
     value: number | string | boolean
 }
 
-/** @deprecated Use DevicePropertyChange. */
-export type InstrumentPropertyChange = DevicePropertyChange
-
 export type NoteEventParams = {
     owner: NoteEventOwner
     position: ppqn
@@ -180,6 +154,7 @@ export type NoteEventParams = {
     cent?: number
     velocity?: float
     chance?: int
+    playCount?: int
 }
 
 export type MusicalNoteEventParams = {
@@ -190,6 +165,7 @@ export type MusicalNoteEventParams = {
     cent?: number
     velocity?: float
     chance?: int
+    playCount?: int
 }
 
 export type NoteRegionParams = {
@@ -268,6 +244,10 @@ export class ProjectApi {
         return {audioUnitBox, instrumentBox, trackBox}
     }
 
+    /**
+     * Create an instrument from a canonical factory. On first use in a producer thread, inspect the
+     * factory with daw_resources.inspect_device_definition before configuring the returned device.
+     */
     createAnyInstrument(factory: InstrumentFactory<any, any>): InstrumentProduct<InstrumentBox> {
         return this.createInstrument(factory)
     }
@@ -386,8 +366,9 @@ export class ProjectApi {
 
     /**
      * Compile and install JavaScript source for an Apparat instrument using openDAW's canonical script
-     * compiler. Use device help for the authoritative Processor contract. @param declarations become
-     * automatable parameters discoverable through the parameter API; @sample declarations become named inputs.
+     * compiler. Read inspect_device_definition/device help first for the authoritative Processor contract.
+     * @param declarations become automatable parameters discoverable through the parameter API;
+     * @sample declarations become named inputs.
      */
     async programApparat(target: ApparatDeviceBox, source: string): Promise<void> {
         await this.#programScriptSource(ScriptDeviceConfigs.Apparat, target, source)
@@ -398,7 +379,10 @@ export class ProjectApi {
         return this.#readScriptSource(ScriptDeviceConfigs.Werkstatt, target)
     }
 
-    /** Compile and install JavaScript source for a Werkstatt audio effect. */
+    /**
+     * Compile and install JavaScript source for a Werkstatt audio effect. Read its canonical device
+     * definition/help and programming contract before first use in a producer thread.
+     */
     async programWerkstatt(target: WerkstattDeviceBox, source: string): Promise<void> {
         await this.#programScriptSource(ScriptDeviceConfigs.Werkstatt, target, source)
     }
@@ -408,7 +392,10 @@ export class ProjectApi {
         return this.#readScriptSource(ScriptDeviceConfigs.Spielwerk, target)
     }
 
-    /** Compile and install JavaScript source for a Spielwerk MIDI effect. */
+    /**
+     * Compile and install JavaScript source for a Spielwerk MIDI effect. Read its canonical device
+     * definition/help and programming contract before first use in a producer thread.
+     */
     async programSpielwerk(target: SpielwerkDeviceBox, source: string): Promise<void> {
         await this.#programScriptSource(ScriptDeviceConfigs.Spielwerk, target, source)
     }
@@ -453,6 +440,28 @@ export class ProjectApi {
 
     insertEffect(field: Field<EffectPointerType>, factory: EffectFactory, insertIndex: int = Number.MAX_SAFE_INTEGER): EffectBox {
         return factory.create(this.#project, field, IndexedBox.insertOrder(field, insertIndex))
+    }
+
+    /**
+     * Insert an audio effect into an AudioUnit's canonical audio chain. Inspect the factory definition
+     * first, then inspect the returned live device before configuring unfamiliar controls.
+     */
+    insertAudioEffect(audioUnitBox: AudioUnitBox,
+                      factory: EffectFactory,
+                      insertIndex: int = Number.MAX_SAFE_INTEGER): EffectBox {
+        if (factory.type !== "audio") {throw new Error("insertAudioEffect requires an audio effect factory")}
+        return this.insertEffect(audioUnitBox.audioEffects, factory, insertIndex)
+    }
+
+    /**
+     * Insert a MIDI effect into an AudioUnit's canonical MIDI chain. Inspect the factory definition
+     * first, then inspect the returned live device before configuring unfamiliar controls.
+     */
+    insertMidiEffect(audioUnitBox: AudioUnitBox,
+                     factory: EffectFactory,
+                     insertIndex: int = Number.MAX_SAFE_INTEGER): EffectBox {
+        if (factory.type !== "midi") {throw new Error("insertMidiEffect requires a MIDI effect factory")}
+        return this.insertEffect(audioUnitBox.midiEffects, factory, insertIndex)
     }
 
     moveEffects(targetField: Field<EffectPointerType>, boxes: ReadonlyArray<EffectBox>, insertIndex: int): void {
@@ -727,6 +736,21 @@ export class ProjectApi {
         return Option.wrap(duplicate)
     }
 
+    /** Duplicate a timeline region using the canonical overlap solver and optional musical position. */
+    duplicateTrackRegion(region: AnyRegionBox,
+                          position?: MusicalPosition,
+                          findFreeSpace: boolean = false): Option<AnyRegionBox> {
+        const adapter = RegionAdapters.for(this.#project.boxAdapters, region)
+        const positionPulses = position === undefined
+            ? undefined
+            : musicalPositionToPulses(this.#project.timelineBoxAdapter.signatureTrack, position)
+        const duplicate = this.duplicateRegion(adapter, {
+            ...(positionPulses === undefined ? {} : {position: positionPulses}),
+            findFreeSpace
+        })
+        return duplicate.map(copy => copy.box)
+    }
+
     async exportMIDI(collection: NoteEventCollectionBoxAdapter, suggestedName: string = "notes.mid") {
         return NoteMidiExport.toFile(collection, suggestedName)
     }
@@ -803,7 +827,7 @@ export class ProjectApi {
             box.hue.setValue(hue ?? ColorCodes.forTrackType(trackBox.type.getValue()))
             box.mute.setValue(mute ?? false)
             box.duration.setValue(duration)
-            box.loopDuration.setValue(loopOffset ?? 0)
+            box.loopOffset.setValue(loopOffset ?? 0)
             box.loopDuration.setValue(loopDuration ?? duration)
             box.eventOffset.setValue(eventOffset ?? 0)
             box.events.refer(events.owners)
@@ -820,8 +844,9 @@ export class ProjectApi {
                             position: MusicalPosition,
                             duration: MusicalDuration,
                             {name, hue}: ClipRegionOptions = {}): NoteRegionBox {
-        const positionPulses = this.#musicalPositionToPulses(position)
-        const durationPulses = this.#musicalDurationToPulses(duration, positionPulses)
+        const signatureTrack = this.#project.timelineBoxAdapter.signatureTrack
+        const positionPulses = musicalPositionToPulses(signatureTrack, position)
+        const durationPulses = musicalDurationToPulses(signatureTrack, duration, positionPulses)
         return this.createNoteRegion({trackBox, position: positionPulses, duration: durationPulses, name, hue})
     }
 
@@ -935,6 +960,15 @@ export class ProjectApi {
             })
     }
 
+    #noteEventOwner(event: NoteEventBox): NoteEventOwner {
+        const collection = event.events.targetVertex.unwrap("NoteEventBox is not attached to an event collection").box
+            .asBox(NoteEventCollectionBox)
+        const owner = collection.owners.pointerHub.incoming()
+            .map(({box}) => box)
+            .find(box => box instanceof NoteRegionBox || box instanceof NoteClipBox)
+        return owner instanceof NoteRegionBox || owner instanceof NoteClipBox ? owner : collection
+    }
+
     #noteEventCollection(owner: NoteEventOwner): NoteEventCollectionBox {
         return owner instanceof NoteEventCollectionBox
             ? owner
@@ -944,48 +978,6 @@ export class ProjectApi {
 
     #noteEventReferencePosition(owner: NoteEventOwner): ppqn {
         return owner instanceof NoteRegionBox ? owner.position.getValue() : 0
-    }
-
-    #musicalPositionParts(position: MusicalPosition): {
-        bars: int, beats: int, semiquavers: int, ticks: int
-    } {
-        const {bar, beat = 1, sixteenth = 1, ticks = 0} = position
-        if (!Number.isInteger(bar) || bar < 1) {throw new Error("bar must be a positive integer")}
-        if (!Number.isInteger(beat) || beat < 1) {throw new Error("beat must be a positive integer")}
-        if (!Number.isInteger(sixteenth) || sixteenth < 1) {
-            throw new Error("sixteenth must be a positive integer")
-        }
-        if (!Number.isInteger(ticks) || ticks < 0) {throw new Error("ticks must be a non-negative integer")}
-        return {bars: bar - 1, beats: beat - 1, semiquavers: sixteenth - 1, ticks}
-    }
-
-    #musicalPositionToPulses(position: MusicalPosition, referencePosition?: ppqn): ppqn {
-        const parts = this.#musicalPositionParts(position)
-        if (referencePosition === undefined) {
-            return this.#project.timelineBoxAdapter.signatureTrack.fromParts(parts)
-        }
-        const [nominator, denominator] = this.#project.timelineBoxAdapter.signatureTrack
-            .signatureAt(referencePosition)
-        return PPQN.fromParts(parts, nominator, denominator)
-    }
-
-    #musicalDurationToPulses(duration: MusicalDuration, referencePosition: ppqn): ppqn {
-        const [nominator, denominator] = this.#project.timelineBoxAdapter.signatureTrack
-            .signatureAt(referencePosition)
-        switch (duration) {
-            case "bar": return PPQN.fromSignature(nominator, denominator)
-            case "whole": return PPQN.Whole
-            case "half": return PPQN.Half
-            case "quarter": return PPQN.Quarter
-            case "eighth": return PPQN.Eighth
-            case "sixteenth": return PPQN.Sixteenth
-            case "dotted-half": return PPQN.Dotted(PPQN.Half)
-            case "dotted-quarter": return PPQN.Dotted(PPQN.Quarter)
-            case "dotted-eighth": return PPQN.Dotted(PPQN.Eighth)
-            case "triplet-half": return PPQN.Triplet(PPQN.Half)
-            case "triplet-quarter": return PPQN.Triplet(PPQN.Quarter)
-            case "triplet-eighth": return PPQN.Triplet(PPQN.Eighth)
-        }
     }
 
     #readScriptSource(config: ScriptCompiler.Config, target: ScriptCompiler.ScriptDeviceBox): string {
@@ -1040,7 +1032,7 @@ export class ProjectApi {
      * Pass the semantic owner box directly: the NoteRegionBox, NoteClipBox, or NoteEventCollectionBox itself;
      * do not pass an events field handle.
      */
-    createNoteEvent({owner, position, duration, velocity, pitch, chance, cent}: NoteEventParams): NoteEventBox {
+    createNoteEvent({owner, position, duration, velocity, pitch, chance, cent, playCount}: NoteEventParams): NoteEventBox {
         const {boxGraph} = this.#project
         return NoteEventBox.create(boxGraph, UUID.generate(), box => {
             box.position.setValue(position)
@@ -1049,6 +1041,7 @@ export class ProjectApi {
             box.pitch.setValue(pitch)
             box.chance.setValue(chance ?? 100.0)
             box.cent.setValue(cent ?? 0.0)
+            box.playCount.setValue(playCount ?? 1)
             box.events.refer(this.#noteEvents(owner))
         })
     }
@@ -1079,42 +1072,84 @@ export class ProjectApi {
      * Create one note event from a one-based musical position and named
      * duration. The position is relative to the owner's note collection; bar
      * 1, beat 1 is the collection start. Signature changes use the active
-     * project signature at that owner.
+     * project signature at that owner. Pass the semantic owner box directly:
+     * the NoteRegionBox, NoteClipBox, or NoteEventCollectionBox itself; do not
+     * pass an events field handle.
      */
-    createMusicalNoteEvent({owner, position, duration, velocity, pitch, chance, cent}: MusicalNoteEventParams): NoteEventBox {
+    createMusicalNoteEvent({owner, position, duration, velocity, pitch, chance, cent, playCount}: MusicalNoteEventParams): NoteEventBox {
         const reference = this.#noteEventReferencePosition(owner)
+        const signatureTrack = this.#project.timelineBoxAdapter.signatureTrack
         return this.createNoteEvent({
             owner,
-            position: this.#musicalPositionToPulses(position, reference),
-            duration: this.#musicalDurationToPulses(duration, reference),
+            position: musicalPositionToPulses(signatureTrack, position, reference),
+            duration: musicalDurationToPulses(signatureTrack, duration, reference),
             velocity,
             pitch,
             chance,
-            cent
+            cent,
+            playCount
         })
     }
 
     /**
      * Create note events from one-based musical positions and named durations.
      * Positions are relative to the owner's note collection, so a regular
-     * four-on-the-floor pattern uses beats 1, 2, 3, and 4 directly.
+     * four-on-the-floor pattern uses beats 1, 2, 3, and 4 directly. Pass the
+     * semantic owner box directly; do not pass an events field handle.
      */
     createMusicalNoteEvents(owner: NoteEventOwner,
                             events: ReadonlyArray<MusicalNoteEventInput>): ReadonlyArray<NoteEventBox> {
         const reference = this.#noteEventReferencePosition(owner)
+        const signatureTrack = this.#project.timelineBoxAdapter.signatureTrack
         return events.map(({position, duration, pitch, cent, velocity, chance, playCount}) => {
             const event = this.createNoteEvent({
                 owner,
-                position: this.#musicalPositionToPulses(position, reference),
-                duration: this.#musicalDurationToPulses(duration, reference),
+                position: musicalPositionToPulses(signatureTrack, position, reference),
+                duration: musicalDurationToPulses(signatureTrack, duration, reference),
                 pitch,
                 cent,
                 velocity,
-                chance
+                chance,
+                playCount
             })
-            event.playCount.setValue(playCount ?? 1)
             return event
         })
+    }
+
+    /** Update only the supplied properties of a note using one-based musical coordinates. */
+    updateMusicalNoteEvent(event: NoteEventBox,
+                           position?: MusicalPosition,
+                           duration?: MusicalDuration,
+                           pitch?: int,
+                           cent?: number,
+                           velocity?: float,
+                           chance?: int,
+                           playCount?: int): void {
+        const owner = this.#noteEventOwner(event)
+        const reference = this.#noteEventReferencePosition(owner)
+        const signatureTrack = this.#project.timelineBoxAdapter.signatureTrack
+        if (position !== undefined) {
+            event.position.setValue(musicalPositionToPulses(signatureTrack, position, reference))
+        }
+        if (duration !== undefined) {
+            event.duration.setValue(musicalDurationToPulses(signatureTrack, duration, reference))
+        }
+        if (pitch !== undefined) {event.pitch.setValue(pitch)}
+        if (cent !== undefined) {event.cent.setValue(cent)}
+        if (velocity !== undefined) {event.velocity.setValue(velocity)}
+        if (chance !== undefined) {event.chance.setValue(chance)}
+        if (playCount !== undefined) {event.playCount.setValue(playCount)}
+    }
+
+    /** Replace one owner's note pattern through the existing musical-event creation path. */
+    replaceMusicalNoteEvents(owner: NoteEventOwner,
+                             events: ReadonlyArray<MusicalNoteEventInput>): ReadonlyArray<NoteEventBox> {
+        const collection = this.#noteEventCollection(owner)
+        collection.events.pointerHub.incoming()
+            .map(({box}) => box)
+            .filter((box): box is NoteEventBox => box instanceof NoteEventBox)
+            .forEach(event => event.delete())
+        return this.createMusicalNoteEvents(owner, events)
     }
 
     deleteNoteEvents(events: ReadonlyArray<NoteEventBox>): void {

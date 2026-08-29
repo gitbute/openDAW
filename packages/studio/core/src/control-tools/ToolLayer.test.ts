@@ -9,6 +9,7 @@ import {
     ApparatDeviceBox,
     NeonDeviceBox,
     NanoDeviceBox,
+    NoteRegionBox,
     NoteEventBox,
     PlayfieldDeviceBox,
     SpielwerkDeviceBox,
@@ -137,7 +138,9 @@ describe("Slice 2 control tools", () => {
         const first = new ToolCatalog()
         const second = new ToolCatalog()
         const generated = first.tools.filter(tool => tool.exposure === "deferred")
-        expect(generated).toHaveLength(generatedControlManifest.operations.length)
+        expect(generated).toHaveLength(generatedControlManifest.operations.filter(operation =>
+            !["project.createNoteEvent", "project.createNoteEvents", "project.insertEffect"]
+                .includes(operation.id)).length)
         expect(new Set(generated.map(tool => `${tool.namespace}.${tool.name}`)).size).toBe(generated.length)
         expect(generated.map(tool => `${tool.namespace}.${tool.name}`))
             .toEqual(second.tools.filter(tool => tool.exposure === "deferred")
@@ -149,7 +152,7 @@ describe("Slice 2 control tools", () => {
             .toEqual([
                 "query_resources", "inspect_resource", "query_samples", "query_device_catalog",
                 "inspect_device_definition", "inspect_device", "inspect_device_help",
-                "inspect_timing", "inspect_arrangement", "apply_edit", "inspect_audio"
+                "inspect_timing", "inspect_arrangement", "inspect_patterns", "apply_edit", "inspect_audio"
             ])
         const audioTool = first.get("daw_analysis", "inspect_audio")
         expect(audioTool?.spec.exposure).toBe("eager")
@@ -167,6 +170,12 @@ describe("Slice 2 control tools", () => {
         expect(first.get("daw_transport", "set_position")).toBeDefined()
         expect(first.get("daw_transport", "sleep")).toBeUndefined()
         expect(first.get("daw_transport", "wake")).toBeUndefined()
+        expect(first.get("daw_project", "create_note_event")).toBeUndefined()
+        expect(first.get("daw_project", "create_note_events")).toBeUndefined()
+        expect(first.get("daw_project", "insert_effect")).toBeUndefined()
+        expect(generatedControlManifest.operations.some(operation => operation.id === "project.createNoteEvent")).toBe(true)
+        expect(generatedControlManifest.operations.some(operation => operation.id === "project.createNoteEvents")).toBe(true)
+        expect(generatedControlManifest.operations.some(operation => operation.id === "project.insertEffect")).toBe(true)
         expect(generatedControlManifest.operations.some(operation => operation.id === "transport.sleep")).toBe(false)
         expect(generatedControlManifest.operations.some(operation => operation.id === "transport.wake")).toBe(false)
         expect(first.get("daw_resources", "inspect_device_help")?.spec.inputSchema.properties?.device)
@@ -213,7 +222,7 @@ describe("Slice 2 control tools", () => {
         const catalog = new ToolCatalog()
         const instrument = catalog.get("daw_project", "create_any_instrument")?.spec.inputSchema
             .properties?.factory
-        const effect = catalog.get("daw_project", "insert_effect")?.spec.inputSchema
+        const effect = catalog.get("daw_project", "insert_audio_effect")?.spec.inputSchema
             .properties?.factory
         expect(instrument?.enum).toEqual(Object.keys(InstrumentFactories.Named))
         expect(effect?.enum).toEqual(Object.keys(EffectFactories.MergedNamed))
@@ -302,7 +311,7 @@ describe("Slice 2 control tools", () => {
             .toBe("PointerField handle accepting Pointers.AudioEffects, Pointers.MidiEffects, or Pointers.EffectChain. Pass the complete handle object returned by a tool, e.g. {\"$address\":\"...\"}; do not pass the $address string alone.")
 
         const catalog = new ToolCatalog()
-        for (const name of ["create_note_event", "create_note_events"]) {
+        for (const name of ["create_musical_note_event", "create_musical_note_events"]) {
             const owner = catalog.get("daw_project", name)?.spec.inputSchema.properties?.owner
             expect(owner?.anyOf?.map(schema => schema.description)).toEqual(expect.arrayContaining([
                 expect.stringContaining("Handle to a NoteRegionBox."),
@@ -311,7 +320,6 @@ describe("Slice 2 control tools", () => {
             ]))
         }
 
-        expect(catalog.get("daw_resources", "inspect_instrument")).toBeUndefined()
         const inspectDevice = catalog.get("daw_resources", "inspect_device")?.spec
         expect(inspectDevice?.inputSchema.properties?.device?.anyOf
             ?.map(schema => schema.description)).toContainEqual(expect.stringContaining("Handle to an ApparatDeviceBox."))
@@ -362,8 +370,8 @@ describe("Slice 2 control tools", () => {
         expect(region?.description).toContain("note-event collection is reused")
         expect(catalog.get("daw_project", "create_note_clip")?.spec.description)
             .toContain("TrackBox of type TrackType.Notes")
-        for (const name of ["create_note_event", "create_note_events"]) {
-            const description = catalog.get("daw_project", name)?.spec.description
+        for (const name of ["create_musical_note_event", "create_musical_note_events"]) {
+            const description = catalog.get("daw_project", name)?.spec.description?.replace(/\s+/g, " ")
             expect(description).toContain("semantic owner box directly")
             expect(description).toContain("do not pass an events field handle")
         }
@@ -432,9 +440,266 @@ describe("Slice 2 control tools", () => {
             expect(musicalRegion?.spec.inputSchema.properties?.position?.description)
                 .toContain("One-based musical position")
             expect(musicalRegion?.spec.inputSchema.properties?.duration?.description)
-                .toContain("canonical project signature/PPQN helpers")
+                .toContain("Named musical lengths resolved through the active project signature")
             expect(catalog.get("daw_resources", "inspect_timing")?.spec.inputSchema.properties
                 ?.positionPulses?.description).toContain("960 pulses")
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("shows exact note timing, same-position alignment, loops, and automation in one pattern view", async () => {
+        const {project, controlApi, executor} = createLayer()
+        try {
+            const createPattern = async (factory: "Neon" | "Vaporisateur", name: string) => {
+                const product = objectValue(await run(executor, "daw_project", "create_any_instrument", {factory}))
+                const track = handleValue(await run(executor, "daw_project", "create_note_track", {
+                    audioUnitBox: handleValue(product.audioUnitBox)
+                }))
+                const region = handleValue(await run(executor, "daw_project", "create_note_region", {
+                    trackBox: track, position: 0, duration: 3840, name
+                }))
+                return {product, region}
+            }
+            const kick = await createPattern("Neon", "Kick")
+            await run(executor, "daw_project", "create_musical_note_events", {
+                owner: kick.region,
+                events: [1, 2, 3, 4].map(beat => ({
+                    position: {bar: 1, beat}, duration: "sixteenth", pitch: 36
+                }))
+            })
+            const bass = await createPattern("Vaporisateur", "Bass")
+            await run(executor, "daw_project", "create_musical_note_events", {
+                owner: bass.region,
+                events: [1, 2, 3, 4].map(beat => ({
+                    position: {bar: 1, beat, sixteenth: 3}, duration: "eighth", pitch: 48
+                }))
+            })
+            const same = await createPattern("Neon", "Same")
+            await run(executor, "daw_project", "create_musical_note_events", {
+                owner: same.region,
+                events: [1, 2, 3, 4].map(beat => ({
+                    position: {bar: 1, beat}, duration: "sixteenth", pitch: 60
+                }))
+            })
+            const looped = handleValue(await run(executor, "daw_project", "create_note_region", {
+                trackBox: handleValue(kick.product.trackBox),
+                position: 3840,
+                duration: 4 * 3840,
+                loopDuration: 3840,
+                name: "Looped"
+            }))
+            await run(executor, "daw_project", "create_musical_note_events", {
+                owner: looped,
+                events: [{position: {bar: 1}, duration: "quarter", pitch: 72}]
+            })
+
+            const automationProduct = project.editing.modify(() =>
+                project.api.createAnyInstrument(InstrumentFactories.Neon)).unwrap("automation instrument")
+            const automationTrack = project.editing.modify(() => project.api.createAutomationTrack(
+                automationProduct.audioUnitBox,
+                automationProduct.audioUnitBox.volume as unknown as Field<Pointers.Automation>
+            )).unwrap("automation track")
+            const automationRegion = project.editing.modify(() => project.api.createAutomationRegion(
+                automationTrack,
+                0,
+                3840,
+                [{position: 0, index: 0, value: 0.2}, {position: 1920, index: 1, value: 0.8}],
+                {name: "Volume"}
+            )).unwrap("automation region")
+
+            const result = objectValue(await run(executor, "daw_resources", "inspect_patterns", {
+                regions: [kick.region, bass.region, same.region, looped,
+                    controlApi.resolver.handle(automationRegion)]
+            }))
+            const regions = arrayValue(result.regions).map(objectValue)
+            const times = (region: JsonObject): ReadonlyArray<JsonObject> =>
+                arrayValue(region.events).map(event => objectValue(objectValue(event).timelineMusical))
+            const kickTimes = times(regions[0])
+            expect(kickTimes).toEqual([1, 2, 3, 4].map(beat => ({
+                bar: 1, beat, sixteenth: 1, ticks: 0
+            })))
+            expect(times(regions[1])).toEqual([1, 2, 3, 4].map(beat => ({
+                bar: 1, beat, sixteenth: 3, ticks: 0
+            })))
+            expect(times(regions[2])).toEqual(kickTimes)
+            expect(regions[3].eventCount).toBe(4)
+            expect(times(regions[3]).map(time => time.bar)).toEqual([2, 3, 4, 5])
+            expect(regions[4].kind).toBe("automation")
+            const automationValues = arrayValue(regions[4].events).map(event => objectValue(event).value)
+            expect(automationValues[0]).toBeCloseTo(0.2, 5)
+            expect(automationValues[1]).toBeCloseTo(0.8, 5)
+            expect(regions.every(region => region.truncated === false)).toBe(true)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("caps pattern occurrences and keeps note activity tied to sounding events", async () => {
+        const {project, controlApi, executor} = createLayer()
+        try {
+            const product = project.editing.modify(() =>
+                project.api.createAnyInstrument(InstrumentFactories.Neon)).unwrap("instrument")
+            const track = product.trackBox
+            const looped = project.editing.modify(() => project.api.createNoteRegion({
+                trackBox: track, position: 0, duration: 8 * 3840, loopDuration: 3840, name: "Looped"
+            })).unwrap("looped region")
+            project.editing.modify(() => project.api.createNoteEvents(looped, [
+                {position: 0, duration: 120, pitch: 36}
+            ]))
+            const capped = project.editing.modify(() => project.api.createNoteRegion({
+                trackBox: track, position: 8 * 3840, duration: 3840, name: "Capped"
+            })).unwrap("capped region")
+            project.editing.modify(() => project.api.createNoteEvents(capped,
+                Array.from({length: 513}, (_, index) => ({position: index, duration: 1, pitch: 60}))))
+            const crossing = project.editing.modify(() => project.api.createNoteRegion({
+                trackBox: track, position: 11 * 3840, duration: 2 * 3840, name: "Crossing"
+            })).unwrap("crossing region")
+            project.editing.modify(() => project.api.createNoteEvents(crossing, [
+                {position: 3600, duration: 600, pitch: 48}
+            ]))
+
+            const patterns = objectValue(await run(executor, "daw_resources", "inspect_patterns", {
+                regions: [controlApi.resolver.handle(looped), controlApi.resolver.handle(capped),
+                    controlApi.resolver.handle(crossing)]
+            }))
+            const regions = arrayValue(patterns.regions).map(objectValue)
+            expect(regions[0]).toMatchObject({sourceEventCount: 1, eventCount: 8, truncated: false})
+            expect(arrayValue(regions[0].events).map(event => objectValue(event).timelineMusical))
+                .toHaveLength(8)
+            expect(regions[1]).toMatchObject({sourceEventCount: 513, eventCount: 512, truncated: true})
+            expect(arrayValue(regions[1].events)).toHaveLength(512)
+            expect(regions[2]).toMatchObject({sourceEventCount: 1, eventCount: 1, truncated: false})
+            expect(objectValue(arrayValue(regions[2].events)[0]).timelineMusical).toEqual({
+                bar: 12, beat: 4, sixteenth: 4, ticks: 0
+            })
+
+            const emptyTrack = project.editing.modify(() =>
+                project.api.createNoteTrack(product.audioUnitBox)).unwrap("empty track")
+            project.editing.modify(() => project.api.createNoteRegion({
+                trackBox: emptyTrack, position: 9 * 3840, duration: 64 * 3840, name: "Empty"
+            })).unwrap("empty region")
+            const sparse = project.editing.modify(() => project.api.createNoteRegion({
+                trackBox: track, position: 13 * 3840, duration: 2 * 3840, name: "Sparse"
+            })).unwrap("sparse region")
+            project.editing.modify(() => project.api.createNoteEvents(sparse, [
+                {position: 3840, duration: 120, pitch: 42}
+            ]))
+            const muted = project.editing.modify(() => project.api.createNoteRegion({
+                trackBox: track, position: 15 * 3840, duration: 3840, mute: true, name: "Muted"
+            })).unwrap("muted region")
+            project.editing.modify(() => project.api.createNoteEvents(muted, [
+                {position: 0, duration: 120, pitch: 42}
+            ]))
+            const arrangement = objectValue(await run(executor, "daw_resources", "inspect_arrangement", {
+                target: controlApi.resolver.handle(product.audioUnitBox),
+                startPosition: 0,
+                endPosition: 16 * 3840
+            }))
+            const unit = objectValue(arrayValue(arrangement.audioUnits)[0])
+            const activity = stringValue(unit.musicalActivity)
+            expect(activity.slice(0, 9)).toBe("1".repeat(9))
+            expect(activity.slice(9, 11)).toBe("0".repeat(2))
+            expect(activity.slice(11, 13)).toBe("1".repeat(2))
+            expect(activity[13]).toBe("0")
+            expect(activity[14]).toBe("1")
+            expect(activity[15]).toBe("0")
+            expect(activity[activity.length - 1]).toBe("0")
+            const hasEmptyRegion = arrayValue(unit.tracks).some(track => arrayValue(objectValue(track).regions)
+                .some(region => stringValue(objectValue(region).label) === "Empty"))
+            expect(hasEmptyRegion).toBe(true)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("updates and replaces musical notes through generated edits with one undo step", async () => {
+        const {project, controlApi, executor} = createLayer()
+        try {
+            const product = objectValue(await run(executor, "daw_project", "create_any_instrument", {
+                factory: "Neon"
+            }))
+            const track = handleValue(await run(executor, "daw_project", "create_note_track", {
+                audioUnitBox: handleValue(product.audioUnitBox)
+            }))
+            const region = handleValue(await run(executor, "daw_project", "create_note_region", {
+                trackBox: track, position: 0, duration: 3840
+            }))
+            const original = handleValue(arrayValue(await run(executor, "daw_project", "create_musical_note_events", {
+                owner: region,
+                events: [
+                    {position: {bar: 1}, duration: "quarter", pitch: 60},
+                    {position: {bar: 1, beat: 3}, duration: "quarter", pitch: 64}
+                ]
+            }))[0])
+            const resolveEvent = (handle: JsonObject): NoteEventBox => {
+                const event = controlApi.resolver.resolve({kind: "handle", handle: "box", name: "NoteEventBox"}, handle)
+                if (!(event instanceof NoteEventBox)) {throw new Error("Missing note event")}
+                return event
+            }
+            const event = resolveEvent(original)
+            const boxEditing = project.editing as BoxEditing
+            boxEditing.clear()
+            await run(executor, "daw_project", "apply_edit", {
+                steps: [{
+                    id: "move",
+                    namespace: "daw_project",
+                    tool: "update_musical_note_event",
+                    arguments: {event: original, position: {bar: 1, beat: 2}, pitch: 67}
+                }]
+            })
+            expect(event.position.getValue()).toBe(960)
+            expect(event.pitch.getValue()).toBe(67)
+            expect(project.editing.canUndo()).toBe(true)
+            expect(project.editing.undo()).toBe(true)
+            expect(event.position.getValue()).toBe(0)
+            expect(event.pitch.getValue()).toBe(60)
+            expect(project.editing.canUndo()).toBe(false)
+
+            const replacement = objectValue(await run(executor, "daw_project", "apply_edit", {
+                steps: [{
+                    id: "replace",
+                    namespace: "daw_project",
+                    tool: "replace_musical_note_events",
+                    arguments: {
+                        owner: region,
+                        events: [{position: {bar: 1, beat: 4}, duration: "half", pitch: 72}]
+                    }
+                }]
+            }))
+            const created = arrayValue(objectValue(arrayValue(replacement.results)[0]).value)
+            expect(created).toHaveLength(1)
+            expect(resolveEvent(handleValue(created[0])).position.getValue()).toBe(2880)
+            expect(project.editing.canUndo()).toBe(true)
+            expect(project.editing.undo()).toBe(true)
+            expect(project.editing.canUndo()).toBe(false)
+            expect(event.isAttached()).toBe(true)
+            expect(event.position.getValue()).toBe(0)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("duplicates a timeline region through the generated semantic wrapper", async () => {
+        const {project, controlApi, executor} = createLayer()
+        try {
+            const product = objectValue(await run(executor, "daw_project", "create_any_instrument", {
+                factory: "Neon"
+            }))
+            const track = handleValue(await run(executor, "daw_project", "create_note_track", {
+                audioUnitBox: handleValue(product.audioUnitBox)
+            }))
+            const region = handleValue(await run(executor, "daw_project", "create_musical_note_region", {
+                trackBox: track, position: {bar: 1}, duration: "bar", name: "Source"
+            }))
+            const duplicate = handleValue(await run(executor, "daw_project", "duplicate_track_region", {
+                region, position: {bar: 2}
+            }))
+            const resolved = controlApi.resolver.resolve({kind: "handle", handle: "box", name: "NoteRegionBox"}, duplicate)
+            if (!(resolved instanceof NoteRegionBox)) {throw new Error("Missing duplicated note region")}
+            expect(resolved.position.getValue()).toBe(3840)
+            expect(resolved.duration.getValue()).toBe(3840)
+            expect(resolved.label.getValue()).toBe("Source")
         } finally {
             project.terminate()
         }
@@ -570,12 +835,8 @@ describe("Slice 2 control tools", () => {
                 ]
             })
 
-            const fields = objectValue(await run(executor, "daw_resources", "query_resources", {
-                kind: "field", owner: handleValue(neon.audioUnitBox), text: "midiEffects", limit: 10
-            }))
-            const effectField = objectValue(arrayValue(fields.resources)[0])
-            const velocity = handleValue(await run(executor, "daw_project", "insert_effect", {
-                field: handleValue(effectField.handle), factory: "Velocity", insertIndex: 0
+            const velocity = handleValue(await run(executor, "daw_project", "insert_midi_effect", {
+                audioUnitBox: handleValue(neon.audioUnitBox), factory: "Velocity", insertIndex: 0
             }))
             const velocityInspection = objectValue(await run(executor, "daw_resources", "inspect_device", {
                 device: velocity
@@ -657,7 +918,7 @@ describe("Slice 2 control tools", () => {
                 endPosition: 30720
             }))
             expect(narrow.resolutionBars).toBe(1)
-            expect(arrayValue(narrow.density)).toEqual([1, 1, 1, 1, 0, 0, 0, 0])
+            expect(arrayValue(narrow.density)).toEqual([1, 0, 1, 0, 0, 0, 0, 0])
             const unit = objectValue(arrayValue(narrow.audioUnits)[0])
             expect(stringValue(unit.label)).toBe("Neon")
             const tracks = arrayValue(unit.tracks).map(objectValue)
@@ -666,7 +927,7 @@ describe("Slice 2 control tools", () => {
                 .toEqual([0, 7680])
             expect(arrayValue(tracks[0].regions).map(region => stringValue(objectValue(region).content)))
                 .toEqual(["n1", "n1"])
-            expect(stringValue(unit.musicalActivity)).toBe("11110000")
+            expect(stringValue(unit.musicalActivity)).toBe("10100000")
             expect(stringValue(unit.automationActivity)).toBe("11000000")
 
             const contents = arrayValue(narrow.contents).map(objectValue)
@@ -701,9 +962,13 @@ describe("Slice 2 control tools", () => {
                 text: stringValue(eventsHandle.$address),
                 limit: 10
             }))
-            const eventField = arrayValue(eventFieldQuery.resources)
-                .map(objectValue)
-                .find(candidate => stringValue(handleValue(candidate.handle).$address) === eventsHandle.$address)!
+            expect(arrayValue(eventFieldQuery.resources).length).toBeGreaterThan(0)
+            const eventInspection = objectValue(await run(executor, "daw_resources", "inspect_resource", {
+                handle: eventsHandle
+            }))
+            const eventField = arrayValue(eventInspection.views).map(objectValue)
+                .find(candidate => stringValue(handleValue(candidate.handle).$address) === eventsHandle.$address)
+            if (eventField === undefined) {throw new Error("Missing inspected events field")}
             expect(stringValue(handleValue(eventField.handle).$address)).toBe(eventsHandle.$address)
             const incoming = arrayValue(eventField.incomingPointers)
             expect(incoming).toHaveLength(3)
@@ -803,8 +1068,8 @@ describe("Slice 2 control tools", () => {
             const region = handleValue(await run(executor, "daw_project", "create_note_region", {
                 trackBox: track, position: 0, duration: 960
             }))
-            const events = arrayValue(await run(executor, "daw_project", "create_note_events", {
-                owner: region, events: [{position: 0, duration: 120, pitch: 36}]
+            const events = arrayValue(await run(executor, "daw_project", "create_musical_note_events", {
+                owner: region, events: [{position: {bar: 1}, duration: "sixteenth", pitch: 36}]
             }))
             expect(events).toHaveLength(1)
             const event = controlApi.resolver.boxes().find(box =>
@@ -948,18 +1213,23 @@ describe("Slice 2 control tools", () => {
             expect((apparatBox as ApparatDeviceBox).code.getValue()).toContain("// @apparat js 1 1\n")
 
             const audioUnit = handleValue(instrument.audioUnitBox)
-            const fieldFor = async (name: "audioEffects" | "midiEffects"): Promise<JsonObject> => {
-                const resources = objectValue(await run(executor, "daw_resources", "query_resources", {
-                    kind: "field", owner: audioUnit, text: name, limit: 10
-                }))
-                const field = arrayValue(resources.resources).map(objectValue)[0]
-                if (field === undefined) {throw new Error(`Missing ${name} field`)}
-                return field
-            }
+            await expect(executor.execute({namespace: "daw_project", name: "insert_audio_effect", arguments: {
+                audioUnitBox: audioUnit, factory: "Arpeggio"
+            }})).resolves.toMatchObject({
+                ok: false,
+                error: expect.stringContaining("requires an audio effect factory")
+            })
+            await expect(executor.execute({namespace: "daw_project", name: "insert_midi_effect", arguments: {
+                audioUnitBox: audioUnit, factory: "Delay"
+            }})).resolves.toMatchObject({
+                ok: false,
+                error: expect.stringContaining("requires a MIDI effect factory")
+            })
             const effectFor = async (name: "audioEffects" | "midiEffects", factory: "Werkstatt" | "Spielwerk") =>
-                handleValue(await run(executor, "daw_project", "insert_effect", {
-                    field: handleValue((await fieldFor(name)).handle), factory, insertIndex: 0
-                }))
+                handleValue(await run(executor, "daw_project",
+                    name === "audioEffects" ? "insert_audio_effect" : "insert_midi_effect", {
+                        audioUnitBox: audioUnit, factory, insertIndex: 0
+                    }))
 
             const werkstatt = await effectFor("audioEffects", "Werkstatt")
             const werkstattSource = "class Processor { process() {} }"
@@ -1039,21 +1309,17 @@ describe("Slice 2 control tools", () => {
             const region = handleValue(await run(executor, "daw_project", "create_note_region", {
                 trackBox: track, position: 0, duration: 960, name: "Hats"
             }))
-            const events = arrayValue(await run(executor, "daw_project", "create_note_events", {
+            const events = arrayValue(await run(executor, "daw_project", "create_musical_note_events", {
                 owner: region,
                 events: [
-                    {position: 0, duration: 120, pitch: 42},
-                    {position: 240, duration: 120, pitch: 46}
+                    {position: {bar: 1}, duration: "sixteenth", pitch: 42},
+                    {position: {bar: 1, beat: 1, sixteenth: 2}, duration: "sixteenth", pitch: 46}
                 ]
             }))
             expect(events).toHaveLength(2)
 
-            const audioEffects = objectValue((await run(executor, "daw_resources", "query_resources", {
-                kind: "field", owner: audioUnit, text: "audioEffects", limit: 10
-            })) as JsonValue)
-            const effectField = objectValue((audioEffects.resources as ReadonlyArray<JsonValue>)[0])
-            const effect = handleValue(await run(executor, "daw_project", "insert_effect", {
-                field: handleValue(effectField.handle), factory: "Delay", insertIndex: 0
+            const effect = handleValue(await run(executor, "daw_project", "insert_audio_effect", {
+                audioUnitBox: audioUnit, factory: "Delay", insertIndex: 0
             }))
             const parameters = objectValue(await run(executor, "daw_resources", "query_resources", {
                 kind: "parameter", owner: effect, text: "Feedback", limit: 10
@@ -1072,7 +1338,11 @@ describe("Slice 2 control tools", () => {
             expect(objectValue(afterFirstWriteParameter.printValue).value)
                 .not.toBe(beforePrintValue.value)
 
-            const parameterField = handleValue(parameter.field)
+            const parameterInspection = objectValue(await run(executor, "daw_resources", "inspect_resource", {
+                handle: parameterHandle
+            }))
+            const parameterField = handleValue(objectValue(arrayValue(parameterInspection.views)
+                .find(view => objectValue(view).kind === "parameter")!).field)
             const modulation = handleValue(await run(executor, "daw_modulation", "create_lfo", {
                 label: "Hats LFO"
             }))
@@ -1229,8 +1499,19 @@ describe("Slice 2 control tools", () => {
             })
             expect(result.ok).toBe(true)
             expect(call).toHaveBeenCalledWith({operation: "project.setBpm", arguments: {value: 123}})
-            await executorWithResources.execute({namespace: "daw_resources", name: "query_resources", arguments: {kind: "box"}})
+            const queried = objectValue(await run(executorWithResources, "daw_resources", "query_resources", {
+                kind: "box", limit: 10
+            }))
             expect(query).toHaveBeenCalled()
+            const summary = objectValue(arrayValue(queried.resources)[0])
+            expect(summary).not.toHaveProperty("fields")
+            expect(summary).not.toHaveProperty("primitiveValues")
+            expect(summary).not.toHaveProperty("incomingPointers")
+            expect(summary).not.toHaveProperty("outgoingPointers")
+            const detail = objectValue(await run(executorWithResources, "daw_resources", "inspect_resource", {
+                handle: handleValue(summary.handle)
+            }))
+            expect(arrayValue(detail.views).some(view => Object.hasOwn(objectValue(view), "fields"))).toBe(true)
         } finally {
             project.terminate()
         }
@@ -1238,16 +1519,25 @@ describe("Slice 2 control tools", () => {
 
     it("dispatches audio analysis with a master range or one canonical AudioUnit stem", async () => {
         const {project, controlApi, catalog} = createLayer()
-        const audio = AudioData.create(48_000, 0, 2)
+        const audio = AudioData.create(48_000, 144_000, 2)
         const render = vi.fn(async () => audio)
         const analysis = new AudioAnalysisTools(project, controlApi.resolver, render)
         const executor = new ToolExecutor(controlApi, catalog, undefined, undefined, undefined, analysis)
         try {
             const master = objectValue(await run(executor, "daw_analysis", "inspect_audio", {
-                startPosition: 0, endPosition: 960
+                startMusical: {bar: 1}, endMusical: {bar: 2}
             }))
             expect(master.target).toBe("master")
-            expect(render).toHaveBeenLastCalledWith({range: {start: 0, end: 960}})
+            expect(render).toHaveBeenLastCalledWith({range: {start: 0, end: 3840}})
+            expect(master.requestedDurationSeconds).toBe(2)
+            expect(master.renderedDurationSeconds).toBe(3)
+            expect(master.tailDurationSeconds).toBe(1)
+            expect(master.range).toMatchObject({
+                startPosition: 0,
+                endPosition: 3840,
+                startMusical: {bar: 1, beat: 1, sixteenth: 1, ticks: 0},
+                endMusical: {bar: 2, beat: 1, sixteenth: 1, ticks: 0}
+            })
 
             const product = objectValue(await run(executor, "daw_project", "create_any_instrument", {
                 factory: "Neon"
@@ -1324,6 +1614,26 @@ describe("Slice 2 control tools", () => {
             const product = objectValue(await run(executor, "daw_project", "create_any_instrument", {
                 factory: "Apparat"
             }))
+            const bpmField = controlApi.resolver.handle(project.timelineBox.bpm)
+            await expect(executor.execute({namespace: "daw_project", name: "create_note_track", arguments: {
+                audioUnitBox: bpmField
+            }})).resolves.toMatchObject({
+                ok: false,
+                error: expect.stringContaining("field 'bpm' on TimelineBox")
+            })
+            await expect(executor.execute({namespace: "daw_project", name: "create_automation_track", arguments: {
+                audioUnitBox: handleValue(product.audioUnitBox),
+                target: handleValue(product.audioUnitBox)
+            }})).resolves.toMatchObject({
+                ok: false,
+                error: expect.stringContaining("points to box 'AudioUnitBox'")
+            })
+            await expect(executor.execute({namespace: "daw_parameter", name: "set_value", arguments: {
+                target: bpmField, value: 0.5
+            }})).resolves.toMatchObject({
+                ok: false,
+                error: expect.stringContaining("ordinary field 'bpm' on TimelineBox")
+            })
             await expect(executor.execute({namespace: "daw_resources", name: "inspect_device_help", arguments: {
                 device: handleValue(product.audioUnitBox)
             }})).resolves.toEqual({

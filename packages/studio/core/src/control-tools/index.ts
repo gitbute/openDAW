@@ -13,6 +13,11 @@ export type {
     ArrangementRange,
     ArrangementRegion,
     ArrangementTrack,
+    PatternInspectionInput,
+    PatternInspectionResult,
+    PatternInspectionRegion,
+    PatternNoteRegion,
+    PatternValueRegion,
     FunctionToolSpec,
     DeviceCatalogCategory,
     DeviceCatalogEntry,
@@ -27,13 +32,10 @@ export type {
     DeviceHelpContent,
     DeviceHelpExample,
     DeviceHelpInspectionResult,
-    InstrumentInspectionResult,
-    InstrumentPropertyInspection,
     JsonSchema,
     ManualToolName,
     ApplyEditResult,
     ApplyEditStep,
-    ResourceToolName,
     ResourceInspectionResult,
     ResourceKind,
     ResourceQuery,
@@ -59,16 +61,17 @@ export {
     deviceCatalogQueryInputSchema,
     deviceDefinitionInspectInputSchema,
     deviceInspectInputSchema,
-    instrumentInspectInputSchema,
     deviceHelpInspectInputSchema,
     timingInspectInputSchema,
     arrangementInspectInputSchema,
+    patternInspectInputSchema,
     applyEditInputSchema,
     audioInspectInputSchema
 } from "./ToolSchema"
 export {ToolCatalog, toToolName} from "./ToolCatalog"
 export {ResourceTools} from "./ResourceTools"
 export {ArrangementTools} from "./ArrangementTools"
+export {PatternTools} from "./PatternTools"
 export {EditTools} from "./EditTools"
 export {toControlBatchItem, toControlCall} from "./OperationToolCall"
 export {AudioAnalysisTools, summarizeAudio} from "./AudioAnalysisTools"

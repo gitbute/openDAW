@@ -1,5 +1,6 @@
 import type {ControlHandle, JsonObject, JsonValue, OperationDescriptor} from "../control-api/types"
 import type {Sample} from "@opendaw/studio-adapters"
+import type {MusicalPosition, MusicalPositionView} from "./MusicalTime"
 
 export type JsonSchemaType = "object" | "array" | "string" | "number" | "integer" | "boolean" | "null"
 
@@ -82,23 +83,18 @@ export type ResourceQuery = {
 
 export type ManualToolName = "query_resources" | "inspect_resource"
     | "query_samples" | "query_device_catalog" | "inspect_device_definition"
-    | "inspect_device" | "inspect_instrument" | "inspect_device_help" | "inspect_timing"
+    | "inspect_device" | "inspect_device_help" | "inspect_timing" | "inspect_patterns"
     | "inspect_audio" | "inspect_arrangement" | "apply_edit"
-
-/** @deprecated Manual tools are not all resource tools. */
-export type ResourceToolName = Exclude<ManualToolName, "apply_edit">
 
 export type ArrangementInspectionInput = {
     readonly target?: ControlHandle
     readonly startPosition?: number
     readonly endPosition?: number
+    readonly startMusical?: MusicalPosition
+    readonly endMusical?: MusicalPosition
 }
 
-export type ArrangementMusicalPosition = {
-    readonly bar: number
-    readonly beat: number
-    readonly semiquaver: number
-}
+export type ArrangementMusicalPosition = MusicalPositionView
 
 export type ArrangementRange = {
     readonly startPosition: number
@@ -186,6 +182,78 @@ export type ArrangementInspectionResult = {
     }>
     readonly audioUnits: ReadonlyArray<ArrangementAudioUnit>
     readonly contents: ReadonlyArray<ArrangementContent>
+}
+
+export type PatternInspectionInput = {
+    readonly regions: ReadonlyArray<ControlHandle>
+    readonly startMusical?: MusicalPosition
+    readonly endMusical?: MusicalPosition
+}
+
+export type PatternTimedPosition = {
+    readonly pulses: number
+    readonly musical: MusicalPositionView
+}
+
+export type PatternNoteEvent = {
+    readonly handle: ControlHandle
+    readonly sourcePositionPulses: number
+    readonly timelinePositionPulses: number
+    readonly timelineMusical: MusicalPositionView
+    readonly durationPulses: number
+    readonly pitch: number
+    readonly velocity: number
+    readonly cent: number
+    readonly chance: number
+    readonly playCount: number
+}
+
+export type PatternValueEvent = {
+    readonly handle: ControlHandle
+    readonly sourcePositionPulses: number
+    readonly timelinePositionPulses: number
+    readonly timelineMusical: MusicalPositionView
+    readonly value: number
+    readonly interpolation: string
+    readonly slope?: number
+}
+
+export type PatternNoteRegion = {
+    readonly kind: "notes"
+    readonly region: ControlHandle
+    readonly label: string
+    readonly regionStart: PatternTimedPosition
+    readonly regionEnd: PatternTimedPosition
+    readonly loop: {readonly offsetPulses: number, readonly durationPulses: number}
+    readonly sourceEventCount: number
+    readonly eventCount: number
+    readonly events: ReadonlyArray<PatternNoteEvent>
+    readonly truncated: boolean
+}
+
+export type PatternValueRegion = {
+    readonly kind: "automation"
+    readonly region: ControlHandle
+    readonly label: string
+    readonly regionStart: PatternTimedPosition
+    readonly regionEnd: PatternTimedPosition
+    readonly loop: {readonly offsetPulses: number, readonly durationPulses: number}
+    readonly sourceEventCount: number
+    readonly eventCount: number
+    readonly events: ReadonlyArray<PatternValueEvent>
+    readonly truncated: boolean
+}
+
+export type PatternInspectionRegion = PatternNoteRegion | PatternValueRegion
+
+export type PatternInspectionResult = {
+    readonly regions: ReadonlyArray<PatternInspectionRegion>
+    readonly range?: {
+        readonly startPosition: number
+        readonly endPosition: number
+        readonly startMusical: MusicalPositionView
+        readonly endMusical: MusicalPositionView
+    }
 }
 
 export type DeviceCatalogCategory = "instrument" | "midi-effect" | "audio-effect"
@@ -292,7 +360,7 @@ export type ResourceInspectionResult = {
     readonly views: ReadonlyArray<JsonObject>
 }
 
-export type InstrumentPropertyInspection = {
+export type DevicePropertyInspection = {
     readonly path: string
     readonly value: JsonValue
     readonly fieldType: string
@@ -302,8 +370,6 @@ export type InstrumentPropertyInspection = {
     readonly parameterHandle?: ControlHandle
     readonly printValue?: JsonObject
 }
-
-export type DevicePropertyInspection = InstrumentPropertyInspection
 
 export type DeviceParameterChoice = {
     readonly value: number
@@ -332,15 +398,6 @@ export type DeviceInspectionResult = {
     readonly group?: {readonly prefix: string, readonly label: string}
 }
 
-export type InstrumentInspectionResult = {
-    readonly handle: ControlHandle
-    readonly type: string
-    readonly label: string
-    readonly properties: ReadonlyArray<InstrumentPropertyInspection>
-    readonly groups: ReadonlyArray<{readonly prefix: string, readonly label: string}>
-    readonly guidance?: string
-}
-
 export type AudioAnalysisTarget = "master" | {
     readonly handle: ControlHandle
     readonly label: string
@@ -363,9 +420,13 @@ export type AudioAnalysisResult = {
     readonly range: {
         readonly startPosition: number
         readonly endPosition: number
+        readonly startMusical: MusicalPositionView
+        readonly endMusical: MusicalPositionView
     }
     readonly sampleRate: number
-    readonly durationSeconds: number
+    readonly requestedDurationSeconds: number
+    readonly renderedDurationSeconds: number
+    readonly tailDurationSeconds: number
     readonly level: AudioAnalysisLevel
     readonly spectrum: ReadonlyArray<AudioAnalysisBand>
     readonly waveform: ReadonlyArray<number>

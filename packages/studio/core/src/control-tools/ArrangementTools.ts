@@ -16,13 +16,15 @@ import {
 } from "@opendaw/studio-adapters"
 import type {ControlHandle, JsonObject} from "../control-api/types"
 import {ControlResolver} from "../control-api/ControlResolver"
+import {musicalPosition, resolveMusicalRange} from "./MusicalTime"
+import {assertKnownProperties, assertRecord} from "./ToolInput"
+import {noteRegionHasActivity} from "./PatternTools"
 import type {
     ArrangementAudioUnit,
     ArrangementAutomationContent,
     ArrangementContent,
     ArrangementInspectionInput,
     ArrangementInspectionResult,
-    ArrangementMusicalPosition,
     ArrangementNoteContent,
     ArrangementRange,
     ArrangementRegion,
@@ -56,36 +58,6 @@ type ContentState = {
 
 const boxSpec: HandleSpec = {kind: "handle", handle: "box", name: "AudioUnitBox"}
 
-const assertRecord = (value: unknown, context: string): JsonObject => {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-        throw new Error(`${context} must be an object`)
-    }
-    return value as JsonObject
-}
-
-const assertKnownProperties = (value: JsonObject, known: ReadonlyArray<string>, context: string): void => {
-    Object.keys(value).forEach(name => {
-        if (!known.includes(name)) {throw new Error(`Unknown property '${name}' for ${context}`)}
-    })
-}
-
-const finiteNumber = (value: JsonObject, name: string): number => {
-    const candidate = value[name]
-    if (typeof candidate !== "number" || !Number.isFinite(candidate)) {
-        throw new Error(`${name} must be a finite number`)
-    }
-    return candidate
-}
-
-const musicalPosition = (signatureTrack: SignatureTrackAdapter, position: ppqn): ArrangementMusicalPosition => {
-    const parts = signatureTrack.toParts(Math.max(0, position))
-    return {
-        bar: parts.bars + 1,
-        beat: parts.beats + 1,
-        semiquaver: parts.semiquavers + 1
-    }
-}
-
 const regionIntersects = (region: AnyRegionBoxAdapter, start: ppqn, end: ppqn): boolean =>
     region.position < end && region.complete > start
 
@@ -110,7 +82,7 @@ export class ArrangementTools {
 
     inspect(input: ArrangementInspectionInput | JsonObject = {}): ArrangementInspectionResult {
         const value = assertRecord(input, "inspect_arrangement input")
-        assertKnownProperties(value, ["target", "startPosition", "endPosition"], "inspect_arrangement input")
+        assertKnownProperties(value, ["target", "startPosition", "endPosition", "startMusical", "endMusical"], "inspect_arrangement input")
 
         const root = this.#resolver.adapters().find(adapter => adapter instanceof RootBoxAdapter)
         if (!(root instanceof RootBoxAdapter)) {throw new Error("Project root is unavailable.")}
@@ -126,39 +98,21 @@ export class ArrangementTools {
         }
         const units = target === undefined ? allUnits : [target]
 
-        const hasStart = Object.hasOwn(value, "startPosition")
-        const hasEnd = Object.hasOwn(value, "endPosition")
-        if (hasStart !== hasEnd) {
-            throw new Error("startPosition and endPosition must be supplied together")
-        }
-        const startPosition = hasStart ? finiteNumber(value, "startPosition") : 0
         const defaultEnd = Math.max(
             0,
             timeline.box.durationInPulses.getValue(),
             ...allUnits.flatMap(unit => unit.tracks.values()
                 .flatMap(track => track.regions.collection.asArray().map(region => region.complete)))
         )
-        const endPosition = hasEnd ? finiteNumber(value, "endPosition") : defaultEnd
-        if (startPosition < 0 || endPosition < 0) {
-            throw new Error("arrangement positions must be non-negative")
-        }
-        if (endPosition < startPosition) {
-            throw new Error("endPosition must be greater than or equal to startPosition")
-        }
-
-        const range: ArrangementRange = {
-            startPosition,
-            endPosition,
-            startMusical: musicalPosition(timeline.signatureTrack, startPosition),
-            endMusical: musicalPosition(timeline.signatureTrack, endPosition)
-        }
+        const range = resolveMusicalRange(value, timeline.signatureTrack,
+            {startPosition: 0, endPosition: defaultEnd}, "inspect_arrangement input") as ArrangementRange
         const {resolutionBars, buckets} = this.#buckets(range, timeline.signatureTrack)
         const snapshots = units.map(unit => ({
             adapter: unit,
             tracks: unit.tracks.values().map(track => ({
                 adapter: track,
-                regions: Array.from(track.regions.collection.iterateRange(startPosition, endPosition))
-                    .filter(region => regionIntersects(region, startPosition, endPosition))
+                regions: Array.from(track.regions.collection.iterateRange(range.startPosition, range.endPosition))
+                    .filter(region => regionIntersects(region, range.startPosition, range.endPosition))
             }))
         }))
         const contentState: ContentState = {
@@ -172,7 +126,7 @@ export class ArrangementTools {
         const density = buckets.map(bucket => snapshots.filter(snapshot =>
             snapshot.tracks.some(track => this.#isActive(track, bucket, true))).length)
         const markers = timeline.markerTrack.events.asArray()
-            .filter(marker => marker.position >= startPosition && marker.position < endPosition)
+            .filter(marker => marker.position >= range.startPosition && marker.position < range.endPosition)
             .map(marker => ({
                 handle: this.#resolver.handle(marker),
                 position: marker.position,
@@ -421,6 +375,12 @@ export class ArrangementTools {
             return false
         }
         if (!snapshot.adapter.enabled.getValue()) {return false}
-        return snapshot.regions.some(region => !region.mute && regionIntersects(region, bucket.start, bucket.end))
+        return snapshot.regions.some(region => {
+            if (region.mute) {return false}
+            if (musical && region instanceof NoteRegionBoxAdapter) {
+                return noteRegionHasActivity(region, bucket.start, bucket.end)
+            }
+            return regionIntersects(region, bucket.start, bucket.end)
+        })
     }
 }
