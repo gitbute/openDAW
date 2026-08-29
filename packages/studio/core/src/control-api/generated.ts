@@ -129,7 +129,7 @@ export const generatedControlManifest: GeneratedManifest = {
                     }
                 ]
             },
-            "description": "Create an instrument from a canonical factory. On first use in a producer thread, inspect the\nfactory with daw_resources.inspect_device_definition before configuring the returned device."
+            "description": "Create an instrument from a canonical factory after reading its canonical device help."
         },
         {
             "id": "project.setDeviceProperties",
@@ -922,7 +922,7 @@ export const generatedControlManifest: GeneratedManifest = {
             "result": {
                 "kind": "void"
             },
-            "description": "Compile and install JavaScript source for an Apparat instrument using openDAW's canonical script\ncompiler. Read inspect_device_definition/device help first for the authoritative Processor contract."
+            "description": "Compile and install JavaScript source for an Apparat instrument.\nProducer agents must read the live device's inspect_device_help programming contract before first\nprogramming it in a thread. A script can compile but later be silenced during rendering if\nprocess() throws, emits NaN, or emits an absolute sample amplitude above 1000; a successful\nsubsequent compile restores it."
         },
         {
             "id": "project.readWerkstattSource",
@@ -991,7 +991,7 @@ export const generatedControlManifest: GeneratedManifest = {
             "result": {
                 "kind": "void"
             },
-            "description": "Compile and install JavaScript source for a Werkstatt audio effect. Read its canonical device\ndefinition/help and programming contract before first use in a producer thread."
+            "description": "Compile and install JavaScript source for a Werkstatt audio effect. Producer agents must read the\nlive device's inspect_device_help programming contract before first programming it in a thread."
         },
         {
             "id": "project.readSpielwerkSource",
@@ -1060,7 +1060,7 @@ export const generatedControlManifest: GeneratedManifest = {
             "result": {
                 "kind": "void"
             },
-            "description": "Compile and install JavaScript source for a Spielwerk MIDI effect. Read its canonical device\ndefinition/help and programming contract before first use in a producer thread."
+            "description": "Compile and install JavaScript source for a Spielwerk MIDI effect. Producer agents must read the\nlive device's inspect_device_help programming contract before first programming it in a thread."
         },
         {
             "id": "project.assignApparatSample",
@@ -1597,7 +1597,7 @@ export const generatedControlManifest: GeneratedManifest = {
                     }
                 ]
             },
-            "description": "Insert an audio effect into an AudioUnit's canonical audio chain. Inspect the factory definition\nfirst, then inspect the returned live device before configuring unfamiliar controls."
+            "description": "Insert an audio effect into an AudioUnit's canonical audio chain after reading its canonical help."
         },
         {
             "id": "project.insertMidiEffect",
@@ -1787,7 +1787,7 @@ export const generatedControlManifest: GeneratedManifest = {
                     }
                 ]
             },
-            "description": "Insert a MIDI effect into an AudioUnit's canonical MIDI chain. Inspect the factory definition\nfirst, then inspect the returned live device before configuring unfamiliar controls."
+            "description": "Insert a MIDI effect into an AudioUnit's canonical MIDI chain after reading its canonical help."
         },
         {
             "id": "project.moveEffects",

@@ -251,13 +251,22 @@ export const deviceInspectInputSchema: JsonSchema = strictObject({
     }
 }, ["device"])
 
-export const deviceHelpInspectInputSchema: JsonSchema = strictObject({
+const deviceHelpFactoryInputSchema: JsonSchema = strictObject({
+    category: literalSchema(["instrument", "midi-effect", "audio-effect"]),
+    factory: {type: "string"}
+}, ["category", "factory"])
+
+const deviceHelpLiveInputSchema: JsonSchema = strictObject({
     device: {
         anyOf: SupportedDeviceBoxNames.map(name => handleSchema({
             kind: "handle", handle: "box", name
         }))
     }
 }, ["device"])
+
+export const deviceHelpInspectInputSchema: JsonSchema = {
+    anyOf: [deviceHelpFactoryInputSchema, deviceHelpLiveInputSchema]
+}
 
 export const timingInspectInputSchema: JsonSchema = strictObject({
     positionPulses: {

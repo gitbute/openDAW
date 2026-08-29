@@ -178,13 +178,26 @@ describe("Slice 2 control tools", () => {
         expect(generatedControlManifest.operations.some(operation => operation.id === "project.insertEffect")).toBe(true)
         expect(generatedControlManifest.operations.some(operation => operation.id === "transport.sleep")).toBe(false)
         expect(generatedControlManifest.operations.some(operation => operation.id === "transport.wake")).toBe(false)
-        expect(first.get("daw_resources", "inspect_device_help")?.spec.inputSchema.properties?.device)
-            .toMatchObject({
-                anyOf: expect.arrayContaining([
-                    expect.objectContaining({description: expect.stringContaining("Handle to an ApparatDeviceBox.")}),
-                    expect.objectContaining({description: expect.stringContaining("Handle to a WerkstattDeviceBox.")})
-                ])
+        const deviceHelpSchema = first.get("daw_resources", "inspect_device_help")?.spec.inputSchema
+        expect(deviceHelpSchema?.anyOf).toHaveLength(2)
+        expect(deviceHelpSchema?.anyOf).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                required: ["category", "factory"],
+                additionalProperties: false
+            }),
+            expect.objectContaining({
+                required: ["device"],
+                additionalProperties: false,
+                properties: expect.objectContaining({
+                    device: expect.objectContaining({
+                        anyOf: expect.arrayContaining([
+                            expect.objectContaining({description: expect.stringContaining("Handle to an ApparatDeviceBox.")}),
+                            expect.objectContaining({description: expect.stringContaining("Handle to a WerkstattDeviceBox.")})
+                        ])
+                    })
+                })
             })
+        ]))
         const applyEdit = first.get("daw_project", "apply_edit")
         expect(applyEdit?.spec.exposure).toBe("eager")
         expect(JSON.stringify(applyEdit?.spec.inputSchema).length).toBeLessThan(5000)
@@ -230,10 +243,13 @@ describe("Slice 2 control tools", () => {
         expect(JSON.stringify(options)).not.toContain("attachment")
     })
 
-    it("derives the empty-project device catalog and definition help from public registries", async () => {
+    it("derives the empty-project device catalog and separates metadata from canonical help", async () => {
         const read = vi.fn(async (manualUrl: string) => ({
             manualMarkdown: `manual:${manualUrl}`,
-            programmingGuide: manualUrl.includes("apparat") ? "programming" : undefined
+            ...(manualUrl.includes("apparat") ? {
+                programmingGuide: "programming",
+                examples: [{name: "starter", code: "class Processor {}"}]
+            } : {})
         }))
         const {project, executor} = createLayer(undefined, {read})
         try {
@@ -251,6 +267,8 @@ describe("Slice 2 control tools", () => {
                 ...Object.keys(EffectFactories.MidiNamed),
                 ...Object.keys(EffectFactories.AudioNamed)
             ])
+            expect(devices.every(device =>
+                typeof device.manualPage === "string" && device.manualPage.length > 0)).toBe(true)
             expect(devices.some(device => device.factory === "Modular")).toBe(false)
 
             const apparat = devices.find(device => device.factory === "Apparat")!
@@ -265,12 +283,69 @@ describe("Slice 2 control tools", () => {
             const definition = objectValue(await run(executor, "daw_resources", "inspect_device_definition", {
                 category: "instrument", factory: "Apparat"
             }))
-            expect(definition).toMatchObject({
+            expect(definition).toEqual(apparat)
+            expect(definition).not.toHaveProperty("manualMarkdown")
+            expect(definition).not.toHaveProperty("programmingGuide")
+            expect(definition).not.toHaveProperty("examples")
+            expect(read).not.toHaveBeenCalled()
+
+            const apparatHelp = objectValue(await run(executor, "daw_resources", "inspect_device_help", {
+                category: "instrument", factory: "Apparat"
+            }))
+            expect(apparatHelp).toMatchObject({
                 ...apparat,
+                manualUrl: InstrumentFactories.Apparat.manualPage,
                 manualMarkdown: `manual:${InstrumentFactories.Apparat.manualPage}`,
-                programmingGuide: "programming"
+                programmingGuide: "programming",
+                examples: [{name: "starter", code: "class Processor {}"}]
             })
-            expect(read).toHaveBeenCalledWith(InstrumentFactories.Apparat.manualPage)
+
+            const compressorHelp = objectValue(await run(executor, "daw_resources", "inspect_device_help", {
+                category: "audio-effect", factory: "Compressor"
+            }))
+            expect(compressorHelp).toMatchObject({
+                category: "audio-effect",
+                factory: "Compressor",
+                manualUrl: EffectFactories.AudioNamed.Compressor.manualPage,
+                manualMarkdown: `manual:${EffectFactories.AudioNamed.Compressor.manualPage}`
+            })
+
+            const velocityHelp = objectValue(await run(executor, "daw_resources", "inspect_device_help", {
+                category: "midi-effect", factory: "Velocity"
+            }))
+            expect(velocityHelp).toMatchObject({
+                category: "midi-effect",
+                factory: "Velocity",
+                manualUrl: EffectFactories.MidiNamed.Velocity.manualPage,
+                manualMarkdown: `manual:${EffectFactories.MidiNamed.Velocity.manualPage}`
+            })
+            expect(read).toHaveBeenCalledTimes(3)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("has resolvable canonical help for every public device factory", async () => {
+        const read = vi.fn(async (manualUrl: string) => ({manualMarkdown: `manual:${manualUrl}`}))
+        const {project, executor} = createLayer(undefined, {read})
+        try {
+            const catalog = objectValue(await run(executor, "daw_resources", "query_device_catalog", {
+                limit: 100
+            }))
+            const devices = arrayValue(catalog.devices).map(objectValue)
+            for (const device of devices) {
+                const result = objectValue(await run(executor, "daw_resources", "inspect_device_help", {
+                    category: device.category,
+                    factory: device.factory
+                }))
+                expect(result).toMatchObject({
+                    category: device.category,
+                    factory: device.factory,
+                    manualUrl: device.manualPage,
+                    manualMarkdown: `manual:${device.manualPage}`
+                })
+            }
+            expect(read).toHaveBeenCalledTimes(devices.length)
         } finally {
             project.terminate()
         }
@@ -1271,7 +1346,13 @@ describe("Slice 2 control tools", () => {
     })
 
     it("resolves generic device help from the live adapter manual URL", async () => {
-        const read = vi.fn(async (manualUrl: string) => ({manualMarkdown: `manual:${manualUrl}`}))
+        const read = vi.fn(async (manualUrl: string) => ({
+            manualMarkdown: `manual:${manualUrl}`,
+            ...(manualUrl === InstrumentFactories.Apparat.manualPage ? {
+                programmingGuide: "programming",
+                examples: [{name: "starter", code: "class Processor {}"}]
+            } : {})
+        }))
         const deviceHelpCatalog: DeviceHelpCatalog = {read}
         const {project, controlApi, executor} = createLayer(undefined, deviceHelpCatalog)
         try {
@@ -1282,8 +1363,14 @@ describe("Slice 2 control tools", () => {
                     .find(candidate => candidate.address.toString() === device.$address) as DeviceBoxAdapter | undefined
                 if (adapter === undefined) {throw new Error(`Missing ${factory} adapter`)}
                 const help = objectValue(await run(executor, "daw_resources", "inspect_device_help", {device}))
+                expect(help.category).toBe("instrument")
+                expect(help.factory).toBe(factory)
                 expect(help.manualUrl).toBe(adapter.manualUrl)
                 expect(help.manualMarkdown).toBe(`manual:${adapter.manualUrl}`)
+                if (factory === "Apparat") {
+                    expect(help.programmingGuide).toBe("programming")
+                    expect(help.examples).toEqual([{name: "starter", code: "class Processor {}"}])
+                }
                 expect(read).toHaveBeenCalledWith(adapter.manualUrl)
             }
         } finally {

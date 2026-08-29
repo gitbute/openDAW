@@ -244,10 +244,7 @@ export class ProjectApi {
         return {audioUnitBox, instrumentBox, trackBox}
     }
 
-    /**
-     * Create an instrument from a canonical factory. On first use in a producer thread, inspect the
-     * factory with daw_resources.inspect_device_definition before configuring the returned device.
-     */
+    /** Create an instrument from a canonical factory after reading its canonical device help. */
     createAnyInstrument(factory: InstrumentFactory<any, any>): InstrumentProduct<InstrumentBox> {
         return this.createInstrument(factory)
     }
@@ -365,8 +362,11 @@ export class ProjectApi {
     }
 
     /**
-     * Compile and install JavaScript source for an Apparat instrument using openDAW's canonical script
-     * compiler. Read inspect_device_definition/device help first for the authoritative Processor contract.
+     * Compile and install JavaScript source for an Apparat instrument.
+     * Producer agents must read the live device's inspect_device_help programming contract before first
+     * programming it in a thread. A script can compile but later be silenced during rendering if
+     * process() throws, emits NaN, or emits an absolute sample amplitude above 1000; a successful
+     * subsequent compile restores it.
      * @param declarations become automatable parameters discoverable through the parameter API;
      * @sample declarations become named inputs.
      */
@@ -380,8 +380,8 @@ export class ProjectApi {
     }
 
     /**
-     * Compile and install JavaScript source for a Werkstatt audio effect. Read its canonical device
-     * definition/help and programming contract before first use in a producer thread.
+     * Compile and install JavaScript source for a Werkstatt audio effect. Producer agents must read the
+     * live device's inspect_device_help programming contract before first programming it in a thread.
      */
     async programWerkstatt(target: WerkstattDeviceBox, source: string): Promise<void> {
         await this.#programScriptSource(ScriptDeviceConfigs.Werkstatt, target, source)
@@ -393,8 +393,8 @@ export class ProjectApi {
     }
 
     /**
-     * Compile and install JavaScript source for a Spielwerk MIDI effect. Read its canonical device
-     * definition/help and programming contract before first use in a producer thread.
+     * Compile and install JavaScript source for a Spielwerk MIDI effect. Producer agents must read the
+     * live device's inspect_device_help programming contract before first programming it in a thread.
      */
     async programSpielwerk(target: SpielwerkDeviceBox, source: string): Promise<void> {
         await this.#programScriptSource(ScriptDeviceConfigs.Spielwerk, target, source)
@@ -443,8 +443,7 @@ export class ProjectApi {
     }
 
     /**
-     * Insert an audio effect into an AudioUnit's canonical audio chain. Inspect the factory definition
-     * first, then inspect the returned live device before configuring unfamiliar controls.
+     * Insert an audio effect into an AudioUnit's canonical audio chain after reading its canonical help.
      */
     insertAudioEffect(audioUnitBox: AudioUnitBox,
                       factory: EffectFactory,
@@ -454,8 +453,7 @@ export class ProjectApi {
     }
 
     /**
-     * Insert a MIDI effect into an AudioUnit's canonical MIDI chain. Inspect the factory definition
-     * first, then inspect the returned live device before configuring unfamiliar controls.
+     * Insert a MIDI effect into an AudioUnit's canonical MIDI chain after reading its canonical help.
      */
     insertMidiEffect(audioUnitBox: AudioUnitBox,
                      factory: EffectFactory,

@@ -31,35 +31,39 @@ const categories: ReadonlySet<string> = new Set([
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null && !Array.isArray(value)
 
-const factoryAt = (arguments_: JsonObject): string | undefined => {
-    const factory = arguments_.factory
-    return typeof factory === "string" && factory.length > 0 ? factory : undefined
-}
-
-const definitionArguments = (category: ProducerFactoryCategory, factory: string): string =>
-    JSON.stringify({category, factory})
-
-const missingDefinitionMessage = (category: ProducerFactoryCategory, factory: string): string =>
-    `Before first use of ${category} factory '${factory}' in this thread, inspect its canonical definition with `
-    + `daw_resources.inspect_device_definition(${definitionArguments(category, factory)}), then retry this operation.`
-
-const missingApplyEditDefinitionMessage = (category: ProducerFactoryCategory, factory: string): string =>
-    `apply_edit requires first-use discovery for ${category} factory '${factory}'. Call `
-    + `daw_resources.inspect_device_definition(${definitionArguments(category, factory)}) first, then retry the edit.`
-
-const requirementForDirectCall = (invocation: ProducerToolInvocation): {
-    readonly category: ProducerFactoryCategory
-    readonly factory: string
-} | undefined => {
-    const category = factoryCategories[invocation.name]
-    if (category === undefined) {return undefined}
-    const factory = factoryAt(invocation.arguments)
-    return factory === undefined ? undefined : {category, factory}
-}
-
 type FactoryRequirement = {
     readonly category: ProducerFactoryCategory
     readonly factory: string
+}
+
+const factoryAt = (value: unknown): string | undefined => {
+    if (!isRecord(value)) {return undefined}
+    const factory = value.factory
+    return typeof factory === "string" && factory.length > 0 ? factory : undefined
+}
+
+const factoryRequirementAt = (value: unknown): FactoryRequirement | undefined => {
+    if (!isRecord(value)) {return undefined}
+    const category = value.category
+    const factory = factoryAt(value)
+    return typeof category === "string" && categories.has(category) && factory !== undefined
+        ? {category: category as ProducerFactoryCategory, factory}
+        : undefined
+}
+
+const helpArguments = (category: ProducerFactoryCategory, factory: string): string =>
+    JSON.stringify({category, factory})
+
+const missingHelpMessage = (category: ProducerFactoryCategory, factory: string): string =>
+    `Before first use of ${category} factory '${factory}' in this thread, read its canonical help with `
+    + `daw_resources.inspect_device_help(${helpArguments(category, factory)}), then retry this operation.`
+
+const requirementForDirectCall = (invocation: ProducerToolInvocation): FactoryRequirement | undefined => {
+    const programmable = programmableFactories[invocation.name]
+    if (programmable !== undefined) {return programmable}
+    const category = factoryCategories[invocation.name]
+    const factory = factoryAt(invocation.arguments)
+    return category === undefined || factory === undefined ? undefined : {category, factory}
 }
 
 const requirementsForApplyEdit = (invocation: ProducerToolInvocation): readonly FactoryRequirement[] => {
@@ -73,9 +77,8 @@ const requirementsForApplyEdit = (invocation: ProducerToolInvocation): readonly 
         const stepArguments = rawStep.arguments
         if (typeof tool !== "string" || !isRecord(stepArguments)) {continue}
         const category = factoryCategories[tool]
-        if (category === undefined) {continue}
-        const factory = factoryAt(stepArguments as JsonObject)
-        if (factory !== undefined) {requirements.push({category, factory})}
+        const factory = factoryAt(stepArguments)
+        if (category !== undefined && factory !== undefined) {requirements.push({category, factory})}
     }
     return requirements
 }
@@ -86,21 +89,13 @@ const requirementsFor = (invocation: ProducerToolInvocation): readonly FactoryRe
 }
 
 export class ProducerToolPolicy {
-    readonly #knownFactories = new Map<string, Set<string>>()
+    readonly #helpedFactories = new Map<string, Set<string>>()
 
     beforeToolCall(threadId: string | undefined, invocation: ProducerToolInvocation): string | undefined {
         if (invocation.namespace !== "daw_project") {return undefined}
-        const programmable = programmableFactories[invocation.name]
-        if (programmable !== undefined) {
-            if (this.#isKnown(threadId, programmable.category, programmable.factory)) {return undefined}
-            return missingDefinitionMessage(programmable.category, programmable.factory)
-        }
-        const fromApplyEdit = invocation.name === "apply_edit"
         for (const requirement of requirementsFor(invocation)) {
-            if (!this.#isKnown(threadId, requirement.category, requirement.factory)) {
-                return fromApplyEdit
-                    ? missingApplyEditDefinitionMessage(requirement.category, requirement.factory)
-                    : missingDefinitionMessage(requirement.category, requirement.factory)
+            if (!this.#isHelped(threadId, requirement.category, requirement.factory)) {
+                return missingHelpMessage(requirement.category, requirement.factory)
             }
         }
         return undefined
@@ -109,28 +104,27 @@ export class ProducerToolPolicy {
     afterToolCall(threadId: string | undefined, invocation: ProducerToolInvocation, result: ToolResult): void {
         if (!result.ok || threadId === undefined
             || invocation.namespace !== "daw_resources"
-            || invocation.name !== "inspect_device_definition") {return}
-        const category = invocation.arguments.category
-        const factory = factoryAt(invocation.arguments)
-        if (typeof category !== "string" || !categories.has(category) || factory === undefined) {return}
-        let known = this.#knownFactories.get(threadId)
-        if (known === undefined) {
-            known = new Set<string>()
-            this.#knownFactories.set(threadId, known)
+            || invocation.name !== "inspect_device_help") {return}
+        const requirement = factoryRequirementAt(result.value)
+        if (requirement === undefined) {return}
+        let helped = this.#helpedFactories.get(threadId)
+        if (helped === undefined) {
+            helped = new Set<string>()
+            this.#helpedFactories.set(threadId, helped)
         }
-        known.add(`${category}\u0000${factory}`)
+        helped.add(`${requirement.category}\u0000${requirement.factory}`)
     }
 
     clearThread(threadId: string | undefined): void {
-        if (threadId !== undefined) {this.#knownFactories.delete(threadId)}
+        if (threadId !== undefined) {this.#helpedFactories.delete(threadId)}
     }
 
     clear(): void {
-        this.#knownFactories.clear()
+        this.#helpedFactories.clear()
     }
 
-    #isKnown(threadId: string | undefined, category: ProducerFactoryCategory, factory: string): boolean {
+    #isHelped(threadId: string | undefined, category: ProducerFactoryCategory, factory: string): boolean {
         return threadId !== undefined
-            && this.#knownFactories.get(threadId)?.has(`${category}\u0000${factory}`) === true
+            && this.#helpedFactories.get(threadId)?.has(`${category}\u0000${factory}`) === true
     }
 }

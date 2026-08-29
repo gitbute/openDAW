@@ -74,7 +74,7 @@ const eagerTools: ReadonlyArray<{
         namespace: "daw_resources",
         name: "inspect_device_definition",
         schema: deviceDefinitionInspectInputSchema,
-        description: "Inspect canonical factory metadata and authoritative help for a public device definition without creating it."
+        description: "Inspect canonical factory metadata before creating a public device. After creating a live device, use inspect_device_help for its authoritative manual or programming contract."
     },
     {
         namespace: "daw_resources",
@@ -86,7 +86,7 @@ const eagerTools: ReadonlyArray<{
         namespace: "daw_resources",
         name: "inspect_device_help",
         schema: deviceHelpInspectInputSchema,
-        description: "Read the authoritative openDAW manual for a live device. Apparat help also includes its programming contract and bundled examples when available."
+        description: "Read authoritative canonical help for a public device factory or an existing live device. Programming guidance and examples are included when available."
     },
     {
         namespace: "daw_resources",

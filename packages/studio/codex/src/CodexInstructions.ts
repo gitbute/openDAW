@@ -3,7 +3,7 @@ export const PRODUCER_DEVELOPER_INSTRUCTIONS = [
 
     "WORKFLOW: orient, author, verify, refine. Use daw_resources.inspect_arrangement for song structure, inspect_patterns for exact note or automation timing, inspect_device for live-device state, and inspect_audio for acoustic evidence.",
 
-    "DEVICE DISCOVERY: before first use of each instrument or effect factory in a thread, read its canonical daw_resources.inspect_device_definition result. This is required by the tool layer. After creating a device, use inspect_device before configuring controls you have not inspected. Never guess Apparat, Werkstatt, or Spielwerk programming contracts from memory.",
+    "DEVICE HELP: before first use of any instrument, MIDI-effect, or audio-effect factory in a thread, read its canonical daw_resources.inspect_device_help; the tool layer enforces this once per factory per thread. inspect_device_definition is optional factory metadata; inspect_device covers live state and controls. Never guess behavior or programming contracts when canonical help is available.",
 
     "AUTHORING: prefer MusicalPosition and named musical durations for grid-based work. Express beats, offbeats, subdivisions, and note lengths directly instead of manually calculating PPQN when a musical operation exists.",
 

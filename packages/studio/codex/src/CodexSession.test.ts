@@ -184,14 +184,25 @@ const installServer = (transport: FakeTransport): void => {
 }
 
 describe("CodexSession", () => {
-    it("enforces first-use device discovery before producer mutations and apply_edit", async () => {
+    it("enforces first-use device help before producer mutations and apply_edit", async () => {
         const transport = new FakeTransport()
         installServer(transport)
         const catalog = new ToolCatalog()
-        const execute = vi.fn(async (invocation: {readonly name: string}) => ({
-            ok: true as const,
-            value: {tool: invocation.name}
-        }))
+        const execute = vi.fn(async (invocation: {
+            readonly name: string
+            readonly arguments?: JsonObject
+        }) => invocation.name === "inspect_device_help"
+            ? {
+                ok: true as const,
+                value: {
+                    category: invocation.arguments?.category ?? "instrument",
+                    factory: invocation.arguments?.factory ?? "Apparat"
+                }
+            }
+            : {
+                ok: true as const,
+                value: {tool: invocation.name}
+            })
         const session = new CodexSession({
             rpc: new CodexRpcClient(transport),
             catalog,
@@ -204,7 +215,7 @@ describe("CodexSession", () => {
                 params: {
                     threadId: "thread-1",
                     turnId: "turn-1",
-                    namespace: tool === "inspect_device_definition" ? "daw_resources" : "daw_project",
+                    namespace: tool === "inspect_device_help" ? "daw_resources" : "daw_project",
                     tool,
                     arguments: arguments_
                 }
@@ -224,13 +235,13 @@ describe("CodexSession", () => {
                 result: {
                     success: false,
                     contentItems: [{type: "inputText", text: expect.stringContaining(
-                        'daw_resources.inspect_device_definition({"category":"instrument","factory":"Apparat"})')
+                        'daw_resources.inspect_device_help({"category":"instrument","factory":"Apparat"})')
                     }]
                 }
             })
             expect(execute).not.toHaveBeenCalled()
 
-            await call(102, "inspect_device_definition", {category: "instrument", factory: "Apparat"})
+            await call(102, "inspect_device_help", {category: "instrument", factory: "Apparat"})
             await call(103, "create_any_instrument", {factory: "Apparat"})
             expect(execute).toHaveBeenCalledTimes(2)
 
@@ -246,13 +257,13 @@ describe("CodexSession", () => {
                 result: {
                     success: false,
                     contentItems: [{type: "inputText", text: expect.stringContaining(
-                        'daw_resources.inspect_device_definition({"category":"audio-effect","factory":"Delay"})')
+                        'daw_resources.inspect_device_help({"category":"audio-effect","factory":"Delay"})')
                     }]
                 }
             })
             expect(execute).toHaveBeenCalledTimes(2)
 
-            await call(105, "inspect_device_definition", {category: "audio-effect", factory: "Delay"})
+            await call(105, "inspect_device_help", {category: "audio-effect", factory: "Delay"})
             await call(106, "apply_edit", {
                 steps: [{
                     id: "delay",

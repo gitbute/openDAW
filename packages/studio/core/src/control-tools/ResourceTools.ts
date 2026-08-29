@@ -335,6 +335,15 @@ const deviceEntrySearchText = (definition: CanonicalDeviceDefinition): string =>
 
 const deviceCatalogEntry = (definition: CanonicalDeviceDefinition): DeviceCatalogEntry => definition.entry
 
+const deviceDefinition = (category: DeviceCatalogCategory, factory: string): CanonicalDeviceDefinition | undefined =>
+    deviceDefinitions().find(candidate =>
+        candidate.entry.category === category && candidate.entry.factory === factory)
+
+const deviceDefinitionForManualPage = (manualPage: string): CanonicalDeviceDefinition | undefined => {
+    const matches = deviceDefinitions().filter(candidate => candidate.entry.manualPage === manualPage)
+    return matches.length === 1 ? matches[0] : undefined
+}
+
 const parameterInspectionView = (resolver: ControlResolver,
                                  parameter: AutomatableParameterFieldAdapter): DeviceParameterInspection =>
     parameterView(resolver, parameter) as unknown as DeviceParameterInspection
@@ -520,12 +529,11 @@ export class ResourceTools {
         const category = optionalDeviceCategory(value)
         if (category === undefined) {throw new Error("Missing argument 'category'")}
         const factory = requiredString(value, "factory", "inspect_device_definition input")
-        const definition = deviceDefinitions().find(candidate =>
-            candidate.entry.category === category && candidate.entry.factory === factory)
+        const definition = deviceDefinition(category, factory)
         if (definition === undefined) {
             throw new Error(`Unknown ${category} factory '${factory}'.`)
         }
-        return {...definition.entry, ...await this.#readDeviceHelp(definition.entry.manualPage)}
+        return definition.entry
     }
 
     inspect(input: JsonObject): ResourceInspectionResult {
@@ -590,6 +598,21 @@ export class ResourceTools {
 
     async inspectDeviceHelp(input: JsonObject): Promise<DeviceHelpInspectionResult> {
         const value = assertRecord(input, "inspect_device_help input")
+        if (value.category !== undefined || value.factory !== undefined) {
+            assertKnownProperties(value, ["category", "factory"], "inspect_device_help input")
+            const category = optionalDeviceCategory(value)
+            if (category === undefined) {throw new Error("Missing argument 'category'")}
+            const factory = requiredString(value, "factory", "inspect_device_help input")
+            const definition = deviceDefinition(category, factory)
+            if (definition === undefined) {
+                throw new Error(`Unknown ${category} factory '${factory}'.`)
+            }
+            return {
+                ...definition.entry,
+                manualUrl: definition.entry.manualPage,
+                ...await this.#readDeviceHelp(definition.entry.manualPage)
+            }
+        }
         assertKnownProperties(value, ["device"], "inspect_device_help input")
         const handle = value.device
         if (handle === undefined) {throw new Error("Missing argument 'device'")}
@@ -606,6 +629,10 @@ export class ResourceTools {
         if (typeof manualUrl !== "string" || manualUrl.length === 0) {
             throw new Error(`Device '${resolved.name}' has no valid manual URL.`)
         }
+        const definition = deviceDefinitionForManualPage(manualUrl)
+        if (definition === undefined) {
+            throw new Error(`Device '${resolved.name}' has no canonical device definition for manual URL '${manualUrl}'.`)
+        }
         const content = await this.#readDeviceHelp(manualUrl)
         const label = (adapter as {
             readonly labelField?: {readonly getValue?: () => unknown}
@@ -615,6 +642,8 @@ export class ResourceTools {
         }
         return {
             handle: this.#resolver.handle(resolved),
+            category: definition.entry.category,
+            factory: definition.entry.factory,
             type: resolved.name,
             label: label.length === 0 ? resolved.name : label,
             manualUrl,

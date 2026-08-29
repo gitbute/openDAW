@@ -124,11 +124,25 @@ Advance your read position by playbackRate per output sample.
 - sampleRate — number, the project audio sample rate in Hz (e.g. 48000).
   Always use this instead of hardcoding a sample rate.
 
+## Failure behaviour
+
+A script may compile successfully and still fail while audio is rendered.
+
+If process() throws, emits NaN, or emits an absolute sample amplitude above
+1000, Apparat silences the processor.
+
+Once silenced, Apparat outputs silence until another program is successfully
+compiled.
+
+If an Apparat becomes completely silent immediately after a program change,
+suspect a runtime/output-validation failure before spending time debugging
+MIDI notes, routing, regions, or gain.
+
 ## Constraints
 - NEVER allocate memory inside process(). No `new`, no array literals, no object
   literals, no string concatenation, no closures. Any allocation in the audio hot path
   causes GC pauses and audio glitches. Pre-allocate all buffers and state as class fields.
-- Output is validated every block. NaN or amplitudes > 1000 will silence the processor.
+- Output is validated every block.
 - Do not use import/export/require. No access to DOM or fetch.
 - The code runs in an AudioWorklet thread. Only AudioWorklet-safe APIs are available
   (Math, typed arrays, basic JS). No setTimeout, no DOM.

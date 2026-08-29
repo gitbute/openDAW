@@ -66,10 +66,12 @@ export type DeviceHelpCatalog = {
 }
 
 export type DeviceHelpInspectionResult = DeviceHelpContent & {
-    readonly handle: ControlHandle
-    readonly type: string
-    readonly label: string
+    readonly category: DeviceCatalogCategory
+    readonly factory: string
     readonly manualUrl: string
+    readonly handle?: ControlHandle
+    readonly type?: string
+    readonly label?: string
 }
 
 export type ResourceQuery = {
@@ -284,7 +286,7 @@ export type DeviceCatalogQueryResult = {
     readonly offset: number
 }
 
-export type DeviceDefinitionInspectionResult = DeviceCatalogEntry & DeviceHelpContent
+export type DeviceDefinitionInspectionResult = DeviceCatalogEntry
 
 export type SampleQuery = {
     readonly text?: string
