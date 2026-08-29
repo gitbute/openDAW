@@ -271,6 +271,18 @@ export const timingInspectInputSchema: JsonSchema = strictObject({
     }
 }, [])
 
+export const arrangementInspectInputSchema: JsonSchema = strictObject({
+    target: handleSchema({kind: "handle", handle: "box", name: "AudioUnitBox"}),
+    startPosition: {
+        type: "number",
+        description: semanticDescription("ppqn")
+    },
+    endPosition: {
+        type: "number",
+        description: semanticDescription("ppqn")
+    }
+}, [])
+
 export const audioInspectInputSchema: JsonSchema = strictObject({
     target: handleSchema({kind: "handle", handle: "box", name: "AudioUnitBox"}),
     startPosition: {

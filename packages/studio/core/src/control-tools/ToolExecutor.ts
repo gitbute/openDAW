@@ -1,5 +1,6 @@
 import {ControlApi} from "../control-api/ControlApi"
 import type {AudioAnalysisTools} from "./AudioAnalysisTools"
+import {ArrangementTools} from "./ArrangementTools"
 import {ResourceTools} from "./ResourceTools"
 import {ToolCatalog} from "./ToolCatalog"
 import type {ControlHandle, JsonObject, JsonValue} from "../control-api/types"
@@ -14,6 +15,7 @@ export class ToolExecutor {
     readonly #controlApi: ControlApi
     readonly #catalog: ToolCatalog
     readonly #resources: ResourceTools
+    readonly #arrangement: ArrangementTools
     readonly #audioAnalysis: AudioAnalysisTools | undefined
 
     constructor(controlApi: ControlApi, catalog: ToolCatalog = new ToolCatalog(),
@@ -23,6 +25,7 @@ export class ToolExecutor {
         this.#controlApi = controlApi
         this.#catalog = catalog
         this.#resources = resources ?? new ResourceTools(controlApi.resolver, sampleCatalog, deviceHelpCatalog)
+        this.#arrangement = new ArrangementTools(controlApi.resolver)
         this.#audioAnalysis = audioAnalysis
     }
 
@@ -57,6 +60,9 @@ export class ToolExecutor {
             }
             if (binding.resource === "inspect_timing") {
                 return {ok: true, value: this.#resources.inspectTiming(input) as unknown as JsonValue}
+            }
+            if (binding.resource === "inspect_arrangement") {
+                return {ok: true, value: this.#arrangement.inspect(input) as unknown as JsonValue}
             }
             if (binding.resource === "inspect_instrument") {
                 return {ok: true, value: this.#resources.inspectInstrument(input) as unknown as JsonValue}

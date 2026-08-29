@@ -3,6 +3,16 @@ export type {
     AudioAnalysisLevel,
     AudioAnalysisResult,
     AudioAnalysisTarget,
+    ArrangementAudioUnit,
+    ArrangementAutomationContent,
+    ArrangementContent,
+    ArrangementInspectionInput,
+    ArrangementInspectionResult,
+    ArrangementMusicalPosition,
+    ArrangementNoteContent,
+    ArrangementRange,
+    ArrangementRegion,
+    ArrangementTrack,
     FunctionToolSpec,
     DeviceCatalogCategory,
     DeviceCatalogEntry,
@@ -47,10 +57,12 @@ export {
     instrumentInspectInputSchema,
     deviceHelpInspectInputSchema,
     timingInspectInputSchema,
+    arrangementInspectInputSchema,
     audioInspectInputSchema
 } from "./ToolSchema"
 export {ToolCatalog, toToolName} from "./ToolCatalog"
 export {ResourceTools} from "./ResourceTools"
+export {ArrangementTools} from "./ArrangementTools"
 export {AudioAnalysisTools, summarizeAudio} from "./AudioAnalysisTools"
 export type {AudioAnalysisRenderer} from "./AudioAnalysisTools"
 export {ToolExecutor} from "./ToolExecutor"

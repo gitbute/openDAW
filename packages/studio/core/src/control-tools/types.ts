@@ -83,7 +83,107 @@ export type ResourceQuery = {
 export type ResourceToolName = "query_resources" | "inspect_resource"
     | "query_samples" | "query_device_catalog" | "inspect_device_definition"
     | "inspect_device" | "inspect_instrument" | "inspect_device_help" | "inspect_timing"
-    | "inspect_audio"
+    | "inspect_audio" | "inspect_arrangement"
+
+export type ArrangementInspectionInput = {
+    readonly target?: ControlHandle
+    readonly startPosition?: number
+    readonly endPosition?: number
+}
+
+export type ArrangementMusicalPosition = {
+    readonly bar: number
+    readonly beat: number
+    readonly semiquaver: number
+}
+
+export type ArrangementRange = {
+    readonly startPosition: number
+    readonly endPosition: number
+    readonly startMusical: ArrangementMusicalPosition
+    readonly endMusical: ArrangementMusicalPosition
+}
+
+export type ArrangementRegion = {
+    readonly handle: ControlHandle
+    readonly label: string
+    readonly startPosition: number
+    readonly endPosition: number
+    readonly startMusical: ArrangementMusicalPosition
+    readonly endMusical: ArrangementMusicalPosition
+    readonly muted: boolean
+    readonly loopOffset: number
+    readonly loopDuration: number
+    readonly content?: string
+    readonly audioFile?: ControlHandle
+    readonly gain?: number
+}
+
+export type ArrangementTrack = {
+    readonly handle: ControlHandle
+    readonly type: string
+    readonly targetName: string
+    readonly targetControlName: string
+    readonly regions: ReadonlyArray<ArrangementRegion>
+}
+
+export type ArrangementAudioUnit = {
+    readonly handle: ControlHandle
+    readonly label: string
+    readonly type: string
+    readonly isInstrument: boolean
+    readonly isBus: boolean
+    readonly isOutput: boolean
+    readonly musicalActivity: string
+    readonly automationActivity: string
+    readonly tracks: ReadonlyArray<ArrangementTrack>
+}
+
+export type ArrangementNoteContent = {
+    readonly id: string
+    readonly kind: "notes"
+    readonly handle: ControlHandle
+    readonly eventsHandle: ControlHandle
+    readonly owners: ReadonlyArray<ControlHandle>
+    readonly noteCount: number
+    readonly sourceSpanPulses: number
+    readonly pitchMin: number | null
+    readonly pitchMax: number | null
+    readonly uniquePitches: number
+    readonly averagePitch: number | null
+    readonly averageVelocity: number | null
+    readonly averageDurationPulses: number | null
+}
+
+export type ArrangementAutomationContent = {
+    readonly id: string
+    readonly kind: "automation"
+    readonly handle: ControlHandle
+    readonly eventsHandle: ControlHandle
+    readonly owners: ReadonlyArray<ControlHandle>
+    readonly eventCount: number
+    readonly sourceSpanPulses: number
+    readonly minValue: number | null
+    readonly maxValue: number | null
+    readonly startValue: number | null
+    readonly endValue: number | null
+}
+
+export type ArrangementContent = ArrangementNoteContent | ArrangementAutomationContent
+
+export type ArrangementInspectionResult = {
+    readonly range: ArrangementRange
+    readonly resolutionBars: number
+    readonly density: ReadonlyArray<number>
+    readonly markers: ReadonlyArray<{
+        readonly handle: ControlHandle
+        readonly position: number
+        readonly musical: ArrangementMusicalPosition
+        readonly label: string
+    }>
+    readonly audioUnits: ReadonlyArray<ArrangementAudioUnit>
+    readonly contents: ReadonlyArray<ArrangementContent>
+}
 
 export type DeviceCatalogCategory = "instrument" | "midi-effect" | "audio-effect"
 

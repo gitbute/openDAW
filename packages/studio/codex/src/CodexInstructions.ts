@@ -53,6 +53,7 @@ export const PRODUCER_DEVELOPER_INSTRUCTIONS = [
     "Do not declare completion merely because tracks, notes, effects, or automation now exist.",
 
     "Use daw_resources to discover existing project state and obtain valid handles.",
+    "For large arrangements or broad structural decisions, use daw_resources.inspect_arrangement to refresh global timeline context. Narrow its range or target to zoom in; use query_resources/inspect_resource for exact events rather than treating the arrangement map as detailed state.",
     "Use daw_project, daw_parameter, daw_modulation, daw_transport, and daw_analysis for DAW operations and inspection.",
     "Never invent $address handles. Reuse returned handles or rediscover them.",
     "When modifying an existing song, inspect or query current state instead of assuming what exists.",

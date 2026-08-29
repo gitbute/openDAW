@@ -18,7 +18,8 @@ import {
     resourceQueryInputSchema,
     sampleQueryInputSchema,
     timingInspectInputSchema,
-    audioInspectInputSchema
+    audioInspectInputSchema,
+    arrangementInspectInputSchema
 } from "./ToolSchema"
 import type {ResourceToolName} from "./types"
 
@@ -34,7 +35,7 @@ const namespaceDescriptions: Readonly<Record<string, string>> = {
     daw_modulation: "Create and connect canonical openDAW modulators.",
     daw_transport: "Control playback and transport state.",
     daw_parameter: "Read and edit discovered automatable parameters.",
-    daw_resources: "Discover live project resources, samples, available device definitions, device help, and project timing.",
+    daw_resources: "Discover live project resources, compact arrangement context, samples, available device definitions, device help, and project timing.",
     daw_analysis: "Inspect rendered audio and acoustic measurements."
 }
 
@@ -97,6 +98,12 @@ const eagerTools: ReadonlyArray<{
         name: "inspect_timing",
         schema: timingInspectInputSchema,
         description: "Inspect canonical project tempo, signature context, musical pulse resolution, and note lengths."
+    },
+    {
+        namespace: "daw_resources",
+        name: "inspect_arrangement",
+        schema: arrangementInspectInputSchema,
+        description: "Return a compact multiscale map of the current arrangement, grouped by audio unit and timeline lane. Use it to regain global song context or inspect a broad section; use query_resources/inspect_resource for exact notes, automation events, devices, or parameters."
     },
     {
         namespace: "daw_analysis",
