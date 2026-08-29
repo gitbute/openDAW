@@ -18,7 +18,8 @@ describe("CodexDynamicTools", () => {
         })))
         expect(projectedTools).toHaveLength(catalog.tools.length)
         expect(projectedTools.map(({namespace, tool}) => `${namespace}.${tool.name}`))
-            .toEqual(catalog.tools.map(tool => `${tool.namespace}.${tool.name}`))
+            .toEqual(catalog.namespaces.flatMap(namespace =>
+                namespace.tools.map(tool => `${tool.namespace}.${tool.name}`)))
 
         catalog.namespaces.forEach((sourceNamespace, namespaceIndex) => {
             const projectedNamespace = projected[namespaceIndex]
@@ -36,9 +37,14 @@ describe("CodexDynamicTools", () => {
         expect(resources?.tools.every(tool => tool.deferLoading === false)).toBe(true)
         const analysis = projected.find(namespace => namespace.name === "daw_analysis")
         expect(analysis?.tools.every(tool => tool.deferLoading === false)).toBe(true)
-        expect(projected.filter(namespace => !["daw_resources", "daw_analysis"].includes(namespace.name))
+        const project = projected.find(namespace => namespace.name === "daw_project")
+        expect(project?.tools.find(tool => tool.name === "apply_edit")?.deferLoading).toBe(false)
+        expect(project?.tools.filter(tool => tool.name !== "apply_edit").every(tool => tool.deferLoading === true)).toBe(true)
+        expect(projected.filter(namespace => !["daw_resources", "daw_analysis", "daw_project"].includes(namespace.name))
             .flatMap(namespace => namespace.tools)
             .every(tool => tool.deferLoading === true)).toBe(true)
+        expect(JSON.stringify(project?.tools.find(tool => tool.name === "apply_edit")?.inputSchema).length)
+            .toBeLessThan(5000)
         expect(() => validateCodexToolCatalog(catalog)).not.toThrow()
         expect(new CodexDynamicTools(catalog).tools).toEqual(projected)
     })

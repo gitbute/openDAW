@@ -6,6 +6,7 @@ import {
     ControlBatchItem,
     ControlCall,
     ControlHandle,
+    ControlResultReference,
     JsonObject,
     JsonValue,
     OperationDescriptor,
@@ -13,6 +14,101 @@ import {
 } from "./types"
 
 type DynamicOwner = {[key: string]: (...args: ReadonlyArray<never>) => JsonValue | object | undefined}
+
+const isJsonObject = (value: JsonValue | undefined): value is JsonObject =>
+    typeof value === "object" && value !== null && !Array.isArray(value)
+
+const isResultReference = (value: JsonValue): value is ControlResultReference =>
+    isJsonObject(value)
+    && typeof value.$result === "string"
+    && Object.keys(value).every(key => key === "$result" || key === "path")
+    && (value.path === undefined || typeof value.path === "string")
+
+const batchError = (message: string): never => {throw new Error(`[ControlApi] ${message}`)}
+
+const validateBatchReferences = (calls: ReadonlyArray<ControlBatchItem>): void => {
+    const ids = new Map<string, number>()
+    calls.forEach((call, index) => {
+        if (call.id === undefined) {return}
+        if (typeof call.id !== "string" || call.id.trim().length === 0) {
+            batchError(`batch step ${index} id must be a non-empty string`)
+        }
+        if (ids.has(call.id)) {batchError(`duplicate batch step id '${call.id}'`)}
+        ids.set(call.id, index)
+    })
+
+    const visit = (value: JsonValue, stepIndex: number, location: string): void => {
+        if (isResultReference(value)) {
+            if (value.$result.trim().length === 0) {
+                batchError(`${location} has an empty result id`)
+            }
+            const sourceIndex = ids.get(value.$result)
+            if (sourceIndex === undefined) {
+                batchError(`unknown batch result '${value.$result}'`)
+            }
+            if (sourceIndex !== undefined && sourceIndex >= stepIndex) {
+                batchError(`batch result '${value.$result}' must refer to an earlier step`)
+            }
+            if (value.path !== undefined && value.path.length === 0) {
+                batchError(`${location}.path must be a non-empty dotted property path`)
+            }
+            return
+        }
+        if (Array.isArray(value)) {
+            value.forEach((member, index) => visit(member, stepIndex, `${location}[${index}]`))
+            return
+        }
+        if (isJsonObject(value)) {
+            Object.entries(value).forEach(([name, member]) => visit(member, stepIndex, `${location}.${name}`))
+        }
+    }
+
+    calls.forEach((call, index) => {
+        if (call.target !== undefined) {visit(call.target, index, `batch step ${index}.target`)}
+        if (call.arguments !== undefined) {visit(call.arguments, index, `batch step ${index}.arguments`)}
+    })
+}
+
+const resolveBatchPath = (result: JsonValue, path: string, reference: string): JsonValue => {
+    let value = result
+    for (const segment of path.split(".")) {
+        if (segment.length === 0) {batchError(`result reference '${reference}' has an empty path segment`)}
+        if (Array.isArray(value)) {
+            if (!/^(0|[1-9]\d*)$/.test(segment)) {
+                batchError(`result reference '${reference}' has a non-numeric array path segment '${segment}'`)
+            }
+            const index = Number(segment)
+            if (index >= value.length) {batchError(`result reference '${reference}' path was not found`)}
+            const member = value[index]
+            if (member === undefined) {batchError(`result reference '${reference}' path was not found`)}
+            value = member
+        } else if (isJsonObject(value) && Object.hasOwn(value, segment)) {
+            value = value[segment]
+        } else {
+            batchError(`result reference '${reference}' path was not found`)
+        }
+    }
+    return value
+}
+
+const resolveBatchValue = (value: JsonValue, results: ReadonlyMap<string, JsonValue>): JsonValue => {
+    if (isResultReference(value)) {
+        const result = results.get(value.$result)
+        const resolvedResult = result === undefined
+            ? batchError(`unknown batch result '${value.$result}'`)
+            : result
+        return value.path === undefined
+            ? resolvedResult
+            : resolveBatchPath(resolvedResult, value.path, value.$result)
+    }
+    if (Array.isArray(value)) {return value.map(member => resolveBatchValue(member, results))}
+    if (isJsonObject(value)) {
+        return Object.fromEntries(Object.entries(value).map(([name, member]) => [
+            name, resolveBatchValue(member, results)
+        ]))
+    }
+    return value
+}
 
 export class ControlApi {
     readonly #project: Project
@@ -53,12 +149,40 @@ export class ControlApi {
         if (operations.some(operation => operation.transaction !== transaction)) {
             throw new Error("[ControlApi] mixed editing and non-editing batches are not supported")
         }
-        const execute = (): ReadonlyArray<JsonValue> => calls.map((call, index) =>
-            this.#invoke(operations[index], call))
+        validateBatchReferences(calls)
+        const execute = (): ReadonlyArray<JsonValue> => {
+            const results = new Map<string, JsonValue>()
+            return calls.map((call, index) => {
+                const request = this.#resolveBatchCall(call, results)
+                const result = this.#invoke(operations[index], request)
+                if (call.id !== undefined) {results.set(call.id, result)}
+                return result
+            })
+        }
         if (transaction === "editing") {
             return this.#project.editing.modify(execute).unwrapOrUndefined() ?? []
         }
         return execute()
+    }
+
+    #resolveBatchCall(call: ControlBatchItem, results: ReadonlyMap<string, JsonValue>): ControlCall {
+        const argumentsValue = call.arguments === undefined
+            ? undefined
+            : resolveBatchValue(call.arguments, results)
+        if (argumentsValue !== undefined && !isJsonObject(argumentsValue)) {
+            batchError(`${call.operation} arguments must resolve to an object`)
+        }
+        const argumentsObject = argumentsValue === undefined
+            ? undefined
+            : isJsonObject(argumentsValue)
+                ? argumentsValue
+                : batchError(`${call.operation} arguments must resolve to an object`)
+        const target = call.target === undefined ? undefined : resolveBatchValue(call.target, results)
+        return {
+            operation: call.operation,
+            ...(target === undefined ? {} : {target: target as ControlHandle}),
+            ...(argumentsObject === undefined ? {} : {arguments: argumentsObject})
+        }
     }
 
     #invokeWithTransaction(operation: OperationDescriptor, request: ControlCall): JsonValue {

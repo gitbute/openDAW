@@ -28,6 +28,7 @@ import type {
     DeviceDefinitionInspectionResult,
     DeviceHelpContent,
     DeviceInspectionResult,
+    DeviceParameterChoice,
     DeviceParameterInspection,
     DevicePropertyInspection,
     ResourceInspectionResult,
@@ -216,10 +217,38 @@ const printValue = (parameter: AutomatableParameterFieldAdapter): JsonObject => 
     unit: parameter.getPrintValue().unit
 })
 
+const finiteIntegerChoices = (parameter: AutomatableParameterFieldAdapter):
+    ReadonlyArray<DeviceParameterChoice> | undefined => {
+    const field = parameter.field
+    if (!(field instanceof Int32Field)) {return undefined}
+    const constraint = field.constraints
+    if (typeof constraint !== "object" || constraint === null) {return undefined}
+
+    let values: ReadonlyArray<number> | undefined
+    if ("values" in constraint) {
+        values = [...new Set(constraint.values)]
+    } else if ("length" in constraint) {
+        if (!Number.isInteger(constraint.length) || constraint.length < 1 || constraint.length > 32) {
+            return undefined
+        }
+        values = Array.from({length: constraint.length}, (_, index) => index)
+    } else if ("min" in constraint && "max" in constraint) {
+        const cardinality = constraint.max - constraint.min + 1
+        if (!Number.isInteger(cardinality) || cardinality < 1 || cardinality > 32) {return undefined}
+        values = Array.from({length: cardinality}, (_, index) => constraint.min + index)
+    }
+    if (values === undefined || values.length === 0 || values.length > 32) {return undefined}
+    return values.map(value => {
+        const mapped = parameter.stringMapping.x(value)
+        return {value, printValue: {value: mapped.value, unit: mapped.unit}}
+    })
+}
+
 const parameterView = (resolver: ControlResolver,
                       parameter: AutomatableParameterFieldAdapter): JsonObject => {
     const value = asJsonValue(parameter.getValue())
     const owner = ParameterOwner.ownerBoxOf(parameter.field)
+    const choices = finiteIntegerChoices(parameter)
     return {
         kind: "parameter",
         handle: resolver.handle(parameter),
@@ -230,7 +259,8 @@ const parameterView = (resolver: ControlResolver,
         ...(labelOf(owner) === undefined ? {} : {ownerLabel: labelOf(owner)}),
         field: resolver.handle(parameter.field),
         printValue: printValue(parameter),
-        ...(value === undefined ? {} : {value})
+        ...(value === undefined ? {} : {value}),
+        ...(choices === undefined ? {} : {choices})
     } as JsonObject
 }
 
@@ -514,7 +544,7 @@ export class ResourceTools {
 
     inspectDevice(input: JsonObject): DeviceInspectionResult {
         const value = assertRecord(input, "inspect_device input")
-        assertKnownProperties(value, ["device"], "inspect_device input")
+        assertKnownProperties(value, ["device", "group"], "inspect_device input")
         const handle = value.device
         if (handle === undefined) {throw new Error("Missing argument 'device'")}
         const resolved = this.#resolver.resolve(boxSpec, handle)
@@ -523,13 +553,24 @@ export class ResourceTools {
         if (semantics === null) {
             throw new Error(`Unsupported device '${resolved.name}'.`)
         }
+        const groupName = optionalString(value, "group")
+        const selectedGroup = groupName === undefined
+            ? undefined
+            : semantics.groups.find(group => group.prefix === groupName)
+        if (groupName !== undefined && selectedGroup === undefined) {
+            throw new Error(`Unknown semantic group '${groupName}' for ${resolved.name}.`)
+        }
         const parameters = this.#resolver.parameters()
-        const properties = SemanticFields.paths(semantics.spec).map(path => {
+        const properties = SemanticFields.paths(semantics.spec)
+            .filter(path => selectedGroup === undefined
+                ? !semantics.groups.some(group => path === group.prefix || path.startsWith(`${group.prefix}.`))
+                : path === selectedGroup.prefix || path.startsWith(`${selectedGroup.prefix}.`))
+            .map(path => {
             const field = SemanticFields.resolve(semantics.spec, path)
             if (field === undefined) {throw new Error(`Missing semantic field '${path}'`)}
             const parameter = parameters.find(candidate => candidate.field.address.equals(field.address))
             return semanticPropertyView(this.#resolver, path, field, parameter)
-        })
+            })
         const deviceParameters = parameters
             .filter(parameter => ParameterOwner.ownerBoxOf(parameter.field) === resolved)
             .map(parameter => parameterInspectionView(this.#resolver, parameter))
@@ -540,7 +581,8 @@ export class ResourceTools {
             label: labelOf(resolved) ?? resolved.name,
             properties,
             parameters: deviceParameters,
-            groups: semantics.groups
+            groups: semantics.groups,
+            ...(selectedGroup === undefined ? {} : {group: selectedGroup})
         }
     }
 

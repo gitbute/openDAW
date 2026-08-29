@@ -17,6 +17,12 @@ const isObject = (value: JsonValue | object | undefined): value is Record<string
 const isJsonObject = (value: JsonValue | undefined): value is JsonObject =>
     typeof value === "object" && value !== null && !Array.isArray(value)
 
+const isHandleUnion = (spec: Extract<TypeSpec, {readonly kind: "union"}>): boolean =>
+    spec.alternatives.length > 0 && spec.alternatives.every(alternative => alternative.kind === "handle")
+
+const hasHandleShape = (value: JsonValue | undefined): boolean =>
+    isJsonObject(value) && typeof value.$address === "string"
+
 const fail = (message: string): never => {throw new Error(`[ControlApi] ${message}`)}
 
 const expectNumber = (value: JsonValue | undefined, context: string): number =>
@@ -98,6 +104,9 @@ export const decodeType = (spec: TypeSpec, value: JsonValue | undefined,
         case "nullable":
             return value === null ? null : decodeType(spec.value, value, resolver)
         case "union": {
+            if (isHandleUnion(spec) && !hasHandleShape(value)) {
+                return fail("Handle must be an object containing string $address; pass the complete returned handle object, not the address string alone.")
+            }
             let lastError: Error | undefined
             for (const alternative of spec.alternatives) {
                 try {return decodeType(alternative, value, resolver)} catch (error) {lastError = error as Error}

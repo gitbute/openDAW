@@ -37,23 +37,27 @@ const listValues = (values: ReadonlyArray<string>): string => {
     return `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`
 }
 
-const handleDescription = (spec: HandleSpec): string => {
+const completeHandleGuidance =
+    ` Pass the complete handle object returned by a tool, e.g. {"$address":"..."}; do not pass the $address string alone.`
+
+const handleDescription = (spec?: HandleSpec): string => {
+    if (spec === undefined) {return `Control handle.${completeHandleGuidance}`}
     const constraints = spec.constraintMembers?.length === undefined || spec.constraintMembers.length === 0
         ? spec.constraint === undefined ? [] : [spec.constraint]
         : spec.constraintMembers
-    if (spec.handle === "field" || spec.handle === "pointerField" || spec.handle === "primitiveField") {
-        return constraints.length === 0
+    const description = spec.handle === "field" || spec.handle === "pointerField" || spec.handle === "primitiveField"
+        ? constraints.length === 0
             ? `${spec.name} handle.`
             : `${spec.name} handle accepting ${listValues(constraints)}.`
-    }
-    return `Handle to ${indefiniteArticle(spec.name)} ${spec.name}.`
+        : `Handle to ${indefiniteArticle(spec.name)} ${spec.name}.`
+    return `${description}${completeHandleGuidance}`
 }
 
 const handleSchema = (spec?: HandleSpec): JsonSchema => ({
     ...strictObject({
         $address: {type: "string"}
     }, ["$address"]),
-    ...(spec === undefined ? {} : {description: handleDescription(spec)})
+    description: handleDescription(spec)
 })
 
 // Apparat's controls are declared dynamically by its script, so it is inspectable even though it is
@@ -244,6 +248,10 @@ export const deviceInspectInputSchema: JsonSchema = strictObject({
         anyOf: SupportedDeviceBoxNames.map(name => handleSchema({
             kind: "handle", handle: "box", name
         }))
+    },
+    group: {
+        type: "string",
+        description: "Optional exact semantic group prefix returned in the device's groups list."
     }
 }, ["device"])
 
@@ -282,6 +290,28 @@ export const arrangementInspectInputSchema: JsonSchema = strictObject({
         description: semanticDescription("ppqn")
     }
 }, [])
+
+// Deliberately keep apply_edit step arguments as an empty schema: generated
+// operation descriptors remain the canonical argument source, this avoids
+// duplicating every generated schema, keeps the Codex tool compact, and exact
+// validation still happens through ControlApi during execution.
+const applyEditArgumentsSchema: JsonSchema = {}
+
+const applyEditStepSchema: JsonSchema = strictObject({
+    id: {type: "string"},
+    namespace: literalSchema(["daw_project", "daw_modulation", "daw_parameter"]),
+    tool: {type: "string"},
+    arguments: applyEditArgumentsSchema
+}, ["id", "namespace", "tool", "arguments"])
+
+export const applyEditInputSchema: JsonSchema = strictObject({
+    steps: {
+        type: "array",
+        minItems: 1,
+        maxItems: 64,
+        items: applyEditStepSchema
+    }
+}, ["steps"])
 
 export const audioInspectInputSchema: JsonSchema = strictObject({
     target: handleSchema({kind: "handle", handle: "box", name: "AudioUnitBox"}),

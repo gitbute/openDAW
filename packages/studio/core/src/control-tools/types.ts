@@ -80,10 +80,13 @@ export type ResourceQuery = {
     readonly offset?: number
 }
 
-export type ResourceToolName = "query_resources" | "inspect_resource"
+export type ManualToolName = "query_resources" | "inspect_resource"
     | "query_samples" | "query_device_catalog" | "inspect_device_definition"
     | "inspect_device" | "inspect_instrument" | "inspect_device_help" | "inspect_timing"
-    | "inspect_audio" | "inspect_arrangement"
+    | "inspect_audio" | "inspect_arrangement" | "apply_edit"
+
+/** @deprecated Manual tools are not all resource tools. */
+export type ResourceToolName = Exclude<ManualToolName, "apply_edit">
 
 export type ArrangementInspectionInput = {
     readonly target?: ControlHandle
@@ -226,10 +229,30 @@ export type SampleQuery = {
     readonly offset?: number
 }
 
-export type ToolBinding = {
-    readonly spec: ToolSpec
-    readonly operation?: OperationDescriptor
-    readonly resource?: ResourceToolName
+export type ToolBinding =
+    | {
+        readonly spec: ToolSpec
+        readonly operation: OperationDescriptor
+        readonly manual?: never
+    }
+    | {
+        readonly spec: ToolSpec
+        readonly operation?: never
+        readonly manual: ManualToolName
+    }
+
+export type ApplyEditStep = {
+    readonly id: string
+    readonly namespace: "daw_project" | "daw_modulation" | "daw_parameter"
+    readonly tool: string
+    readonly arguments: JsonObject
+}
+
+export type ApplyEditResult = {
+    readonly results: ReadonlyArray<{
+        readonly id: string
+        readonly value: JsonValue
+    }>
 }
 
 export type ToolInvocation = {
@@ -282,6 +305,11 @@ export type InstrumentPropertyInspection = {
 
 export type DevicePropertyInspection = InstrumentPropertyInspection
 
+export type DeviceParameterChoice = {
+    readonly value: number
+    readonly printValue: JsonObject
+}
+
 export type DeviceParameterInspection = {
     readonly handle: ControlHandle
     readonly name: string
@@ -290,6 +318,7 @@ export type DeviceParameterInspection = {
     readonly field: ControlHandle
     readonly printValue: JsonObject
     readonly value?: JsonValue
+    readonly choices?: ReadonlyArray<DeviceParameterChoice>
 }
 
 export type DeviceInspectionResult = {
@@ -300,6 +329,7 @@ export type DeviceInspectionResult = {
     readonly properties: ReadonlyArray<DevicePropertyInspection>
     readonly parameters: ReadonlyArray<DeviceParameterInspection>
     readonly groups: ReadonlyArray<{readonly prefix: string, readonly label: string}>
+    readonly group?: {readonly prefix: string, readonly label: string}
 }
 
 export type InstrumentInspectionResult = {

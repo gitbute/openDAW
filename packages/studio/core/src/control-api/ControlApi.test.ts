@@ -412,6 +412,20 @@ describe("ControlApi", () => {
         }
     })
 
+    it("gives handle unions a useful complete-object error for bare addresses", async () => {
+        const {project, api} = await createProject()
+        try {
+            expect(() => call(api, "project.createNoteEvent", {
+                owner: "not-a-complete-handle",
+                position: 0,
+                duration: 120,
+                pitch: 60
+            })).toThrow("[ControlApi] Handle must be an object containing string $address; pass the complete returned handle object, not the address string alone.")
+        } finally {
+            project.terminate()
+        }
+    })
+
     it("rejects unknown arguments", async () => {
         const {project, api} = await createProject()
         try {
@@ -598,6 +612,107 @@ describe("ControlApi", () => {
             expect(project.editing.undo()).toBe(true)
             expect(project.timelineBox.bpm.getValue()).toBe(initial)
             expect(project.editing.canUndo()).toBe(false)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("resolves dependent handle results through one atomic generated-operation batch", async () => {
+        const {project, api} = await createProject()
+        try {
+            const initialAddresses = project.boxGraph.boxes().map(box => box.address.toString())
+            const results = api.batch([
+                {
+                    id: "inst",
+                    operation: "project.createAnyInstrument",
+                    arguments: {factory: "Vaporisateur"}
+                },
+                {
+                    id: "region",
+                    operation: "project.createMusicalNoteRegion",
+                    arguments: {
+                        trackBox: {$result: "inst", path: "trackBox"},
+                        position: {bar: 1},
+                        duration: "bar",
+                        name: "Atomic Region"
+                    }
+                },
+                {
+                    id: "notes",
+                    operation: "project.createMusicalNoteEvents",
+                    arguments: {
+                        owner: {$result: "region"},
+                        events: [
+                            {position: {bar: 1}, duration: "quarter", pitch: 60},
+                            {position: {bar: 1, beat: 3}, duration: "quarter", pitch: 64}
+                        ]
+                    }
+                }
+            ])
+            const product = asObject(results[0])
+            const region = asHandle(results[1])
+            const notes = asHandles(results[2])
+            expect(asHandle(product.trackBox)).toEqual(expect.objectContaining({$address: expect.any(String)}))
+            expect(region.$address).toEqual(expect.any(String))
+            expect(notes).toHaveLength(2)
+            expect(project.editing.canUndo()).toBe(true)
+            expect(project.editing.undo()).toBe(true)
+            expect(project.boxGraph.boxes().map(box => box.address.toString())).toEqual(initialAddresses)
+            expect(project.editing.canUndo()).toBe(false)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("rolls back a dependent batch and rejects invalid result references before editing", async () => {
+        const {project, api} = await createProject()
+        try {
+            const initialAddresses = project.boxGraph.boxes().map(box => box.address.toString())
+            expect(() => api.batch([
+                {
+                    id: "inst",
+                    operation: "project.createAnyInstrument",
+                    arguments: {factory: "Vaporisateur"}
+                },
+                {
+                    id: "region",
+                    operation: "project.createMusicalNoteRegion",
+                    arguments: {
+                        trackBox: {$result: "inst", path: "missingTrackBox"},
+                        position: {bar: 1},
+                        duration: "bar"
+                    }
+                }
+            ])).toThrow(/path was not found/)
+            expect(project.boxGraph.boxes().map(box => box.address.toString())).toEqual(initialAddresses)
+            expect(project.editing.canUndo()).toBe(false)
+
+            expect(() => api.batch([
+                {
+                    id: "region",
+                    operation: "project.createMusicalNoteRegion",
+                    arguments: {
+                        trackBox: {$result: "inst", path: "trackBox"},
+                        position: {bar: 1},
+                        duration: "bar"
+                    }
+                },
+                {
+                    id: "inst",
+                    operation: "project.createAnyInstrument",
+                    arguments: {factory: "Vaporisateur"}
+                }
+            ])).toThrow(/must refer to an earlier step/)
+            expect(() => api.batch([{
+                id: "one", operation: "project.setBpm", arguments: {value: {$result: "missing"}}
+            }])).toThrow(/unknown batch result/)
+            expect(() => api.batch([{
+                id: "one", operation: "project.setBpm", arguments: {value: {$result: ""}}
+            }])).toThrow(/empty result id/)
+            expect(() => api.batch([
+                {id: "same", operation: "project.setBpm", arguments: {value: 121}},
+                {id: "same", operation: "project.setBpm", arguments: {value: 122}}
+            ])).toThrow(/duplicate batch step id/)
         } finally {
             project.terminate()
         }

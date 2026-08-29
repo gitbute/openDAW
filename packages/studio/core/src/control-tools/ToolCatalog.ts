@@ -12,16 +12,16 @@ import {
     deviceCatalogQueryInputSchema,
     deviceDefinitionInspectInputSchema,
     deviceInspectInputSchema,
-    instrumentInspectInputSchema,
     deviceHelpInspectInputSchema,
     resourceInspectInputSchema,
     resourceQueryInputSchema,
     sampleQueryInputSchema,
     timingInspectInputSchema,
     audioInspectInputSchema,
-    arrangementInspectInputSchema
+    arrangementInspectInputSchema,
+    applyEditInputSchema
 } from "./ToolSchema"
-import type {ResourceToolName} from "./types"
+import type {ManualToolName} from "./types"
 
 const namespacesForRoots = {
     project: "daw_project",
@@ -31,7 +31,7 @@ const namespacesForRoots = {
 } as const
 
 const namespaceDescriptions: Readonly<Record<string, string>> = {
-    daw_project: "Create and edit the canonical openDAW project structure.",
+    daw_project: "Create and edit the canonical openDAW project structure, including ordered atomic edits.",
     daw_modulation: "Create and connect canonical openDAW modulators.",
     daw_transport: "Control playback and transport state.",
     daw_parameter: "Read and edit discovered automatable parameters.",
@@ -40,8 +40,8 @@ const namespaceDescriptions: Readonly<Record<string, string>> = {
 }
 
 const eagerTools: ReadonlyArray<{
-    readonly namespace: "daw_resources" | "daw_analysis"
-    readonly name: ResourceToolName
+    readonly namespace: "daw_project" | "daw_resources" | "daw_analysis"
+    readonly name: ManualToolName
     readonly schema: FunctionToolSpec["inputSchema"]
     readonly description: string
 }> = [
@@ -83,12 +83,6 @@ const eagerTools: ReadonlyArray<{
     },
     {
         namespace: "daw_resources",
-        name: "inspect_instrument",
-        schema: instrumentInspectInputSchema,
-        description: "Inspect a live instrument's semantic properties. Apparat controls are dynamically declared: use the returned parameterHandle values with daw_parameter tools, not set_instrument_properties."
-    },
-    {
-        namespace: "daw_resources",
         name: "inspect_device_help",
         schema: deviceHelpInspectInputSchema,
         description: "Read the authoritative openDAW manual for a live device. Apparat help also includes its programming contract and bundled examples when available."
@@ -104,6 +98,12 @@ const eagerTools: ReadonlyArray<{
         name: "inspect_arrangement",
         schema: arrangementInspectInputSchema,
         description: "Return a compact multiscale map of the current arrangement, grouped by audio unit and timeline lane. Use it to regain global song context or inspect a broad section; use query_resources/inspect_resource for exact notes, automation events, devices, or parameters."
+    },
+    {
+        namespace: "daw_project",
+        name: "apply_edit",
+        schema: applyEditInputSchema,
+        description: "Apply several dependent synchronous generated project, parameter, or modulation operations as one ordered atomic edit."
     },
     {
         namespace: "daw_analysis",
@@ -172,7 +172,7 @@ export class ToolCatalog implements ToolCatalogSpec {
                 inputSchema: resource.schema,
                 exposure: "eager"
             }
-            add({spec, resource: resource.name})
+            add({spec, manual: resource.name})
         })
 
         this.tools = Object.freeze(tools.slice())

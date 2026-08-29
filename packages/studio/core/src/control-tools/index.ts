@@ -20,6 +20,7 @@ export type {
     DeviceCatalogQueryResult,
     DeviceDefinitionInspectionResult,
     DeviceInspectionResult,
+    DeviceParameterChoice,
     DeviceParameterInspection,
     DevicePropertyInspection,
     DeviceHelpCatalog,
@@ -29,6 +30,10 @@ export type {
     InstrumentInspectionResult,
     InstrumentPropertyInspection,
     JsonSchema,
+    ManualToolName,
+    ApplyEditResult,
+    ApplyEditStep,
+    ResourceToolName,
     ResourceInspectionResult,
     ResourceKind,
     ResourceQuery,
@@ -58,11 +63,14 @@ export {
     deviceHelpInspectInputSchema,
     timingInspectInputSchema,
     arrangementInspectInputSchema,
+    applyEditInputSchema,
     audioInspectInputSchema
 } from "./ToolSchema"
 export {ToolCatalog, toToolName} from "./ToolCatalog"
 export {ResourceTools} from "./ResourceTools"
 export {ArrangementTools} from "./ArrangementTools"
+export {EditTools} from "./EditTools"
+export {toControlBatchItem, toControlCall} from "./OperationToolCall"
 export {AudioAnalysisTools, summarizeAudio} from "./AudioAnalysisTools"
 export type {AudioAnalysisRenderer} from "./AudioAnalysisTools"
 export {ToolExecutor} from "./ToolExecutor"

@@ -97,4 +97,18 @@ export type ControlCall = {
     readonly arguments?: JsonObject
 }
 
-export type ControlBatchItem = ControlCall
+export type ControlResultReference = {
+    readonly $result: string
+    readonly path?: string
+}
+
+/**
+ * A batch item may carry result references before ControlApi resolves it into
+ * an ordinary ControlCall. ControlCall itself remains the concrete-call type.
+ */
+export type ControlBatchItem = {
+    readonly id?: string
+    readonly operation: string
+    readonly target?: JsonValue
+    readonly arguments?: JsonObject
+}
