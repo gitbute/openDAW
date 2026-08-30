@@ -92,6 +92,45 @@ export const serializeCodexConversation = (
     return `${lines.join("\n").trimEnd()}\n`
 }
 
+const compactLine = (value: string): string => value.replace(/\s+/g, " ").trim()
+
+/** Serialize the readable conversation in a compact, model-friendly form without debug payloads. */
+export const serializeCodexConversationCompact = (
+    entries: ReadonlyArray<CodexConversationEntry>,
+    context: CodexTranscriptContext
+): string => {
+    const lines = [
+        "# Codex transcript",
+        "",
+        `Model: ${context.model ?? "not selected"}`,
+        `Reasoning effort: ${context.effort ?? "not selected"}`,
+        ""
+    ]
+
+    for (const entry of entries) {
+        switch (entry.type) {
+            case "user":
+                lines.push("## You", "", entry.text, "")
+                break
+            case "reasoning":
+                lines.push("## Thinking", "", entry.text, "")
+                break
+            case "assistant":
+                lines.push("## Codex", "", entry.text, "")
+                break
+            case "tool": {
+                const error = entry.status === "failed" && entry.error !== undefined
+                    ? ` — ${compactLine(entry.error)}`
+                    : ""
+                lines.push(`[${entry.status}] ${toolName(entry)}${error}`)
+                break
+            }
+        }
+    }
+
+    return `${lines.join("\n").trimEnd()}\n`
+}
+
 export type CodexTranscriptScrollMetrics = {
     readonly scrollTop: number
     readonly scrollHeight: number

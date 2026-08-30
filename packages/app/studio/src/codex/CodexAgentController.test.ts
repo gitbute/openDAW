@@ -50,6 +50,20 @@ const availableModels: ReadonlyArray<CodexModel> = [
     }
 ]
 
+const lunaModel: CodexModel = {
+    id: "luna-model-id",
+    model: "gpt-5.6-luna",
+    displayName: "Luna",
+    description: "Luna model",
+    hidden: false,
+    supportedReasoningEfforts: [
+        {reasoningEffort: "xhigh", description: "Extra high"},
+        {reasoningEffort: "balanced", description: "Balanced"}
+    ],
+    defaultReasoningEffort: "balanced",
+    isDefault: false
+}
+
 const tick = async (): Promise<void> => {
     await Promise.resolve()
     await Promise.resolve()
@@ -63,9 +77,13 @@ class FakeSession implements CodexAgentSession {
     disconnectCount = 0
     listModelsCount = 0
     account = accountState
-    models = availableModels
+    readonly models: ReadonlyArray<CodexModel>
     threadId: string | undefined
     activeTurnId: string | undefined
+
+    constructor(models: ReadonlyArray<CodexModel> = availableModels) {
+        this.models = models
+    }
 
     async connect(): Promise<CodexInitializeResponse> {
         this.connectCount++
@@ -129,8 +147,10 @@ class FakeSession implements CodexAgentSession {
 
 const project = (): Project => ({}) as Project
 
-const controllerWithSession = (): {controller: CodexAgentController, session: FakeSession} => {
-    const session = new FakeSession()
+const controllerWithSession = (models: ReadonlyArray<CodexModel> = availableModels): {
+    controller: CodexAgentController, session: FakeSession
+} => {
+    const session = new FakeSession(models)
     const controller = new CodexAgentController({createSession: () => session})
     controller.bindProject(project())
     return {controller, session}
@@ -151,6 +171,38 @@ describe("CodexAgentController", () => {
         expect(controller.selectedEffort.getValue()).toBe("thorough")
         controller.selectedModel.setValue("model-alpha")
         expect(controller.selectedEffort.getValue()).toBe("balanced")
+        controller.dispose()
+    })
+
+    it("prefers Luna when it is available", async () => {
+        const {controller} = controllerWithSession([availableModels[0], lunaModel])
+        await controller.ensureConnected()
+
+        expect(controller.selectedModel.getValue()).toBe("gpt-5.6-luna")
+        expect(controller.selectedEffort.getValue()).toBe("xhigh")
+        controller.dispose()
+    })
+
+    it("uses the selected model default when xhigh is unsupported", async () => {
+        const model = {...lunaModel, supportedReasoningEfforts: [{reasoningEffort: "balanced", description: "Balanced"}]}
+        const {controller} = controllerWithSession([model])
+        await controller.ensureConnected()
+
+        expect(controller.selectedModel.getValue()).toBe("gpt-5.6-luna")
+        expect(controller.selectedEffort.getValue()).toBe("balanced")
+        controller.dispose()
+    })
+
+    it("keeps valid manual selections across model refreshes", async () => {
+        const {controller} = controllerWithSession()
+        await controller.ensureConnected()
+        controller.selectedModel.setValue("model-beta")
+        controller.selectedEffort.setValue("thorough")
+
+        controller.models.setValue([...availableModels])
+
+        expect(controller.selectedModel.getValue()).toBe("model-beta")
+        expect(controller.selectedEffort.getValue()).toBe("thorough")
         controller.dispose()
     })
 

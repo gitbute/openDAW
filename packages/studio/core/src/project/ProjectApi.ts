@@ -332,17 +332,24 @@ export class ProjectApi {
 
     /**
      * Assign a canonical sample to a Playfield slot.
+     * target may be the PlayfieldDeviceBox itself or its containing AudioUnitBox returned by createAnyInstrument.
      * midiNote is the absolute MIDI pitch and Playfield slot index in the range 0..127.
      * Note events in the pattern must use the same MIDI pitch to trigger this sample.
      */
-    assignPlayfieldSample(target: PlayfieldDeviceBox, sample: Sample, midiNote: int): void {
+    assignPlayfieldSample(target: PlayfieldDeviceBox | AudioUnitBox, sample: Sample, midiNote: int): void {
         validateMidiNote(midiNote)
         const assignment = {
             uuid: UUID.parse(sample.uuid),
             name: sample.name,
             durationInSeconds: sample.duration
         }
-        SampleAssignment.assignPlayfield(this.#project.boxGraph, target, midiNote, assignment)
+        const playfield = target instanceof PlayfieldDeviceBox
+            ? target
+            : target.input.pointerHub.incoming().at(0)?.box
+        if (!(playfield instanceof PlayfieldDeviceBox)) {
+            throw new Error("AudioUnitBox does not contain a Playfield instrument")
+        }
+        SampleAssignment.assignPlayfield(this.#project.boxGraph, playfield, midiNote, assignment)
     }
 
     /** Remove the sample assigned to a Nano instrument. */

@@ -689,9 +689,19 @@ export const generatedControlManifest: GeneratedManifest = {
                         "name": "target"
                     },
                     "type": {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "PlayfieldDeviceBox"
+                        "kind": "union",
+                        "alternatives": [
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "PlayfieldDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "AudioUnitBox"
+                            }
+                        ]
                     }
                 },
                 {
@@ -784,7 +794,7 @@ export const generatedControlManifest: GeneratedManifest = {
             "result": {
                 "kind": "void"
             },
-            "description": "Assign a canonical sample to a Playfield slot.\nmidiNote is the absolute MIDI pitch and Playfield slot index in the range 0..127.\nNote events in the pattern must use the same MIDI pitch to trigger this sample."
+            "description": "Assign a canonical sample to a Playfield slot.\ntarget may be the PlayfieldDeviceBox itself or its containing AudioUnitBox returned by createAnyInstrument.\nmidiNote is the absolute MIDI pitch and Playfield slot index in the range 0..127.\nNote events in the pattern must use the same MIDI pitch to trigger this sample."
         },
         {
             "id": "project.removeNanoSample",

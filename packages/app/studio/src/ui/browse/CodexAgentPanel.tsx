@@ -7,7 +7,8 @@ import {StudioService} from "@/service/StudioService"
 import type {CodexAgentController, CodexConversationEntry} from "@/codex/CodexAgentController"
 import {
     CodexTranscriptFollowState,
-    serializeCodexConversation
+    serializeCodexConversation,
+    serializeCodexConversationCompact
 } from "@/codex/CodexTranscript"
 import {Button} from "@/ui/components/Button"
 import {Checkbox} from "@/ui/components/Checkbox"
@@ -181,20 +182,28 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
                                               onClick={() => void submit()}>
         <IconCartridge lifecycle={lifecycle} symbol={sendIcon}/>
     </Button>
-    const copyTranscript = async () => {
-        await Clipboard.writeText(serializeCodexConversation(controller.conversation.getValue(), {
+    const transcriptContext = () => ({
             model: controller.selectedModel.getValue(),
             effort: controller.selectedEffort.getValue(),
             threadId: controller.threadId,
             activeTurnId: controller.activeTurnId.getValue()
-        }))
+        })
+    const copyTranscript = async (serialize: typeof serializeCodexConversation): Promise<void> => {
+        await Clipboard.writeText(serialize(controller.conversation.getValue(), transcriptContext()))
     }
     const copyButton: HTMLElement = <Button lifecycle={lifecycle}
                                               className="copy-button"
-                                              appearance={{framed: true}}
-                                              onClick={() => void copyTranscript()}>
+                                              appearance={{framed: true, tooltip: "Copy compact transcript"}}
+                                              onClick={() => void copyTranscript(serializeCodexConversationCompact)}>
         <Icon symbol={IconSymbol.Copy}/>
         Copy
+    </Button>
+    const debugCopyButton: HTMLElement = <Button lifecycle={lifecycle}
+                                                   className="copy-button"
+                                                   appearance={{framed: true, tooltip: "Copy detailed debug transcript"}}
+                                                   onClick={() => void copyTranscript(serializeCodexConversation)}>
+        <Icon symbol={IconSymbol.Copy}/>
+        Debug Copy
     </Button>
 
     const updateConnection = () => {
@@ -311,6 +320,7 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
                 <span>Debug</span>
             </Checkbox>
             {copyButton}
+            {debugCopyButton}
         </div>
         {transcriptContainer}
         {errorRow}

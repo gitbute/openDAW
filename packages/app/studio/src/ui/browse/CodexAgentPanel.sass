@@ -116,7 +116,7 @@ component
     .reasoning-header
       cursor: pointer
       color: var(--color-dark)
-      font-weight: bold
+      font-weight: normal
       list-style: none
 
       &::-webkit-details-marker
@@ -130,6 +130,15 @@ component
 
     &.complete .reasoning-header
       color: var(--color-gray)
+
+  .reasoning + .reasoning,
+  .reasoning + .tool,
+  .tool + .reasoning,
+  .tool + .tool
+    margin-top: -0.35em
+
+  .entry:not(.user) + .user
+    margin-top: 0.5em
 
   .tool-line
     gap: 0.35em

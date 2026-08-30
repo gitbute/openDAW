@@ -2,7 +2,8 @@ import {describe, expect, it} from "vitest"
 import type {CodexConversationEntry} from "@/codex/CodexAgentController"
 import {
     CodexTranscriptFollowState,
-    serializeCodexConversation
+    serializeCodexConversation,
+    serializeCodexConversationCompact
 } from "@/codex/CodexTranscript"
 
 describe("serializeCodexConversation", () => {
@@ -64,5 +65,55 @@ describe("CodexTranscriptFollowState", () => {
         expect(state.followLatest).toBe(true)
         expect(state.hasNewActivity).toBe(false)
         expect(state.onContentChanged(bottom)).toBe(true)
+    })
+})
+
+describe("serializeCodexConversationCompact", () => {
+    it("keeps chronology and status while omitting debug payloads and identifiers", () => {
+        const entries: ReadonlyArray<CodexConversationEntry> = [
+            {type: "user", id: "user-1", text: "Create a beat"},
+            {
+                type: "reasoning", itemId: "reasoning-1", turnId: "turn-1", summaryIndex: 0,
+                text: "Inspecting the project.", complete: true
+            },
+            {
+                type: "tool", itemId: "tool-1", turnId: "turn-1", namespace: "daw_project",
+                tool: "inspect_project", status: "success", arguments: {scope: "arrangement"},
+                contentItems: [{type: "inputText", text: "private result payload"}]
+            },
+            {
+                type: "tool", itemId: "tool-2", turnId: "turn-1", namespace: "daw_project",
+                tool: "create_note_track", status: "failed", arguments: {name: "Drums"},
+                contentItems: [{type: "inputText", text: "private failed payload"}], error: "Track already exists"
+            },
+            {type: "assistant", itemId: "message-1", turnId: "turn-1", text: "The beat is ready.", complete: true}
+        ]
+
+        const transcript = serializeCodexConversationCompact(entries, {
+            model: "model-alpha",
+            effort: "balanced",
+            threadId: "thread-1",
+            activeTurnId: "turn-1"
+        })
+
+        expect(transcript).toContain("Model: model-alpha")
+        expect(transcript).toContain("Reasoning effort: balanced")
+        expect(transcript).toContain("Create a beat")
+        expect(transcript).toContain("Inspecting the project.")
+        expect(transcript).toContain("[success] daw_project.inspect_project")
+        expect(transcript).toContain("[failed] daw_project.create_note_track — Track already exists")
+        expect(transcript).toContain("The beat is ready.")
+        expect(transcript.indexOf("Create a beat")).toBeLessThan(transcript.indexOf("Inspecting the project."))
+        expect(transcript.indexOf("Inspecting the project.")).toBeLessThan(transcript.indexOf("[success]"))
+        expect(transcript.indexOf("[success]")).toBeLessThan(transcript.indexOf("[failed]"))
+        expect(transcript.indexOf("[failed]")).toBeLessThan(transcript.indexOf("The beat is ready."))
+        expect(transcript).not.toContain("thread-1")
+        expect(transcript).not.toContain("turn-1")
+        expect(transcript).not.toContain("reasoning-1")
+        expect(transcript).not.toContain("tool-1")
+        expect(transcript).not.toContain("scope")
+        expect(transcript).not.toContain("private result payload")
+        expect(transcript).not.toContain("private failed payload")
+        expect(transcript).not.toContain("Drums")
     })
 })

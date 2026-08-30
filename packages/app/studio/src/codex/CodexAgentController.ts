@@ -98,6 +98,9 @@ const emptyAccountState = {
     requiresOpenaiAuth: true
 } as const
 
+const PREFERRED_CODEX_MODEL = "gpt-5.6-luna"
+const PREFERRED_CODEX_EFFORT = "xhigh" as const
+
 const errorMessage = (error: unknown): string => error instanceof Error ? error.message : String(error)
 
 const isAuthenticated = (account: CodexAccountState): boolean =>
@@ -569,7 +572,8 @@ export class CodexAgentController {
         const current = this.selectedModel.getValue()
         const selected = models.some(model => model.model === current)
             ? current
-            : models.find(model => model.isDefault)?.model ?? models.at(0)?.model ?? null
+            : models.find(model => model.model === PREFERRED_CODEX_MODEL)?.model
+                ?? models.find(model => model.isDefault)?.model ?? models.at(0)?.model ?? null
         if (selected !== current) {this.selectedModel.setValue(selected)}
         this.#updateEffortSelection()
     }
@@ -581,7 +585,9 @@ export class CodexAgentController {
             ? null
             : selected.supportedReasoningEfforts.some(option => option.reasoningEffort === current)
                 ? current
-                : selected.defaultReasoningEffort
+                : selected.supportedReasoningEfforts.some(option => option.reasoningEffort === PREFERRED_CODEX_EFFORT)
+                    ? PREFERRED_CODEX_EFFORT
+                    : selected.defaultReasoningEffort
         if (next !== current) {this.selectedEffort.setValue(next)}
     }
 

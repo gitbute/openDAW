@@ -4,6 +4,7 @@ import {isDefined, Option, Terminable, UUID} from "@opendaw/lib-std"
 import {ProjectSkeleton} from "@opendaw/studio-adapters"
 import {
     ApparatDeviceBox,
+    AudioUnitBox,
     AudioFileBox,
     NoteClipBox,
     ValueEventBox,
@@ -11,6 +12,7 @@ import {
     ValueRegionBox,
     NoteEventCollectionBox,
     NoteRegionBox,
+    PlayfieldDeviceBox,
     WerkstattParameterBox,
     WerkstattSampleBox
 } from "@opendaw/studio-boxes"
@@ -165,6 +167,57 @@ describe("ControlApi", () => {
             expect(clipEvents).toHaveLength(1)
             expect(collectionEvents).toHaveLength(1)
             expect(Array.isArray(duplicate)).toBe(true)
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("assigns Playfield samples through direct and containing AudioUnit handles", async () => {
+        const {project, api} = await createProject()
+        try {
+            const playfieldProduct = asObject(call(api, "project.createAnyInstrument", {factory: "Playfield"}))
+            const playfieldHandle = asHandle(playfieldProduct.instrumentBox)
+            const audioUnitHandle = asHandle(playfieldProduct.audioUnitBox)
+            const sample = {
+                uuid: "00000000-0000-4000-8000-000000000031",
+                name: "Agent Playfield Sample",
+                bpm: 120,
+                duration: 0.5,
+                sample_rate: 48000,
+                origin: "openDAW"
+            } as const
+
+            call(api, "project.assignPlayfieldSample", {
+                target: playfieldHandle, sample, midiNote: 36
+            })
+            call(api, "project.assignPlayfieldSample", {
+                target: audioUnitHandle, sample, midiNote: 38
+            })
+
+            const playfield = api.resolver.resolve({
+                kind: "handle", handle: "box", name: "PlayfieldDeviceBox"
+            }, playfieldHandle)
+            expect(playfield).toBeInstanceOf(PlayfieldDeviceBox)
+            if (!(playfield instanceof PlayfieldDeviceBox)) {throw new Error("Missing Playfield box")}
+            expect(playfield.samples.pointerHub.incoming()).toHaveLength(2)
+
+            const audioUnit = api.resolver.resolve({
+                kind: "handle", handle: "box", name: "AudioUnitBox"
+            }, audioUnitHandle)
+            expect(audioUnit).toBeInstanceOf(AudioUnitBox)
+
+            const otherProduct = asObject(call(api, "project.createAnyInstrument", {factory: "Vaporisateur"}))
+            expect(() => call(api, "project.assignPlayfieldSample", {
+                target: asHandle(otherProduct.audioUnitBox), sample, midiNote: 40
+            })).toThrow("AudioUnitBox does not contain a Playfield instrument")
+
+            expect(operation("project.assignPlayfieldSample").parameters[0].type).toEqual({
+                kind: "union",
+                alternatives: [
+                    {kind: "handle", handle: "box", name: "PlayfieldDeviceBox"},
+                    {kind: "handle", handle: "box", name: "AudioUnitBox"}
+                ]
+            })
         } finally {
             project.terminate()
         }
