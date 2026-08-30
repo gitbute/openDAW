@@ -17,6 +17,7 @@ type Construct = {
 }
 
 export const renderMarkdown = (element: HTMLElement, text: string, actions?: Record<string, Exec>) => {
+    element.classList.add(className, "markdown")
     if (Browser.isWindows()) {
         Object.entries(ModfierKeys.Mac)
             .forEach(([key, value]) => text = text.replaceAll(value, (ModfierKeys.Win as any)[key]))

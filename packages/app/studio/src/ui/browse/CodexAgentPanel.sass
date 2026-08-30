@@ -7,7 +7,7 @@ component
   gap: 0.5em
   padding: 0.5em 0.75em
   overflow: hidden
-  font-size: 0.6875rem
+  font-size: 0.75rem
 
   .hidden
     display: none
@@ -49,6 +49,16 @@ component
       min-width: 0
       flex: 1
 
+  .copy-button
+    flex: 0 0 auto !important
+
+  .transcript-container
+    flex: 1
+    min-height: 0
+    position: relative
+    display: flex
+    overflow: hidden
+
   .transcript
     flex: 1
     min-height: 0
@@ -72,7 +82,33 @@ component
   .reasoning-text,
   .tool-error
     color: var(--color-gray)
+
+  .user .text,
+  .tool-error
     white-space: pre-wrap
+
+  .text,
+  .reasoning-text
+    line-height: 1.35em
+
+  .text.markdown,
+  .reasoning-text.markdown
+    p, ul, ol, pre, blockquote
+      margin-top: 0
+      margin-bottom: 0.5em
+
+    ul, ol
+      padding-inline-start: 1.25em
+
+    li
+      margin: 0.2em 0
+
+    pre
+      overflow-x: auto
+      white-space: pre-wrap
+
+    code
+      white-space: pre-wrap
 
   .reasoning
     color: var(--color-dark)
@@ -86,6 +122,9 @@ component
       &::-webkit-details-marker
         display: none
 
+      &::marker
+        display: none
+
     .reasoning-text
       margin: 0.2em 0 0 1.35em
 
@@ -95,6 +134,7 @@ component
   .tool-line
     gap: 0.35em
     color: var(--color-gray)
+    opacity: 0.85
 
   .tool-status
     width: 1em
@@ -116,6 +156,20 @@ component
   .tool-error
     padding-left: 1.35em
     overflow-wrap: anywhere
+
+  .latest-button
+    position: absolute
+    z-index: 1
+    right: 0.5em
+    bottom: 0.5em
+    padding: 0.25em 0.6em
+    border: 0.5px solid var(--color-dark)
+    border-radius: 0.25em
+    color: var(--color-bright)
+    background-color: rgba(black, 0.65)
+    box-shadow: 0 1px 4px rgba(black, 0.3)
+    font: inherit
+    cursor: pointer
 
   .error-row
     gap: 0.25em

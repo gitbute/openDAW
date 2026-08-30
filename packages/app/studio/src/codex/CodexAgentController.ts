@@ -5,6 +5,7 @@ import {
 } from "@opendaw/studio-codex"
 import type {
     CodexAccountState,
+    CodexDynamicToolCallContentItem,
     CodexInitializeResponse,
     CodexLogin,
     CodexModel,
@@ -15,6 +16,7 @@ import type {
     CodexTraceEvent,
     CodexTraceSink,
     CodexTransportState,
+    JsonValue,
     Unsubscribe
 } from "@opendaw/studio-codex"
 import {AudioAnalysisTools, ControlApi, ToolCatalog, ToolExecutor} from "@opendaw/studio-core"
@@ -50,6 +52,8 @@ export type CodexConversationEntry =
         readonly namespace: string | null
         readonly tool: string
         readonly status: "running" | "success" | "failed"
+        readonly arguments: JsonValue
+        readonly contentItems: ReadonlyArray<CodexDynamicToolCallContentItem> | null
         readonly error?: string
     }
 
@@ -160,6 +164,8 @@ export class CodexAgentController {
     }
 
     get project(): Project | null {return this.#project}
+
+    get threadId(): string | undefined {return this.#session?.threadId}
 
     bindProject(project: Project | null): void {
         if (this.#project === project) {return}
@@ -493,7 +499,9 @@ export class CodexAgentController {
             turnId: event.turnId,
             namespace: event.namespace,
             tool: event.tool,
-            status: "running"
+            status: "running",
+            arguments: event.arguments,
+            contentItems: null
         }])
     }
 
@@ -510,6 +518,8 @@ export class CodexAgentController {
                 namespace: event.namespace,
                 tool: event.tool,
                 status,
+                arguments: {},
+                contentItems: event.contentItems,
                 ...(error === undefined ? {} : {error})
             }])
             return
@@ -522,6 +532,7 @@ export class CodexAgentController {
             namespace: event.namespace,
             tool: event.tool,
             status,
+            contentItems: event.contentItems,
             ...(error === undefined ? {} : {error})
         }
         this.conversation.setValue(next)

@@ -206,12 +206,22 @@ describe("CodexAgentController", () => {
         session.emit({
             type: "dynamicToolStarted",
             threadId: "thread-1", turnId: "turn-1", itemId: "tool-1", namespace: "daw_project",
-            tool: "create_note_track", arguments: {}
+            tool: "create_note_track", arguments: {name: "Drums"}
         })
         session.emit({
             type: "dynamicToolCompleted",
             threadId: "thread-1", turnId: "turn-1", itemId: "tool-1", namespace: "daw_project",
             tool: "create_note_track", success: false, contentItems: [{type: "inputText", text: "failed"}]
+        })
+        session.emit({
+            type: "dynamicToolStarted",
+            threadId: "thread-1", turnId: "turn-1", itemId: "tool-2", namespace: "daw_project",
+            tool: "inspect_project", arguments: {scope: "arrangement"}
+        })
+        session.emit({
+            type: "dynamicToolCompleted",
+            threadId: "thread-1", turnId: "turn-1", itemId: "tool-2", namespace: "daw_project",
+            tool: "inspect_project", success: true, contentItems: [{type: "inputText", text: "success"}]
         })
         session.emit({
             type: "turnCompleted", threadId: "thread-1", turnId: "turn-1", status: "completed", error: null
@@ -231,7 +241,13 @@ describe("CodexAgentController", () => {
             {type: "assistant", itemId: "message-1", turnId: "turn-1", text: "Done groove.", complete: true},
             {
                 type: "tool", itemId: "tool-1", turnId: "turn-1", namespace: "daw_project",
-                tool: "create_note_track", status: "failed", error: "failed"
+                tool: "create_note_track", status: "failed", arguments: {name: "Drums"},
+                contentItems: [{type: "inputText", text: "failed"}], error: "failed"
+            },
+            {
+                type: "tool", itemId: "tool-2", turnId: "turn-1", namespace: "daw_project",
+                tool: "inspect_project", status: "success", arguments: {scope: "arrangement"},
+                contentItems: [{type: "inputText", text: "success"}]
             }
         ])
         expect(controller.conversation.getValue()

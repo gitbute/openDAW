@@ -1,15 +1,20 @@
 import css from "./CodexAgentPanel.sass?inline"
-import {createElement, replaceChildren} from "@opendaw/lib-jsx"
-import {Events, Html} from "@opendaw/lib-dom"
+import {createElement} from "@opendaw/lib-jsx"
+import {Clipboard, Events, Html} from "@opendaw/lib-dom"
 import {DefaultObservableValue, Lifecycle} from "@opendaw/lib-std"
 import {IconSymbol} from "@opendaw/studio-enums"
 import {StudioService} from "@/service/StudioService"
-import {CodexAgentController, CodexConversationEntry} from "@/codex/CodexAgentController"
+import type {CodexAgentController, CodexConversationEntry} from "@/codex/CodexAgentController"
+import {
+    CodexTranscriptFollowState,
+    serializeCodexConversation
+} from "@/codex/CodexTranscript"
 import {Button} from "@/ui/components/Button"
 import {Checkbox} from "@/ui/components/Checkbox"
 import {Icon, IconCartridge} from "@/ui/components/Icon"
 import {installScrollbars} from "@/ui/components/Scrollbars"
 import {DropDown} from "@/ui/composite/DropDown"
+import {renderMarkdown} from "@/ui/Markdown"
 
 const className = Html.adoptStyleSheet(css, "CodexAgentPanel")
 
@@ -31,31 +36,93 @@ const effortLabel = (value: string | null): string => {
 const toolName = (entry: Extract<CodexConversationEntry, {type: "tool"}>): string =>
     entry.namespace === null ? entry.tool : `${entry.namespace}.${entry.tool}`
 
-const renderEntry = (entry: CodexConversationEntry): HTMLElement => {
+type EntryView = {
+    readonly element: HTMLElement
+    update(entry: CodexConversationEntry): void
+}
+
+const entryKey = (entry: CodexConversationEntry): string => {
     switch (entry.type) {
-        case "user":
-            return <div className="entry user">
+        case "user": return `user:${entry.id}`
+        case "assistant": return `assistant:${entry.itemId}`
+        case "reasoning": return `reasoning:${entry.itemId}:${entry.summaryIndex ?? "none"}`
+        case "tool": return `tool:${entry.itemId}`
+    }
+}
+
+const createEntryView = (entry: CodexConversationEntry): EntryView => {
+    switch (entry.type) {
+        case "user": {
+            const text: HTMLElement = <div className="text"/>
+            const element: HTMLElement = <div className="entry user">
                 <div className="label">You</div>
-                <div className="text">{entry.text}</div>
+                {text}
             </div>
-        case "assistant":
-            return <div className={`entry assistant${entry.complete ? " complete" : ""}`}>
+            return {
+                element,
+                update: next => {
+                    if (next.type === "user") {text.textContent = next.text}
+                }
+            }
+        }
+        case "assistant": {
+            const text: HTMLElement = <div className="text"/>
+            const element: HTMLElement = <div className="entry assistant">
                 <div className="label">Codex</div>
-                <div className="text">{entry.text}</div>
+                {text}
             </div>
-        case "reasoning":
-            return <details className={`entry reasoning${entry.complete ? " complete" : ""}`} open={!entry.complete}>
-                <summary className="reasoning-header">⌁ Thinking</summary>
-                <div className="reasoning-text">{entry.text}</div>
+            return {
+                element,
+                update: next => {
+                    if (next.type !== "assistant") {return}
+                    element.classList.toggle("complete", next.complete)
+                    renderMarkdown(text, next.text)
+                }
+            }
+        }
+        case "reasoning": {
+            const text: HTMLElement = <div className="reasoning-text"/>
+            const summary: HTMLElement = <summary className="reasoning-header">⌁ Thinking</summary>
+            const element: HTMLDetailsElement = <details className="entry reasoning" open={!entry.complete}>
+                {summary}
+                {text}
             </details>
-        case "tool":
-            return <div className={`entry tool ${entry.status}`}>
-                <div className="tool-line">
-                    <span className="tool-status">{entry.status === "running" ? "…" : entry.status === "success" ? "✓" : "×"}</span>
-                    <span className="tool-name">{toolName(entry)}</span>
-                </div>
-                {entry.error === undefined ? null : <div className="tool-error">{entry.error}</div>}
+            let complete = entry.complete
+            let manuallyToggled = false
+            summary.onclick = () => {manuallyToggled = true}
+            return {
+                element,
+                update: next => {
+                    if (next.type !== "reasoning") {return}
+                    element.classList.toggle("complete", next.complete)
+                    if (next.complete && !complete && !manuallyToggled) {element.open = false}
+                    complete = next.complete
+                    renderMarkdown(text, next.text)
+                }
+            }
+        }
+        case "tool": {
+            const status: HTMLElement = <span className="tool-status"/>
+            const name: HTMLElement = <span className="tool-name"/>
+            const error: HTMLElement = <div className="tool-error hidden"/>
+            const element: HTMLElement = <div className="entry tool">
+                <div className="tool-line">{status}{name}</div>
+                {error}
             </div>
+            return {
+                element,
+                update: next => {
+                    if (next.type !== "tool") {return}
+                    element.classList.toggle("running", next.status === "running")
+                    element.classList.toggle("success", next.status === "success")
+                    element.classList.toggle("failed", next.status === "failed")
+                    status.textContent = next.status === "running" ? "…" : next.status === "success" ? "✓" : "×"
+                    name.textContent = toolName(next)
+                    error.textContent = next.error ?? ""
+                    error.classList.toggle("hidden", next.error === undefined)
+                }
+            }
+        }
     }
 }
 
@@ -64,6 +131,25 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
     const transcript: HTMLElement = (
         <div className="transcript" onConnect={host => lifecycle.own(installScrollbars(host))}/>
     )
+    const followState = new CodexTranscriptFollowState()
+    const latestButton: HTMLButtonElement = <button className="latest-button hidden" type="button">↓ Latest</button>
+    const updateLatestButton = () => latestButton.classList.toggle("hidden", !followState.hasNewActivity)
+    const scrollMetrics = () => ({
+        scrollTop: transcript.scrollTop,
+        scrollHeight: transcript.scrollHeight,
+        clientHeight: transcript.clientHeight
+    })
+    const scrollToLatest = () => {
+        followState.followToLatest()
+        transcript.scrollTop = transcript.scrollHeight
+        updateLatestButton()
+    }
+    latestButton.onclick = scrollToLatest
+    const transcriptContainer: HTMLElement = <div className="transcript-container">
+        {transcript}
+        {latestButton}
+    </div>
+    const entryViews = new Map<string, EntryView>()
     const connectionLabel: HTMLElement = <span className="connection-label"/>
     const accountLabel: HTMLElement = <span className="account-label"/>
     const retryButton: HTMLElement = <Button lifecycle={lifecycle}
@@ -94,6 +180,21 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
                                               appearance={{framed: true, landscape: true}}
                                               onClick={() => void submit()}>
         <IconCartridge lifecycle={lifecycle} symbol={sendIcon}/>
+    </Button>
+    const copyTranscript = async () => {
+        await Clipboard.writeText(serializeCodexConversation(controller.conversation.getValue(), {
+            model: controller.selectedModel.getValue(),
+            effort: controller.selectedEffort.getValue(),
+            threadId: controller.threadId,
+            activeTurnId: controller.activeTurnId.getValue()
+        }))
+    }
+    const copyButton: HTMLElement = <Button lifecycle={lifecycle}
+                                              className="copy-button"
+                                              appearance={{framed: true}}
+                                              onClick={() => void copyTranscript()}>
+        <Icon symbol={IconSymbol.Copy}/>
+        Copy
     </Button>
 
     const updateConnection = () => {
@@ -128,8 +229,29 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
     }
 
     const updateTranscript = () => {
-        replaceChildren(transcript, controller.conversation.getValue().map(renderEntry))
-        transcript.scrollTop = transcript.scrollHeight
+        const shouldFollow = followState.onContentChanged(scrollMetrics())
+        const seen = new Set<string>()
+        let cursor: ChildNode | null = transcript.firstChild
+        for (const entry of controller.conversation.getValue()) {
+            const key = entryKey(entry)
+            const view = entryViews.get(key) ?? (() => {
+                const created = createEntryView(entry)
+                entryViews.set(key, created)
+                return created
+            })()
+            view.update(entry)
+            seen.add(key)
+            if (view.element !== cursor) {transcript.insertBefore(view.element, cursor)}
+            cursor = view.element.nextSibling
+        }
+        for (const [key, view] of entryViews) {
+            if (!seen.has(key)) {
+                view.element.remove()
+                entryViews.delete(key)
+            }
+        }
+        if (shouldFollow) {transcript.scrollTop = transcript.scrollHeight}
+        updateLatestButton()
     }
 
     const submit = async () => {
@@ -151,6 +273,10 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
     lifecycle.own(controller.error.catchupAndSubscribe(updateError))
     lifecycle.own(controller.turnRunning.catchupAndSubscribe(updateTurn))
     lifecycle.own(controller.conversation.catchupAndSubscribe(updateTranscript))
+    lifecycle.own(Events.subscribe(transcript, "scroll", () => {
+        followState.onScroll(scrollMetrics())
+        updateLatestButton()
+    }, {passive: true}))
 
     lifecycle.own(Events.subscribe(textArea, "keydown", (event: KeyboardEvent) => {
         if (event.key === "Enter" && !event.shiftKey) {
@@ -184,8 +310,9 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
             <Checkbox lifecycle={lifecycle} model={controller.debugEnabled}>
                 <span>Debug</span>
             </Checkbox>
+            {copyButton}
         </div>
-        {transcript}
+        {transcriptContainer}
         {errorRow}
         <div className="composer">
             {textArea}
