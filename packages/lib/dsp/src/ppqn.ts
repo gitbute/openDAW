@@ -8,13 +8,29 @@ export type seconds = number
 export type samples = number
 export type bpm = number
 
+export type PPQNParts = Readonly<{
+    bars: int
+    beats: int
+    semiquavers: int
+    ticks: int
+}>
+
 // WASM CONTRACT: PPQN (Quarter = 960) and the conversion formulas below are mirrored in Rust
 // (crates/transport ppqn.rs). Changing the value or the math diverges TS and WASM timing.
 const Quarter = 960 as const
-const Bar: ppqn = Quarter << 2 // 3_840
-const SemiQuaver: ppqn = Quarter >>> 2 // 240
+const Crotchet = Quarter
+const Quaver = Quarter / 2 // 480
+const SemiQuaver = Quarter / 4 // 240
+const Eighth = Quaver
+const Sixteenth = SemiQuaver
+const Half = Quarter * 2 // 1_920
+const Whole = Quarter * 4 // 3_840
+const Bar: ppqn = Whole
 const fromSignature = (nominator: int, denominator: int) => Math.floor(Bar / denominator) * nominator
-const toParts = (ppqn: ppqn, nominator: int = 4, denominator: int = 4) => {
+const fromParts = ({bars, beats, semiquavers, ticks}: PPQNParts,
+                   nominator: int = 4, denominator: int = 4): ppqn =>
+    fromSignature(bars * nominator + beats, denominator) + semiquavers * SemiQuaver + ticks
+const toParts = (ppqn: ppqn, nominator: int = 4, denominator: int = 4): PPQNParts => {
     const lowerPulses = fromSignature(1, denominator)
     const beats = Math.floor(ppqn / lowerPulses)
     const bars = Math.floor(beats / nominator)
@@ -30,6 +46,11 @@ const toParts = (ppqn: ppqn, nominator: int = 4, denominator: int = 4) => {
     } as const
 }
 
+// These helpers intentionally operate on canonical musical distances. They do
+// not depend on tempo; BPM only enters the seconds/pulses conversion below.
+const Triplet = (duration: ppqn): ppqn => Math.round(duration * 2 / 3)
+const Dotted = (duration: ppqn): ppqn => Math.round(duration * 3 / 2)
+
 const secondsToPulses = (seconds: seconds, bpm: bpm): ppqn => seconds * bpm / 60.0 * Quarter
 const pulsesToSeconds = (pulses: ppqn, bpm: bpm): seconds => (pulses * 60.0 / Quarter) / bpm
 const secondsToBpm = (seconds: seconds, pulses: ppqn): bpm => (pulses * 60.0 / Quarter) / seconds
@@ -39,9 +60,18 @@ const pulsesToSamples = (pulses: ppqn, bpm: bpm, sampleRate: number): number => 
 export const PPQN = {
     Bar,
     Quarter,
+    Crotchet,
+    Quaver,
     SemiQuaver,
+    Eighth,
+    Sixteenth,
+    Half,
+    Whole,
     fromSignature,
+    fromParts,
     toParts,
+    Triplet,
+    Dotted,
     secondsToPulses,
     pulsesToSeconds,
     secondsToBpm,

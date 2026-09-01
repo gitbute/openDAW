@@ -15,9 +15,32 @@ export namespace Neon {
     export const LineSelect = ["1", "2", "1+1'", "1+2'"]
     export const Modulation = ["Off", "Ring", "Noise"]
     export const VibratoWaves = ["Triangle", "Saw Up", "Saw Down", "Square"]
+    export const EnvelopeKinds = ["pitch", "dcw", "dca"] as const
+    export type EnvelopeKind = typeof EnvelopeKinds[number]
+
+    export type EnvelopeContext = {
+        readonly index: number
+        /** Zero-based line index used by the Neon box model. */
+        readonly line: 0 | 1
+        readonly kind: EnvelopeKind
+        readonly label: string
+    }
+
     // The `envelopes` array order: line1 pitch, line1 DCW, line1 DCA, line2 pitch, line2 DCW, line2 DCA.
     export const envelopeIndex = (line: 0 | 1, kind: "pitch" | "dcw" | "dca"): number =>
         line * 3 + (kind === "pitch" ? 0 : kind === "dcw" ? 1 : 2)
+
+    /** Resolve a Neon envelope array index into its canonical musical context. */
+    export const envelopeContext = (index: number): EnvelopeContext | undefined => {
+        if (!Number.isInteger(index) || index < 0 || index >= 6) {return undefined}
+        const line = Math.floor(index / EnvelopeKinds.length) as 0 | 1
+        const kind = EnvelopeKinds[index % EnvelopeKinds.length]
+        const label = kind === "pitch" ? "Pitch" : kind.toUpperCase()
+        return {index, line, kind, label: `Line ${line + 1} ${label} Envelope`}
+    }
+
+    export const envelopeContexts = (): ReadonlyArray<EnvelopeContext> =>
+        Array.from({length: 6}, (_, index) => envelopeContext(index)!)
 }
 
 export class NeonDeviceBoxAdapter implements InstrumentDeviceBoxAdapter {

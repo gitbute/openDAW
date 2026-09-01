@@ -13,6 +13,7 @@ import {
     UUID
 } from "@opendaw/lib-std"
 import {AudioData, ppqn} from "@opendaw/lib-dsp"
+import {LiveStreamReceiver} from "@opendaw/lib-fusion"
 import {ApparatDeviceBox, SpielwerkDeviceBox, WerkstattDeviceBox} from "@opendaw/studio-boxes"
 import {Communicator, Messenger, Promises, Wait} from "@opendaw/lib-runtime"
 import {AnimationFrame} from "@opendaw/lib-dom"
@@ -26,8 +27,10 @@ import {
     NoteSignal,
     OfflineEngineInitializeConfig,
     OfflineEngineProtocol,
-    OfflineEngineRenderConfig
-, ScriptCompiler} from "@opendaw/studio-adapters"
+    OfflineEngineRenderConfig,
+    ScriptCompiler,
+    ScriptDeviceConfigs
+} from "@opendaw/studio-adapters"
 import {Project} from "./project"
 import {AudioWorklets} from "./AudioWorklets"
 import {MIDIReceiver} from "./midi"
@@ -149,7 +152,8 @@ export class OfflineEngineRenderer {
 
         channel.port2.start()
 
-        terminator.own(source.liveStreamReceiver.connect(engineMessenger.channel("engine-live-data")))
+        const liveStreamReceiver = terminator.own(new LiveStreamReceiver())
+        terminator.own(liveStreamReceiver.connect(engineMessenger.channel("engine-live-data")))
 
         const {port, sab} = terminator.own(MIDIReceiver.create(() => 0,
             (deviceId, data, relativeTimeInMs) => source.receivedMIDIFromEngine(deviceId, data, relativeTimeInMs)))
@@ -173,17 +177,23 @@ export class OfflineEngineRenderer {
                 if (box instanceof WerkstattDeviceBox) {
                     await loadScriptDevice(box.code.getValue(),
                         /^\/\/ @werkstatt (\w+) (\d+) (\d+)\n/,
-                        "werkstatt", "werkstattProcessors", "werkstatt",
+                        ScriptDeviceConfigs.Werkstatt.headerTag,
+                        ScriptDeviceConfigs.Werkstatt.registryName,
+                        ScriptDeviceConfigs.Werkstatt.functionName,
                         UUID.toString(box.address.uuid))
                 } else if (box instanceof SpielwerkDeviceBox) {
                     await loadScriptDevice(box.code.getValue(),
                         /^\/\/ @spielwerk (\w+) (\d+) (\d+)\n/,
-                        "spielwerk", "spielwerkProcessors", "spielwerk",
+                        ScriptDeviceConfigs.Spielwerk.headerTag,
+                        ScriptDeviceConfigs.Spielwerk.registryName,
+                        ScriptDeviceConfigs.Spielwerk.functionName,
                         UUID.toString(box.address.uuid))
                 } else if (box instanceof ApparatDeviceBox) {
                     await loadScriptDevice(box.code.getValue(),
                         /^\/\/ @apparat (\w+) (\d+) (\d+)\n/,
-                        "apparat", "apparatProcessors", "apparat",
+                        ScriptDeviceConfigs.Apparat.headerTag,
+                        ScriptDeviceConfigs.Apparat.registryName,
+                        ScriptDeviceConfigs.Apparat.functionName,
                         UUID.toString(box.address.uuid))
                 }
             }

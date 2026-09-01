@@ -5,7 +5,7 @@
 import {describe, expect, it} from "vitest"
 import {UUID} from "@opendaw/lib-std"
 import {ApparatDeviceBox, AudioUnitBox, CaptureMidiBox, StereoToolDeviceBox} from "@opendaw/studio-boxes"
-import {ProjectSkeleton, ScriptCompiler} from "@opendaw/studio-adapters"
+import {ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./helpers/load-full-engine"
 import {connectSyncToEngine} from "./helpers/connect-sync"
 
@@ -29,7 +29,7 @@ const build = (fxVolumeDb: number | null) => {
         })
     }
     source.endTransaction()
-    new Function(ScriptCompiler.wrap({headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"}, UUID.toString(apparat.address.uuid), 1, SILENT))()
+    new Function(ScriptCompiler.wrap(ScriptDeviceConfigs.Apparat, UUID.toString(apparat.address.uuid), 1, SILENT))()
     return {source, unit}
 }
 

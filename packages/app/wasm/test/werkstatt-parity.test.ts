@@ -8,7 +8,7 @@
 import {describe, expect, it} from "vitest"
 import {UUID} from "@opendaw/lib-std"
 import {AudioUnitBox, VaporisateurDeviceBox, WerkstattDeviceBox, WerkstattParameterBox} from "@opendaw/studio-boxes"
-import {ProjectSkeleton, ScriptCompiler} from "@opendaw/studio-adapters"
+import {ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./helpers/load-full-engine"
 import {connectSyncToEngine} from "./helpers/connect-sync"
 import {maxDiff} from "./helpers/render-harness"
@@ -61,7 +61,7 @@ describe("werkstatt parity", () => {
 
         // Seed the user script into the worklet global (as the app does via audioWorklet.addModule).
         new Function(ScriptCompiler.wrap(
-            {headerTag: "werkstatt", registryName: "werkstattProcessors", functionName: "werkstatt"}, uuid, 1, CODE))()
+            ScriptDeviceConfigs.Werkstatt, uuid, 1, CODE))()
 
         const {engine, memory} = await loadFullEngine()
         const sync = connectSyncToEngine(engine, memory, source)

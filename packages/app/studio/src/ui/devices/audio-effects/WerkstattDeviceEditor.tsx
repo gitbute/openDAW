@@ -1,6 +1,6 @@
 import defaultCode from "./werkstatt-default.js?raw"
 import starterPrompt from "./werkstatt-starter-prompt.txt?raw"
-import {DeviceHost, WerkstattDeviceBoxAdapter} from "@opendaw/studio-adapters"
+import {DeviceHost, ScriptDeviceConfigs, WerkstattDeviceBoxAdapter} from "@opendaw/studio-adapters"
 import {Lifecycle} from "@opendaw/lib-std"
 import {createElement} from "@opendaw/lib-jsx"
 import {DevicePeakMeter} from "@/ui/devices/panel/DevicePeakMeter.tsx"
@@ -11,7 +11,7 @@ import {WerkstattExamples} from "./werkstatt-examples"
 import {ScriptDeviceEditor, ScriptDeviceEditorConfig} from "@/ui/devices/ScriptDeviceEditor"
 
 const config: ScriptDeviceEditorConfig = {
-    compiler: {headerTag: "werkstatt", registryName: "werkstattProcessors", functionName: "werkstatt"},
+    compiler: ScriptDeviceConfigs.Werkstatt,
     defaultCode,
     examples: WerkstattExamples,
     starterPrompt,

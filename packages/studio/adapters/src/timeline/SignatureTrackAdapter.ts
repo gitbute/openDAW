@@ -11,7 +11,7 @@ import {
     UUID
 } from "@opendaw/lib-std"
 import {BoxAdaptersContext} from "../BoxAdaptersContext"
-import {ppqn, PPQN} from "@opendaw/lib-dsp"
+import {ppqn, PPQN, PPQNParts} from "@opendaw/lib-dsp"
 import {SignatureEventBoxAdapter} from "./SignatureEventBoxAdapter"
 import {Signature, SignatureEventBox, SignatureTrack, TimelineBox} from "@opendaw/studio-boxes"
 import {IndexedBoxAdapterCollection} from "../IndexedBoxAdapterCollection"
@@ -284,6 +284,21 @@ export class SignatureTrackAdapter implements Terminable {
         const {event} = this.#findSignatureEventAt(position)
         const parts = PPQN.toParts(position - event.accumulatedPpqn, event.nominator, event.denominator)
         return {...parts, bars: parts.bars + event.accumulatedBars}
+    }
+
+    /** Resolve the zero-based parts returned by `toParts` through the active signature map. */
+    fromParts(parts: PPQNParts): ppqn {
+        let active = Array.from(this.iterateAll())[0]
+        for (const event of this.iterateAll()) {
+            if (event.accumulatedBars > parts.bars) {break}
+            active = event
+        }
+        return active.accumulatedPpqn + PPQN.fromParts({
+            bars: parts.bars - active.accumulatedBars,
+            beats: parts.beats,
+            semiquavers: parts.semiquavers,
+            ticks: parts.ticks
+        }, active.nominator, active.denominator)
     }
 
     barLengthAt(position: ppqn): ppqn {

@@ -9,7 +9,7 @@ import {ContextMenu, FilePickerAcceptTypes, MenuItem} from "@opendaw/studio-core
 import {PointerField} from "@opendaw/lib-box"
 import {Pointers} from "@opendaw/studio-enums"
 import {DragAndDrop} from "@/ui/DragAndDrop"
-import {Sample} from "@opendaw/studio-adapters"
+import {Sample, SampleAssignment} from "@opendaw/studio-adapters"
 
 export interface SampleSelectStrategy {
     isAttached(): boolean
@@ -20,35 +20,13 @@ export interface SampleSelectStrategy {
 export namespace SampleSelectStrategy {
     export const changePointer = (filePointer: PointerField<Pointers.AudioFile>,
                                   replacement: Option<AudioFileBox>): void => {
-        if (!filePointer.box.isAttached()) {return}
-        replacement.match({
-            none: () => filePointer.box.delete(),
-            some: newFile => filePointer.targetVertex.match({
-                none: () => filePointer.refer(newFile), // just refer
-                some: ({box: existingFile}) => {
-                    if (UUID.equals(newFile.address.uuid, existingFile.address.uuid)) {
-                        console.debug("Same Sample. Ignore.")
-                    } else {
-                        const mustDelete = existingFile.pointerHub.size() === 1 // filePointer was the only pointer > delete
-                        filePointer.refer(newFile)
-                        if (mustDelete) {
-                            existingFile.delete()
-                        }
-                    }
-                }
-            })
-        })
+        SampleAssignment.changePointer(filePointer, replacement)
     }
 
     // Clear the pointer only (the owner box SURVIVES), deleting the target AudioFileBox when this
     // was its last pointer. The remove path for pointers living on a DEVICE box (Convolver, Nano).
     export const clearPointer = (filePointer: PointerField<Pointers.AudioFile>): void => {
-        if (!filePointer.box.isAttached()) {return}
-        filePointer.targetVertex.ifSome(({box: existingFile}) => {
-            const mustDelete = existingFile.pointerHub.size() === 1
-            filePointer.defer()
-            if (mustDelete) {existingFile.delete()}
-        })
+        SampleAssignment.clearPointer(filePointer)
     }
 
     // For a pointer on a dedicated per-sample box (a Playfield slot): removing the sample removes the box.
@@ -84,11 +62,11 @@ export class SampleSelector {
         const {project: {boxGraph, editing}} = this.#service
         const {uuid: uuidAsString, name} = sample
         const uuid = UUID.parse(uuidAsString)
-        editing.modify(() => this.#strategy.replace(Option.wrap(boxGraph.findBox<AudioFileBox>(uuid)
-            .unwrapOrElse(() => AudioFileBox.create(boxGraph, uuid, box => {
-                box.fileName.setValue(name)
-                box.endInSeconds.setValue(sample.duration)
-            })))))
+        editing.modify(() => this.#strategy.replace(Option.wrap(SampleAssignment.ensureFile(boxGraph, {
+            uuid,
+            name,
+            durationInSeconds: sample.duration
+        }))))
     }
 
     replaceSample(replacement: Option<AudioFileBox>) {

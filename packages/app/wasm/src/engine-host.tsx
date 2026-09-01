@@ -3,7 +3,7 @@ import {ByteArrayInput, Lifecycle, MutableObservableOption, Procedure, UUID} fro
 import {Communicator, Messenger} from "@opendaw/lib-runtime"
 import {Synchronization, SyncSource, UpdateTask} from "@opendaw/lib-box"
 import {ApparatDeviceBox, BoxIO, SpielwerkDeviceBox, WerkstattDeviceBox} from "@opendaw/studio-boxes"
-import {EngineStateSchema, ProjectSkeleton, ScriptCompiler} from "@opendaw/studio-adapters"
+import {EngineStateSchema, ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs} from "@opendaw/studio-adapters"
 import {PPQN} from "@opendaw/lib-dsp"
 import {SampleInfo, SampleLoader} from "./sample-loader"
 import {SoundfontInfo, SoundfontLoader} from "./soundfont-loader"
@@ -32,11 +32,11 @@ const loadScriptDevices = async (audioContext: BaseAudioContext, boxGraph: Engin
     const pending: Array<Promise<void>> = []
     for (const box of boxGraph.boxes()) {
         if (box instanceof ApparatDeviceBox) {
-            pending.push(load({headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"}, box))
+            pending.push(load(ScriptDeviceConfigs.Apparat, box))
         } else if (box instanceof WerkstattDeviceBox) {
-            pending.push(load({headerTag: "werkstatt", registryName: "werkstattProcessors", functionName: "werkstatt"}, box))
+            pending.push(load(ScriptDeviceConfigs.Werkstatt, box))
         } else if (box instanceof SpielwerkDeviceBox) {
-            pending.push(load({headerTag: "spielwerk", registryName: "spielwerkProcessors", functionName: "spielwerk"}, box))
+            pending.push(load(ScriptDeviceConfigs.Spielwerk, box))
         }
     }
     await Promise.all(pending)

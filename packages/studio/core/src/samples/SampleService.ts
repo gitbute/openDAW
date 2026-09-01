@@ -20,6 +20,8 @@ export class SampleService extends AssetService<Sample, AudioData> {
 
     constructor(readonly audioContext: AudioContext, readonly bpmDetector: BpmDetector) {super()}
 
+    async list(): Promise<ReadonlyArray<Sample>> {return this.collectAllFiles()}
+
     async importRecording(audioData: AudioData, bpm: number, name: string = "Recording"): Promise<Sample> {
         // A sample MUST have a positive length. A zero-frame take would become a duration-0 sample and, once
         // dropped, a duration-0 region that later trips validateTrack ("duration must be positive"). Reject it

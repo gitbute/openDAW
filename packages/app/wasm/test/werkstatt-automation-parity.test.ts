@@ -8,7 +8,7 @@ import {describe, expect, it} from "vitest"
 import {UUID, ValueMapping} from "@opendaw/lib-std"
 import {Interpolation} from "@opendaw/lib-dsp"
 import {AudioUnitBox, ValueEventBox, ValueEventCollectionBox, ValueRegionBox, VaporisateurDeviceBox, TrackBox, WerkstattDeviceBox, WerkstattParameterBox} from "@opendaw/studio-boxes"
-import {InterpolationFieldAdapter, ProjectSkeleton, ScriptCompiler, TrackType} from "@opendaw/studio-adapters"
+import {InterpolationFieldAdapter, ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs, TrackType} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./helpers/load-full-engine"
 import {connectSyncToEngine} from "./helpers/connect-sync"
 import {maxDiff} from "./helpers/render-harness"
@@ -86,7 +86,7 @@ describe("werkstatt automation parity", () => {
         const uuid = UUID.toString(werkstatt.address.uuid)
 
         new Function(ScriptCompiler.wrap(
-            {headerTag: "werkstatt", registryName: "werkstattProcessors", functionName: "werkstatt"}, uuid, 1, CODE))()
+            ScriptDeviceConfigs.Werkstatt, uuid, 1, CODE))()
 
         const {engine, memory} = await loadFullEngine()
         const sync = connectSyncToEngine(engine, memory, source)

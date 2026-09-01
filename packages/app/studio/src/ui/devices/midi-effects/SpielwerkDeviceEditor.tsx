@@ -1,6 +1,6 @@
 import defaultCode from "./spielwerk-default.js?raw"
 import starterPrompt from "./spielwerk-starter-prompt.txt?raw"
-import {DeviceHost, SpielwerkDeviceBoxAdapter} from "@opendaw/studio-adapters"
+import {DeviceHost, ScriptDeviceConfigs, SpielwerkDeviceBoxAdapter} from "@opendaw/studio-adapters"
 import {Lifecycle} from "@opendaw/lib-std"
 import {createElement} from "@opendaw/lib-jsx"
 import {IconSymbol} from "@opendaw/studio-enums"
@@ -10,7 +10,7 @@ import {SpielwerkExamples} from "./spielwerk-examples"
 import {ScriptDeviceEditor, ScriptDeviceEditorConfig} from "@/ui/devices/ScriptDeviceEditor"
 
 const config: ScriptDeviceEditorConfig = {
-    compiler: {headerTag: "spielwerk", registryName: "spielwerkProcessors", functionName: "spielwerk"},
+    compiler: ScriptDeviceConfigs.Spielwerk,
     defaultCode,
     examples: SpielwerkExamples,
     starterPrompt,

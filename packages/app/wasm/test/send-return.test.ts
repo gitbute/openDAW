@@ -8,7 +8,7 @@ import {describe, expect, it} from "vitest"
 import {UUID} from "@opendaw/lib-std"
 import {ApparatDeviceBox, AudioBusBox, AudioUnitBox, AuxSendBox, NoteEventBox, NoteEventCollectionBox, NoteRegionBox, TrackBox} from "@opendaw/studio-boxes"
 import type {BoxGraph} from "@opendaw/lib-box"
-import {ProjectSkeleton, ScriptCompiler, TrackType} from "@opendaw/studio-adapters"
+import {ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs, TrackType} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./helpers/load-full-engine"
 import {connectSyncToEngine} from "./helpers/connect-sync"
 
@@ -61,7 +61,7 @@ const addSineInstrument = (source: BoxGraph, unit: AudioUnitBox): string => {
 }
 
 const registerApparat = (uuid: string) => new Function(ScriptCompiler.wrap(
-    {headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"}, uuid, 1, SYNTH))()
+    ScriptDeviceConfigs.Apparat, uuid, 1, SYNTH))()
 
 const renderPeak = async (source: BoxGraph, quanta = 48): Promise<number> => {
     const {engine, memory} = await loadFullEngine()

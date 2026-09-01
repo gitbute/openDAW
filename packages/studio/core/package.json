@@ -28,7 +28,8 @@
     "dist/ffmpeg/FFmpegWorker.js"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "npm run generate-control-api && tsc",
+    "generate-control-api": "node --experimental-strip-types scripts/generate-control-api.ts",
     "lint": "eslint \"**/*.ts\"",
     "test": "vitest run --config vitest.config.ts"
   },

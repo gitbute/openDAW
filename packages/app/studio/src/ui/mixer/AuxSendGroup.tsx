@@ -1,11 +1,10 @@
 import css from "./AuxSendGroup.sass?inline"
 import {Lifecycle, SortedSet, StringComparator, Terminator, UUID} from "@opendaw/lib-std"
-import {AudioBusFactory, AudioUnitBoxAdapter, AuxSendBoxAdapter} from "@opendaw/studio-adapters"
-import {AudioUnitType, Colors, IconSymbol} from "@opendaw/studio-enums"
+import {AudioUnitBoxAdapter, AuxSendBoxAdapter} from "@opendaw/studio-adapters"
+import {Colors, IconSymbol} from "@opendaw/studio-enums"
 import {AuxSend} from "@/ui/mixer/AuxSend.tsx"
 import {createElement} from "@opendaw/lib-jsx"
 import {MenuItem, Project} from "@opendaw/studio-core"
-import {AuxSendBox} from "@opendaw/studio-boxes"
 import {MenuButton} from "@/ui/components/MenuButton.tsx"
 import {Icon} from "../components/Icon"
 import {showNewAudioBusOrAuxDialog} from "@/ui/dialogs.tsx"
@@ -42,14 +41,8 @@ export const AuxSendGroup = ({lifecycle, project, audioUnitAdapter}: Construct) 
                     label: auxSendAdapter.labelField.getValue(),
                     icon: auxSendAdapter.deviceHost().audioUnitBoxAdapter().input.icon,
                     selectable: !currentAuxSends.some(send => send.targetBus.box.address.equals(auxSendAdapter.address))
-                }).setTriggerProcedure(() => project.editing.modify(() => {
-                    AuxSendBox.create(project.boxGraph, UUID.generate(), box => {
-                        box.audioUnit.refer(audioUnitAdapter.box.auxSends)
-                        box.routing.setValue(0)
-                        box.sendGain.setValue(-6.0)
-                        box.targetBus.refer(auxSendAdapter.box.input)
-                        box.index.setValue(currentAuxSends.length)
-                    })
+                                }).setTriggerProcedure(() => project.editing.modify(() => {
+                    project.api.createAuxSend(audioUnitAdapter.box, auxSendAdapter.box)
                 }, true)))
             parent
                 .addMenuItem(...availableSends)
@@ -59,17 +52,10 @@ export const AuxSendGroup = ({lifecycle, project, audioUnitAdapter}: Construct) 
                     separatorBefore: availableSends.length > 0
                 })
                     .setTriggerProcedure(() => showNewAudioBusOrAuxDialog("FX", ({name, icon}) => {
-                        const currentAuxSends = audioUnitAdapter.auxSends.adapters()
                         project.editing.modify(() => {
-                            const audioBusBox = AudioBusFactory.create(project.skeleton,
-                                name, icon, AudioUnitType.Aux, Colors.green)
-                            AuxSendBox.create(project.boxGraph, UUID.generate(), box => {
-                                box.audioUnit.refer(audioUnitAdapter.box.auxSends)
-                                box.targetBus.refer(audioBusBox.input)
-                                box.routing.setValue(0)
-                                box.sendGain.setValue(-6.0)
-                                box.index.setValue(currentAuxSends.length)
-                            })
+                            const audioBusBox = project.api.createAudioBus(name, "aux")
+                            audioBusBox.icon.setValue(IconSymbol.toName(icon))
+                            project.api.createAuxSend(audioUnitAdapter.box, audioBusBox)
                         })
                     }, IconSymbol.Effects)))
         })} style={{

@@ -6,7 +6,7 @@ import {describe, expect, it} from "vitest"
 import {UUID, ValueMapping} from "@opendaw/lib-std"
 import {Interpolation} from "@opendaw/lib-dsp"
 import {ApparatDeviceBox, AudioUnitBox, NoteEventBox, NoteEventCollectionBox, NoteRegionBox, RevampDeviceBox, TrackBox, ValueEventBox, ValueEventCollectionBox, ValueRegionBox} from "@opendaw/studio-boxes"
-import {InterpolationFieldAdapter, ProjectSkeleton, ScriptCompiler, TrackType} from "@opendaw/studio-adapters"
+import {InterpolationFieldAdapter, ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs, TrackType} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./helpers/load-full-engine"
 import {connectSyncToEngine} from "./helpers/connect-sync"
 
@@ -111,7 +111,7 @@ describe("revamp automation", () => {
         source.endTransaction()
         const uuid = UUID.toString(apparat.address.uuid)
         new Function(ScriptCompiler.wrap(
-            {headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"}, uuid, 1, SYNTH))()
+            ScriptDeviceConfigs.Apparat, uuid, 1, SYNTH))()
 
         // Sanity: the sweep spans a cutoff below and above 440 Hz, so the filter really opens.
         expect(ValueMapping.exponential(20, 20000).y(lowUnit)).toBeLessThan(440)

@@ -9,7 +9,7 @@ import * as path from "node:path"
 import {readFileSync} from "node:fs"
 import {isDefined, Nullable, UUID} from "@opendaw/lib-std"
 import {ApparatDeviceBox, AudioUnitBox, NeuralAmpDeviceBox, NeuralAmpModelBox, NoteEventBox, NoteEventCollectionBox, NoteRegionBox, TrackBox} from "@opendaw/studio-boxes"
-import {ProjectSkeleton, ScriptCompiler, TrackType} from "@opendaw/studio-adapters"
+import {ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs, TrackType} from "@opendaw/studio-adapters"
 import {loadFullEngine} from "./helpers/load-full-engine"
 import {connectSyncToEngine} from "./helpers/connect-sync"
 
@@ -84,7 +84,7 @@ const build = (modelJson: Nullable<string>, mix: number, mono: boolean = true) =
     })
     source.endTransaction()
     new Function(ScriptCompiler.wrap(
-        {headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"}, apparatUuid, 1, SYNTH))()
+        ScriptDeviceConfigs.Apparat, apparatUuid, 1, SYNTH))()
     return source
 }
 

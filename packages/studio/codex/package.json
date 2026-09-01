@@ -1,0 +1,32 @@
+{
+  "name": "@opendaw/studio-codex",
+  "version": "0.0.0",
+  "private": true,
+  "license": "LGPL-3.0-or-later",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint \"src/**/*.ts\" --ignore-pattern \"**/*.test.ts\"",
+    "test": "vitest run --config vitest.config.ts",
+    "smoke": "vite-node scripts/smoke.ts"
+  },
+  "dependencies": {
+    "@opendaw/studio-core": "^0.2.4"
+  },
+  "devDependencies": {
+    "@opendaw/eslint-config": "^0.0.28",
+    "@opendaw/typescript-config": "^0.0.32",
+    "vite-node": "^3.2.4"
+  }
+}

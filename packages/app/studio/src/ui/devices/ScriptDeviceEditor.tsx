@@ -229,11 +229,7 @@ export const ScriptDeviceEditor = ({lifecycle, service, adapter, deviceHost, con
             isAttached: () => sample.isAttached(),
             hasSample: () => sample.file.nonEmpty(),
             replace: (replacement) => replacement.match({
-                none: () => sample.file.targetVertex.ifSome(({box: fileBox}) => {
-                    const mustDelete = fileBox.pointerHub.size() === 1
-                    sample.file.defer()
-                    if (mustDelete) {fileBox.delete()}
-                }),
+                none: () => SampleSelectStrategy.clearPointer(sample.file),
                 some: () => SampleSelectStrategy.changePointer(sample.file, replacement)
             })
         })

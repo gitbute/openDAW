@@ -1,8 +1,15 @@
 import {asDefined, int, isDefined, isNotNull, Option, Procedure, UUID} from "@opendaw/lib-std"
-import {Box} from "@opendaw/lib-box"
-import {AudioUnitType, IconSymbol} from "@opendaw/studio-enums"
+import {Box, PrimitiveField, PrimitiveValues} from "@opendaw/lib-box"
+import {AudioUnitType, IconSymbol, VoicingMode} from "@opendaw/studio-enums"
 import {AudioBusBox, AudioUnitBox, AuxSendBox, TrackBox, VaporisateurDeviceBox} from "@opendaw/studio-boxes"
-import {AudioUnitFactory, CaptureBox, InstrumentFactories, ProjectSkeleton} from "@opendaw/studio-adapters"
+import {
+    AudioUnitFactory,
+    CaptureBox,
+    DeviceSemantics,
+    InstrumentFactories,
+    ProjectSkeleton,
+    SemanticFields
+} from "@opendaw/studio-adapters"
 import {AuxAudioUnitImpl, GroupAudioUnitImpl, InstrumentAudioUnitImpl, ProjectImpl, SendImpl} from "./impl"
 import {MIDIEffectFactory} from "./MIDIEffectFactory"
 import {AudioEffectFactory} from "./AudioEffectFactory"
@@ -143,90 +150,98 @@ export namespace AudioUnitBoxFactory {
     }
 
     const createVaporisateurWrapper = (box: VaporisateurDeviceBox): Vaporisateur => {
-        const oscFields = box.oscillators.fields()
+        const semantics = DeviceSemantics.forBox(box)
+        if (semantics === null) {throw new Error("No shared semantics for Vaporisateur")}
+        const fieldAt = <T extends PrimitiveValues>(path: string): PrimitiveField<T> => {
+            const field = SemanticFields.resolve(semantics.spec, path)
+            if (field === undefined) {throw new Error(`No shared Vaporisateur field at '${path}'`)}
+            return field as PrimitiveField<T>
+        }
+        const read = <T extends PrimitiveValues>(path: string): T => fieldAt<T>(path).getValue()
+        const write = <T extends PrimitiveValues>(path: string, value: T): void => fieldAt<T>(path).setValue(value)
         return {
             // Instrument base (readonly, not used in constructor)
             get audioUnit() {return undefined as any},
             // Filter
-            get cutoff() {return box.cutoff.getValue()},
-            set cutoff(v) {box.cutoff.setValue(v)},
-            get resonance() {return box.resonance.getValue()},
-            set resonance(v) {box.resonance.setValue(v)},
-            get filterOrder() {return box.filterOrder.getValue() as 1 | 2 | 3 | 4},
-            set filterOrder(v) {box.filterOrder.setValue(v)},
-            get filterEnvelope() {return box.filterEnvelope.getValue()},
-            set filterEnvelope(v) {box.filterEnvelope.setValue(v)},
-            get filterKeyboard() {return box.filterKeyboard.getValue()},
-            set filterKeyboard(v) {box.filterKeyboard.setValue(v)},
+            get cutoff() {return read<number>("cutoff")},
+            set cutoff(v) {write("cutoff", v)},
+            get resonance() {return read<number>("resonance")},
+            set resonance(v) {write("resonance", v)},
+            get filterOrder() {return read<number>("filterOrder") as 1 | 2 | 3 | 4},
+            set filterOrder(v) {write("filterOrder", v)},
+            get filterEnvelope() {return read<number>("filterEnvelope")},
+            set filterEnvelope(v) {write("filterEnvelope", v)},
+            get filterKeyboard() {return read<number>("filterKeyboard")},
+            set filterKeyboard(v) {write("filterKeyboard", v)},
             // Envelope
-            get attack() {return box.attack.getValue()},
-            set attack(v) {box.attack.setValue(v)},
-            get decay() {return box.decay.getValue()},
-            set decay(v) {box.decay.setValue(v)},
-            get sustain() {return box.sustain.getValue()},
-            set sustain(v) {box.sustain.setValue(v)},
-            get release() {return box.release.getValue()},
-            set release(v) {box.release.setValue(v)},
+            get attack() {return read<number>("attack")},
+            set attack(v) {write("attack", v)},
+            get decay() {return read<number>("decay")},
+            set decay(v) {write("decay", v)},
+            get sustain() {return read<number>("sustain")},
+            set sustain(v) {write("sustain", v)},
+            get release() {return read<number>("release")},
+            set release(v) {write("release", v)},
             // Voice
-            get voicingMode() {return box.voicingMode.getValue()},
-            set voicingMode(v) {box.voicingMode.setValue(v)},
-            get glideTime() {return box.glideTime.getValue()},
-            set glideTime(v) {box.glideTime.setValue(v)},
+            get voicingMode() {return read<number>("voicingMode") as VoicingMode},
+            set voicingMode(v) {write("voicingMode", v)},
+            get glideTime() {return read<number>("glideTime")},
+            set glideTime(v) {write("glideTime", v)},
             // Unison
-            get unisonCount() {return box.unisonCount.getValue() as 1 | 3 | 5},
-            set unisonCount(v) {box.unisonCount.setValue(v)},
-            get unisonDetune() {return box.unisonDetune.getValue()},
-            set unisonDetune(v) {box.unisonDetune.setValue(v)},
-            get unisonStereo() {return box.unisonStereo.getValue()},
-            set unisonStereo(v) {box.unisonStereo.setValue(v)},
+            get unisonCount() {return read<number>("unisonCount") as 1 | 3 | 5},
+            set unisonCount(v) {write("unisonCount", v)},
+            get unisonDetune() {return read<number>("unisonDetune")},
+            set unisonDetune(v) {write("unisonDetune", v)},
+            get unisonStereo() {return read<number>("unisonStereo")},
+            set unisonStereo(v) {write("unisonStereo", v)},
             // LFO
             lfo: {
-                get waveform() {return box.lfo.waveform.getValue()},
-                set waveform(v) {box.lfo.waveform.setValue(v)},
-                get rate() {return box.lfo.rate.getValue()},
-                set rate(v) {box.lfo.rate.setValue(v)},
-                get sync() {return box.lfo.sync.getValue()},
-                set sync(v) {box.lfo.sync.setValue(v)},
-                get targetTune() {return box.lfo.targetTune.getValue()},
-                set targetTune(v) {box.lfo.targetTune.setValue(v)},
-                get targetCutoff() {return box.lfo.targetCutoff.getValue()},
-                set targetCutoff(v) {box.lfo.targetCutoff.setValue(v)},
-                get targetVolume() {return box.lfo.targetVolume.getValue()},
-                set targetVolume(v) {box.lfo.targetVolume.setValue(v)}
+                get waveform() {return read<number>("lfo.waveform") as ClassicWaveform},
+                set waveform(v) {write("lfo.waveform", v)},
+                get rate() {return read<number>("lfo.rate")},
+                set rate(v) {write("lfo.rate", v)},
+                get sync() {return read<boolean>("lfo.sync")},
+                set sync(v) {write("lfo.sync", v)},
+                get targetTune() {return read<number>("lfo.targetTune")},
+                set targetTune(v) {write("lfo.targetTune", v)},
+                get targetCutoff() {return read<number>("lfo.targetCutoff")},
+                set targetCutoff(v) {write("lfo.targetCutoff", v)},
+                get targetVolume() {return read<number>("lfo.targetVolume")},
+                set targetVolume(v) {write("lfo.targetVolume", v)}
             },
             // Oscillators
             oscillators: [
                 {
-                    get waveform() {return oscFields[0].waveform.getValue()},
-                    set waveform(v) {oscFields[0].waveform.setValue(v)},
-                    get volume() {return oscFields[0].volume.getValue()},
-                    set volume(v) {oscFields[0].volume.setValue(v)},
-                    get octave() {return oscFields[0].octave.getValue()},
-                    set octave(v) {oscFields[0].octave.setValue(v)},
-                    get tune() {return oscFields[0].tune.getValue()},
-                    set tune(v) {oscFields[0].tune.setValue(v)}
+                    get waveform() {return read<number>("oscillators.0.waveform") as ClassicWaveform},
+                    set waveform(v) {write("oscillators.0.waveform", v)},
+                    get volume() {return read<number>("oscillators.0.volume")},
+                    set volume(v) {write("oscillators.0.volume", v)},
+                    get octave() {return read<number>("oscillators.0.octave")},
+                    set octave(v) {write("oscillators.0.octave", v)},
+                    get tune() {return read<number>("oscillators.0.tune")},
+                    set tune(v) {write("oscillators.0.tune", v)}
                 },
                 {
-                    get waveform() {return oscFields[1].waveform.getValue()},
-                    set waveform(v) {oscFields[1].waveform.setValue(v)},
-                    get volume() {return oscFields[1].volume.getValue()},
-                    set volume(v) {oscFields[1].volume.setValue(v)},
-                    get octave() {return oscFields[1].octave.getValue()},
-                    set octave(v) {oscFields[1].octave.setValue(v)},
-                    get tune() {return oscFields[1].tune.getValue()},
-                    set tune(v) {oscFields[1].tune.setValue(v)}
+                    get waveform() {return read<number>("oscillators.1.waveform") as ClassicWaveform},
+                    set waveform(v) {write("oscillators.1.waveform", v)},
+                    get volume() {return read<number>("oscillators.1.volume")},
+                    set volume(v) {write("oscillators.1.volume", v)},
+                    get octave() {return read<number>("oscillators.1.octave")},
+                    set octave(v) {write("oscillators.1.octave", v)},
+                    get tune() {return read<number>("oscillators.1.tune")},
+                    set tune(v) {write("oscillators.1.tune", v)}
                 }
             ],
             // Noise
             noise: {
-                get attack() {return box.noise.attack.getValue()},
-                set attack(v) {box.noise.attack.setValue(v)},
-                get hold() {return box.noise.hold.getValue()},
-                set hold(v) {box.noise.hold.setValue(v)},
-                get release() {return box.noise.release.getValue()},
-                set release(v) {box.noise.release.setValue(v)},
-                get volume() {return box.noise.volume.getValue()},
-                set volume(v) {box.noise.volume.setValue(v)}
+                get attack() {return read<number>("noise.attack")},
+                set attack(v) {write("noise.attack", v)},
+                get hold() {return read<number>("noise.hold")},
+                set hold(v) {write("noise.hold", v)},
+                get release() {return read<number>("noise.release")},
+                set release(v) {write("noise.release", v)},
+                get volume() {return read<number>("noise.volume")},
+                set volume(v) {write("noise.volume", v)}
             }
         }
     }

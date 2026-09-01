@@ -22,7 +22,7 @@ import {
 } from "@opendaw/studio-boxes"
 import {
     AutomatableParameterFieldAdapter, BoxAdapters, BoxAdaptersContext, GrooveShuffleBoxAdapter,
-    ParameterFieldAdapters, ProjectSkeleton, ScriptCompiler, TrackType
+    ParameterFieldAdapters, ProjectSkeleton, ScriptCompiler, ScriptDeviceConfigs, TrackType
 } from "@opendaw/studio-adapters"
 import {DEVICE_STACK_SIZE, DeviceExports, parseDylink} from "../../../studio/core-wasm/src/device-linker"
 import {loadFullEngine} from "./helpers/load-full-engine"
@@ -292,7 +292,7 @@ describe("zeitgeist groove (wasm device vs TS GrooveShuffle)", () => {
         })
         source.endTransaction()
         new Function(ScriptCompiler.wrap(
-            {headerTag: "apparat", registryName: "apparatProcessors", functionName: "apparat"},
+            ScriptDeviceConfigs.Apparat,
             UUID.toString(apparat.address.uuid), 1, DC_CODE))()
         const {engine, memory} = await loadFullEngine()
         const sync = connectSyncToEngine(engine, memory, source)
