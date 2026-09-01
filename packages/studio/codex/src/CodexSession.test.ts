@@ -509,13 +509,17 @@ describe("CodexSession", () => {
                 "threadStarted",
                 "turnStarted",
                 "agentTextDelta",
-                "dynamicToolStarted",
-                "dynamicToolCompleted",
+                "itemStarted",
+                "itemCompleted",
                 "turnCompleted"
             ]))
             expect(session.activeTurnId).toBeUndefined()
             expect(trace.some(event => event.layer === "rpc")).toBe(true)
             expect(trace.some(event => event.layer === "session")).toBe(true)
+            expect(trace.some(event => event.layer === "session"
+                && event.phase === "item-start" && event.itemId === "item-1")).toBe(true)
+            expect(trace.some(event => event.layer === "session"
+                && event.phase === "item-complete" && event.itemId === "item-1")).toBe(true)
             expect(trace.some(event => event.layer === "tool" && event.phase === "tool-start")).toBe(true)
 
             await session.startTurn("One more change.")
@@ -535,6 +539,49 @@ describe("CodexSession", () => {
             await session.connect()
             const replacement = await session.startThread()
             expect(replacement).toEqual({threadId: "thread-2", sessionId: "session-2"})
+        } finally {
+            await session.disconnect()
+        }
+    })
+
+    it("emits generic lifecycle events for every App Server item type", async () => {
+        const transport = new FakeTransport()
+        installServer(transport)
+        const session = new CodexSession({
+            rpc: new CodexRpcClient(transport),
+            catalog: new ToolCatalog(),
+            executor: {execute: vi.fn()} as unknown as ToolExecutor
+        })
+        const events: CodexSessionEvent[] = []
+        session.subscribe(event => events.push(event))
+
+        try {
+            await session.connect()
+            const items = [
+                {
+                    type: "dynamicToolCall", id: "dynamic-1", namespace: "daw_project", tool: "set_bpm",
+                    arguments: {value: 128}, status: "inProgress"
+                },
+                {
+                    type: "webSearch", id: "web-1", query: "openDAW sidechain routing",
+                    action: {type: "search", query: "openDAW sidechain routing"}
+                },
+                {
+                    type: "mcpToolCall", id: "mcp-1", server: "spotify", tool: "search", status: "inProgress",
+                    arguments: {query: "Boards of Canada"}
+                },
+                {type: "futureSuperTool", id: "future-1", foo: "bar"}
+            ]
+            items.forEach(item => transport.emit({
+                method: "item/started",
+                params: {threadId: "thread-1", turnId: "turn-1", item}
+            }))
+
+            const lifecycle = events.filter((event): event is Extract<CodexSessionEvent, {
+                type: "itemStarted"
+            }> => event.type === "itemStarted")
+            expect(lifecycle).toHaveLength(items.length)
+            expect(lifecycle.map(event => event.item)).toEqual(items)
         } finally {
             await session.disconnect()
         }

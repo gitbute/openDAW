@@ -15,9 +15,30 @@ describe("serializeCodexConversation", () => {
                 text: "Inspecting the project.", complete: true
             },
             {
-                type: "tool", itemId: "tool-1", turnId: "turn-1", namespace: "daw_project",
-                tool: "create_note_track", status: "failed", arguments: {name: "Drums"},
-                contentItems: [{type: "inputText", text: "Track already exists"}], error: "Track already exists"
+                type: "activity", itemId: "web-1", turnId: "turn-1", kind: "webSearch",
+                label: "Web search · sidechain compression", status: "success",
+                item: {
+                    type: "webSearch", id: "web-1", query: "sidechain compression",
+                    action: {type: "search", query: "sidechain compression"}, status: "completed"
+                }
+            },
+            {
+                type: "activity", itemId: "tool-1", turnId: "turn-1", kind: "dynamicToolCall",
+                label: "daw_project.create_note_track", status: "success",
+                item: {
+                    type: "dynamicToolCall", id: "tool-1", namespace: "daw_project",
+                    tool: "create_note_track", arguments: {name: "Drums"}, success: true,
+                    contentItems: [{type: "inputText", text: "created"}]
+                }
+            },
+            {
+                type: "activity", itemId: "mcp-1", turnId: "turn-1", kind: "mcpToolCall",
+                label: "MCP · example.lookup", status: "failed",
+                item: {
+                    type: "mcpToolCall", id: "mcp-1", server: "example", tool: "lookup",
+                    status: "failed", error: {message: "permission denied"}
+                },
+                error: "permission denied"
             },
             {
                 type: "assistant", itemId: "message-1", turnId: "turn-1", text: "I could not create it.", complete: true
@@ -36,14 +57,17 @@ describe("serializeCodexConversation", () => {
         expect(transcript).toContain("Thread ID: thread-1")
         expect(transcript).toContain("Make a **beat**")
         expect(transcript).toContain("Inspecting the project.")
-        expect(transcript).toContain("## Tool: daw_project.create_note_track")
+        expect(transcript).toContain("## Activity: Web search · sidechain compression")
+        expect(transcript).toContain("## Activity: daw_project.create_note_track")
+        expect(transcript).toContain("## Activity: MCP · example.lookup")
+        expect(transcript).toContain('"type": "webSearch"')
         expect(transcript).toContain('"name": "Drums"')
-        expect(transcript).toContain('"text": "Track already exists"')
-        expect(transcript).toContain("Error:\n\nTrack already exists")
+        expect(transcript).toContain('"permission denied"')
+        expect(transcript).toContain("Error:\n\npermission denied")
         expect(transcript).toContain("I could not create it.")
         expect(transcript.indexOf("Make a **beat**")).toBeLessThan(transcript.indexOf("Inspecting the project."))
-        expect(transcript.indexOf("Inspecting the project.")).toBeLessThan(transcript.indexOf("## Tool:"))
-        expect(transcript.indexOf("## Tool:")).toBeLessThan(transcript.indexOf("I could not create it."))
+        expect(transcript.indexOf("Inspecting the project.")).toBeLessThan(transcript.indexOf("## Activity:"))
+        expect(transcript.indexOf("## Activity:")).toBeLessThan(transcript.indexOf("I could not create it."))
         expect(transcript).not.toContain("raw reasoning")
         expect(transcript).not.toContain("authToken")
         expect(transcript).not.toContain("cookie")
@@ -77,14 +101,30 @@ describe("serializeCodexConversationCompact", () => {
                 text: "Inspecting the project.", complete: true
             },
             {
-                type: "tool", itemId: "tool-1", turnId: "turn-1", namespace: "daw_project",
-                tool: "inspect_project", status: "success", arguments: {scope: "arrangement"},
-                contentItems: [{type: "inputText", text: "private result payload"}]
+                type: "activity", itemId: "web-1", turnId: "turn-1", kind: "webSearch",
+                label: "Web search · sidechain compression", status: "success",
+                item: {
+                    type: "webSearch", id: "web-1", query: "sidechain compression",
+                    action: {type: "search", query: "sidechain compression"}, status: "completed"
+                }
             },
             {
-                type: "tool", itemId: "tool-2", turnId: "turn-1", namespace: "daw_project",
-                tool: "create_note_track", status: "failed", arguments: {name: "Drums"},
-                contentItems: [{type: "inputText", text: "private failed payload"}], error: "Track already exists"
+                type: "activity", itemId: "tool-1", turnId: "turn-1", kind: "dynamicToolCall",
+                label: "daw_project.set_device_properties", status: "success",
+                item: {
+                    type: "dynamicToolCall", id: "tool-1", namespace: "daw_project",
+                    tool: "set_device_properties", arguments: {device: "private", changes: []}, success: true,
+                    contentItems: [{type: "inputText", text: "private result payload"}]
+                }
+            },
+            {
+                type: "activity", itemId: "mcp-1", turnId: "turn-1", kind: "mcpToolCall",
+                label: "MCP · example.lookup", status: "failed",
+                item: {
+                    type: "mcpToolCall", id: "mcp-1", server: "example", tool: "lookup",
+                    status: "failed", error: {message: "permission denied"}
+                },
+                error: "permission denied"
             },
             {type: "assistant", itemId: "message-1", turnId: "turn-1", text: "The beat is ready.", complete: true}
         ]
@@ -100,8 +140,9 @@ describe("serializeCodexConversationCompact", () => {
         expect(transcript).toContain("Reasoning effort: balanced")
         expect(transcript).toContain("Create a beat")
         expect(transcript).toContain("Inspecting the project.")
-        expect(transcript).toContain("[success] daw_project.inspect_project")
-        expect(transcript).toContain("[failed] daw_project.create_note_track — Track already exists")
+        expect(transcript).toContain("[success] Web search · sidechain compression")
+        expect(transcript).toContain("[success] daw_project.set_device_properties")
+        expect(transcript).toContain("[failed] MCP · example.lookup — permission denied")
         expect(transcript).toContain("The beat is ready.")
         expect(transcript.indexOf("Create a beat")).toBeLessThan(transcript.indexOf("Inspecting the project."))
         expect(transcript.indexOf("Inspecting the project.")).toBeLessThan(transcript.indexOf("[success]"))
@@ -111,9 +152,8 @@ describe("serializeCodexConversationCompact", () => {
         expect(transcript).not.toContain("turn-1")
         expect(transcript).not.toContain("reasoning-1")
         expect(transcript).not.toContain("tool-1")
-        expect(transcript).not.toContain("scope")
+        expect(transcript).not.toContain("mcp-1")
         expect(transcript).not.toContain("private result payload")
-        expect(transcript).not.toContain("private failed payload")
-        expect(transcript).not.toContain("Drums")
+        expect(transcript).not.toContain("private")
     })
 })

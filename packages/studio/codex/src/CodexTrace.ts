@@ -9,6 +9,8 @@ export type CodexTracePhase =
     | "response"
     | "notification"
     | "state"
+    | "item-start"
+    | "item-complete"
     | "tool-start"
     | "tool-complete"
     | "error"

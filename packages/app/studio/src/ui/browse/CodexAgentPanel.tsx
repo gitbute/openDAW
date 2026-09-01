@@ -34,9 +34,6 @@ const effortLabel = (value: string | null): string => {
     return value
 }
 
-const toolName = (entry: Extract<CodexConversationEntry, {type: "tool"}>): string =>
-    entry.namespace === null ? entry.tool : `${entry.namespace}.${entry.tool}`
-
 type EntryView = {
     readonly element: HTMLElement
     update(entry: CodexConversationEntry): void
@@ -47,7 +44,7 @@ const entryKey = (entry: CodexConversationEntry): string => {
         case "user": return `user:${entry.id}`
         case "assistant": return `assistant:${entry.itemId}`
         case "reasoning": return `reasoning:${entry.itemId}:${entry.summaryIndex ?? "none"}`
-        case "tool": return `tool:${entry.itemId}`
+        case "activity": return `activity:${entry.itemId}`
     }
 }
 
@@ -102,23 +99,23 @@ const createEntryView = (entry: CodexConversationEntry): EntryView => {
                 }
             }
         }
-        case "tool": {
+        case "activity": {
             const status: HTMLElement = <span className="tool-status"/>
             const name: HTMLElement = <span className="tool-name"/>
             const error: HTMLElement = <div className="tool-error hidden"/>
-            const element: HTMLElement = <div className="entry tool">
+            const element: HTMLElement = <div className="entry tool activity">
                 <div className="tool-line">{status}{name}</div>
                 {error}
             </div>
             return {
                 element,
                 update: next => {
-                    if (next.type !== "tool") {return}
+                    if (next.type !== "activity") {return}
                     element.classList.toggle("running", next.status === "running")
                     element.classList.toggle("success", next.status === "success")
                     element.classList.toggle("failed", next.status === "failed")
                     status.textContent = next.status === "running" ? "…" : next.status === "success" ? "✓" : "×"
-                    name.textContent = toolName(next)
+                    name.textContent = next.label
                     error.textContent = next.error ?? ""
                     error.classList.toggle("hidden", next.error === undefined)
                 }

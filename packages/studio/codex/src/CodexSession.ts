@@ -15,12 +15,12 @@ import type {
     CodexAccountState,
     CodexClientInfo,
     CodexDynamicTool,
-    CodexDynamicToolCallContentItem,
     CodexDynamicToolCallResponse,
     CodexInitializeResponse,
     CodexSessionEvent,
     CodexStartThreadOptions,
     CodexStartTurnOptions,
+    CodexTurnItem,
     CodexThreadInfo,
     CodexTransportState,
     JsonObject,
@@ -110,33 +110,15 @@ const turnId = (value: JsonValue, context: string): string => {
 
 const errorMessage = (error: unknown): string => error instanceof Error ? error.message : String(error)
 
-const dynamicToolItem = (value: unknown): {
-    readonly itemId: string
-    readonly namespace: string | null
-    readonly tool: string
-    readonly arguments: JsonValue
-    readonly success: boolean | null
-    readonly contentItems: ReadonlyArray<CodexDynamicToolCallContentItem> | null
-} | undefined => {
-    if (!isRecord(value) || value.type !== "dynamicToolCall") {return undefined}
-    if (typeof value.id !== "string" || typeof value.tool !== "string") {return undefined}
-    const namespace = value.namespace === null || value.namespace === undefined
-        ? null
-        : typeof value.namespace === "string" ? value.namespace : null
-    const argumentsValue = value.arguments
-    if (argumentsValue === undefined) {return undefined}
-    const contentItems = Array.isArray(value.contentItems)
-        ? value.contentItems.filter((item): item is CodexDynamicToolCallContentItem =>
-            isRecord(item) && item.type === "inputText" && typeof item.text === "string")
-        : null
-    return {
-        itemId: value.id,
-        namespace,
-        tool: value.tool,
-        arguments: argumentsValue as JsonValue,
-        success: typeof value.success === "boolean" ? value.success : null,
-        contentItems
+const turnItem = (value: unknown, context: string): CodexTurnItem => {
+    if (!isRecord(value)) {throw new Error(`${context} item must be an object`)}
+    if (typeof value.type !== "string" || value.type.length === 0) {
+        throw new Error(`${context} item.type must be a string`)
     }
+    if (typeof value.id !== "string" || value.id.length === 0) {
+        throw new Error(`${context} item.id must be a string`)
+    }
+    return value as CodexTurnItem
 }
 
 export type CodexSessionOptions = {
@@ -474,52 +456,38 @@ export class CodexSession {
 
     #onItemStarted(params: JsonValue | undefined): void {
         const value = asRecord(params, "item/started notification")
-        const item = dynamicToolItem(value.item)
-        if (item === undefined) {return}
         this.#emit({
-            type: "dynamicToolStarted",
+            type: "itemStarted",
             threadId: stringAt(value, "threadId", "item/started notification"),
             turnId: stringAt(value, "turnId", "item/started notification"),
-            itemId: item.itemId,
-            namespace: item.namespace,
-            tool: item.tool,
-            arguments: item.arguments
+            item: turnItem(value.item, "item/started notification")
         })
     }
 
     #onItemCompleted(params: JsonValue | undefined): void {
         const value = asRecord(params, "item/completed notification")
-        const completedItem = value.item
-        if (isRecord(completedItem) && completedItem.type === "reasoning") {
-            const itemId = completedItem.id
-            if (typeof itemId !== "string") {return}
-            const threadId = stringAt(value, "threadId", "item/completed notification")
-            const turnId = stringAt(value, "turnId", "item/completed notification")
-            reasoningSummaryParts(completedItem).forEach(({summaryIndex, text}) => {
-                const unseenText = this.#unseenReasoningSummaryText(itemId, summaryIndex, text)
+        const item = turnItem(value.item, "item/completed notification")
+        const threadId = stringAt(value, "threadId", "item/completed notification")
+        const turnId = stringAt(value, "turnId", "item/completed notification")
+        if (item.type === "reasoning") {
+            reasoningSummaryParts(item).forEach(({summaryIndex, text}) => {
+                const unseenText = this.#unseenReasoningSummaryText(item.id, summaryIndex, text)
                 if (unseenText.length === 0) {return}
                 this.#emit({
                     type: "reasoningSummaryPartAdded",
                     threadId,
                     turnId,
-                    itemId,
+                    itemId: item.id,
                     summaryIndex,
                     text: unseenText
                 })
             })
-            return
         }
-        const item = dynamicToolItem(value.item)
-        if (item === undefined) {return}
         this.#emit({
-            type: "dynamicToolCompleted",
-            threadId: stringAt(value, "threadId", "item/completed notification"),
-            turnId: stringAt(value, "turnId", "item/completed notification"),
-            itemId: item.itemId,
-            namespace: item.namespace,
-            tool: item.tool,
-            success: item.success,
-            contentItems: item.contentItems
+            type: "itemCompleted",
+            threadId,
+            turnId,
+            item
         })
     }
 
@@ -602,14 +570,18 @@ export class CodexSession {
     #emit(event: CodexSessionEvent): void {
         const isReasoningSummary = event.type === "reasoningSummaryDelta"
             || event.type === "reasoningSummaryPartAdded"
+        const isItemLifecycle = event.type === "itemStarted" || event.type === "itemCompleted"
+        const item = isItemLifecycle ? event.item : undefined
+        const itemTool = item !== undefined && typeof item.tool === "string" ? item.tool : undefined
+        const itemNamespace = item !== undefined && typeof item.namespace === "string" ? item.namespace : undefined
         const phase = event.type === "error"
             ? "error"
             : event.type === "connectionChanged"
                 ? "state"
-                : event.type === "dynamicToolStarted"
-                    ? "tool-start"
-                    : event.type === "dynamicToolCompleted"
-                        ? "tool-complete"
+                : event.type === "itemStarted"
+                    ? "item-start"
+                    : event.type === "itemCompleted"
+                        ? "item-complete"
                         : event.type === "agentTextDelta" || isReasoningSummary ? "notification" : "state"
         const payload = event.type === "agentTextDelta"
             ? {
@@ -636,9 +608,9 @@ export class CodexSession {
             phase,
             threadId: "threadId" in event ? event.threadId : undefined,
             turnId: "turnId" in event ? event.turnId : undefined,
-            itemId: "itemId" in event ? event.itemId : undefined,
-            namespace: "namespace" in event ? event.namespace : undefined,
-            tool: "tool" in event ? event.tool : undefined,
+            itemId: "itemId" in event ? event.itemId : item?.id,
+            namespace: itemNamespace,
+            tool: itemTool,
             payload,
             error: event.type === "error" ? event.error : undefined
         })

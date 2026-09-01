@@ -16,6 +16,7 @@ export type {
     CodexSessionEvent,
     CodexStartThreadOptions,
     CodexStartTurnOptions,
+    CodexTurnItem,
     CodexThreadInfo,
     CodexTransportState,
     CodexTransportState as TransportState,

@@ -5,7 +5,6 @@ import {
 } from "@opendaw/studio-codex"
 import type {
     CodexAccountState,
-    CodexDynamicToolCallContentItem,
     CodexInitializeResponse,
     CodexLogin,
     CodexModel,
@@ -13,10 +12,11 @@ import type {
     CodexStartThreadOptions,
     CodexStartTurnOptions,
     CodexThreadInfo,
+    CodexTurnItem,
     CodexTraceEvent,
     CodexTraceSink,
     CodexTransportState,
-    JsonValue,
+    JsonObject,
     Unsubscribe
 } from "@opendaw/studio-codex"
 import {AudioAnalysisTools, ControlApi, ToolCatalog, ToolExecutor} from "@opendaw/studio-core"
@@ -46,14 +46,13 @@ export type CodexConversationEntry =
         readonly complete: boolean
     }
     | {
-        readonly type: "tool"
+        readonly type: "activity"
         readonly itemId: string
         readonly turnId: string
-        readonly namespace: string | null
-        readonly tool: string
+        readonly kind: string
+        readonly label: string
         readonly status: "running" | "success" | "failed"
-        readonly arguments: JsonValue
-        readonly contentItems: ReadonlyArray<CodexDynamicToolCallContentItem> | null
+        readonly item: JsonObject
         readonly error?: string
     }
 
@@ -102,6 +101,103 @@ const PREFERRED_CODEX_MODEL = "gpt-5.6-luna"
 const PREFERRED_CODEX_EFFORT = "xhigh" as const
 
 const errorMessage = (error: unknown): string => error instanceof Error ? error.message : String(error)
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null && !Array.isArray(value)
+
+const stringValue = (value: unknown): string | undefined =>
+    typeof value === "string" && value.length > 0 ? value : undefined
+
+const compactLabel = (value: string, limit = 120): string =>
+    value.length > limit ? `${value.slice(0, limit - 1)}…` : value
+
+type ActivityPresentation = {
+    readonly label: string
+}
+
+const activityPresentation = (item: CodexTurnItem): ActivityPresentation => {
+    switch (item.type) {
+        case "dynamicToolCall": {
+            const namespace = stringValue(item.namespace)
+            const tool = stringValue(item.tool)
+            return {label: namespace !== undefined && tool !== undefined
+                ? `${namespace}.${tool}` : tool ?? "tool"}
+        }
+        case "webSearch": {
+            const action = isRecord(item.action) ? item.action : undefined
+            const actionType = stringValue(action?.type)
+            if (actionType === "openPage") {
+                const url = stringValue(action?.url)
+                return {label: url === undefined ? "Open page" : `Open page · ${url}`}
+            }
+            if (actionType === "findInPage") {
+                const pattern = stringValue(action?.pattern)
+                return {label: pattern === undefined ? "Find on page" : `Find on page · ${pattern}`}
+            }
+            if (actionType === "search") {
+                const query = stringValue(action?.query)
+                    ?? (Array.isArray(action?.queries)
+                        ? action.queries.filter((value): value is string => typeof value === "string").join(", ")
+                        : undefined)
+                return {label: query === undefined || query.length === 0 ? "Web search" : `Web search · ${query}`}
+            }
+            const query = stringValue(item.query)
+            return {label: query === undefined ? "Web search" : `Web search · ${query}`}
+        }
+        case "mcpToolCall": {
+            const server = stringValue(item.server)
+            const tool = stringValue(item.tool)
+            return {label: server !== undefined && tool !== undefined
+                ? `MCP · ${server}.${tool}` : "MCP tool"}
+        }
+        case "commandExecution": {
+            const command = stringValue(item.command)
+            return {label: command === undefined ? "Command" : `Command · ${compactLabel(command)}`}
+        }
+        case "fileChange":
+            return {label: Array.isArray(item.changes) ? `File changes · ${item.changes.length} files` : "File changes"}
+        case "imageView": {
+            const path = stringValue(item.path)
+            return {label: path === undefined ? "View image" : `View image · ${path}`}
+        }
+        case "imageGeneration":
+            return {label: "Image generation"}
+        case "collabToolCall": {
+            const tool = stringValue(item.tool)
+            return {label: tool === undefined ? "Agent" : `Agent · ${tool}`}
+        }
+        case "contextCompaction":
+            return {label: "Context compaction"}
+        default:
+            return {label: `Codex · ${item.type}`}
+    }
+}
+
+const activityError = (item: CodexTurnItem): string | undefined => {
+    if (typeof item.error === "string" && item.error.length > 0) {return item.error}
+    if (isRecord(item.error) && typeof item.error.message === "string" && item.error.message.length > 0) {
+        return item.error.message
+    }
+    if (item.type === "dynamicToolCall" && item.success === false && Array.isArray(item.contentItems)) {
+        const content = item.contentItems.find(value =>
+            isRecord(value) && value.type === "inputText" && typeof value.text === "string")
+        if (isRecord(content) && typeof content.text === "string" && content.text.length > 0) {
+            return content.text
+        }
+    }
+    return undefined
+}
+
+const activityStatus = (item: CodexTurnItem): "success" | "failed" => {
+    const status = typeof item.status === "string" ? item.status.toLowerCase() : undefined
+    return item.success === false
+        || status === "failed" || status === "error" || status === "declined"
+        || status === "cancelled" || status === "canceled"
+        || activityError(item) !== undefined ? "failed" : "success"
+}
+
+const isActivityItem = (item: CodexTurnItem): boolean =>
+    item.type !== "userMessage" && item.type !== "agentMessage" && item.type !== "reasoning"
 
 const isAuthenticated = (account: CodexAccountState): boolean =>
     account.account !== null
@@ -410,11 +506,11 @@ export class CodexAgentController {
             case "reasoningSummaryPartAdded":
                 this.#appendReasoningSummary(event)
                 break
-            case "dynamicToolStarted":
-                this.#startToolActivity(event)
+            case "itemStarted":
+                this.#startActivity(event)
                 break
-            case "dynamicToolCompleted":
-                this.#completeToolActivity(event)
+            case "itemCompleted":
+                this.#completeActivity(event)
                 break
             case "turnCompleted":
                 this.#completeAssistantMessages(event.turnId)
@@ -493,50 +589,50 @@ export class CodexAgentController {
         this.conversation.setValue(next)
     }
 
-    #startToolActivity(event: Extract<CodexSessionEvent, {type: "dynamicToolStarted"}>): void {
+    #startActivity(event: Extract<CodexSessionEvent, {type: "itemStarted"}>): void {
+        if (!isActivityItem(event.item)) {return}
         const entries = this.conversation.getValue()
-        if (entries.some(entry => entry.type === "tool" && entry.itemId === event.itemId)) {return}
-        this.conversation.setValue([...entries, {
-            type: "tool",
-            itemId: event.itemId,
+        if (entries.some(entry => entry.type === "activity" && entry.itemId === event.item.id)) {return}
+        this.#appendConversation({
+            type: "activity",
+            itemId: event.item.id,
             turnId: event.turnId,
-            namespace: event.namespace,
-            tool: event.tool,
+            kind: event.item.type,
+            label: activityPresentation(event.item).label,
             status: "running",
-            arguments: event.arguments,
-            contentItems: null
-        }])
+            item: event.item
+        })
     }
 
-    #completeToolActivity(event: Extract<CodexSessionEvent, {type: "dynamicToolCompleted"}>): void {
+    #completeActivity(event: Extract<CodexSessionEvent, {type: "itemCompleted"}>): void {
+        if (!isActivityItem(event.item)) {return}
         const entries = this.conversation.getValue()
-        const index = entries.findIndex(entry => entry.type === "tool" && entry.itemId === event.itemId)
-        const status = event.success === true ? "success" : "failed"
-        const error = event.success === true ? undefined : event.contentItems?.at(0)?.text
+        const index = entries.findIndex(entry => entry.type === "activity" && entry.itemId === event.item.id)
+        const status = activityStatus(event.item)
+        const error = activityError(event.item)
         if (index < 0) {
-            this.conversation.setValue([...entries, {
-                type: "tool",
-                itemId: event.itemId,
+            this.#appendConversation({
+                type: "activity",
+                itemId: event.item.id,
                 turnId: event.turnId,
-                namespace: event.namespace,
-                tool: event.tool,
+                kind: event.item.type,
+                label: activityPresentation(event.item).label,
                 status,
-                arguments: {},
-                contentItems: event.contentItems,
+                item: event.item,
                 ...(error === undefined ? {} : {error})
-            }])
+            })
             return
         }
         const existing = entries[index]
-        if (existing.type !== "tool") {return}
+        if (existing.type !== "activity") {return}
         const next = entries.slice()
         next[index] = {
             ...existing,
-            namespace: event.namespace,
-            tool: event.tool,
+            kind: event.item.type,
+            label: activityPresentation(event.item).label,
             status,
-            contentItems: event.contentItems,
-            ...(error === undefined ? {} : {error})
+            item: event.item,
+            ...(error === undefined ? {error: undefined} : {error})
         }
         this.conversation.setValue(next)
     }

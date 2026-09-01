@@ -123,6 +123,11 @@ export type CodexDynamicToolCallResponse = {
     readonly success: boolean
 }
 
+export type CodexTurnItem = JsonObject & {
+    readonly type: string
+    readonly id: string
+}
+
 export type CodexThreadInfo = {
     readonly threadId: string
     readonly sessionId: string | null
@@ -175,23 +180,16 @@ export type CodexSessionEvent =
         readonly text: string
     }
     | {
-        readonly type: "dynamicToolStarted"
+        readonly type: "itemStarted"
         readonly threadId: string
         readonly turnId: string
-        readonly itemId: string
-        readonly namespace: string | null
-        readonly tool: string
-        readonly arguments: JsonValue
+        readonly item: CodexTurnItem
     }
     | {
-        readonly type: "dynamicToolCompleted"
+        readonly type: "itemCompleted"
         readonly threadId: string
         readonly turnId: string
-        readonly itemId: string
-        readonly namespace: string | null
-        readonly tool: string
-        readonly success: boolean | null
-        readonly contentItems: ReadonlyArray<CodexDynamicToolCallContentItem> | null
+        readonly item: CodexTurnItem
     }
     | {
         readonly type: "turnCompleted"

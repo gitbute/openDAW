@@ -1,7 +1,4 @@
-import type {
-    CodexDynamicToolCallContentItem,
-    JsonValue
-} from "@opendaw/studio-codex"
+import type {JsonValue} from "@opendaw/studio-codex"
 import type {CodexConversationEntry} from "./CodexAgentController"
 
 export type CodexTranscriptContext = {
@@ -11,10 +8,7 @@ export type CodexTranscriptContext = {
     readonly activeTurnId?: string | null
 }
 
-const toolName = (entry: Extract<CodexConversationEntry, {type: "tool"}>): string =>
-    entry.namespace === null ? entry.tool : `${entry.namespace}.${entry.tool}`
-
-const jsonBlock = (value: JsonValue | ReadonlyArray<CodexDynamicToolCallContentItem>): string => {
+const jsonBlock = (value: JsonValue): string => {
     const json = JSON.stringify(value, null, 2) ?? "null"
     return `\`\`\`json\n${json}\n\`\`\``
 }
@@ -68,21 +62,19 @@ export const serializeCodexConversation = (
                     ""
                 )
                 break
-            case "tool":
+            case "activity":
                 lines.push(
-                    `## Tool: ${toolName(entry)}`,
+                    `## Activity: ${entry.label}`,
                     "",
                     ...itemIdentifiers(entry.itemId, entry.turnId),
+                    `Kind: ${entry.kind}`,
                     `Status: ${entry.status}`,
                     "",
-                    "Arguments:",
+                    "Item:",
                     "",
-                    jsonBlock(entry.arguments),
+                    jsonBlock(entry.item),
                     ""
                 )
-                if (entry.contentItems !== null) {
-                    lines.push("Result content:", "", jsonBlock(entry.contentItems), "")
-                }
                 if (entry.error !== undefined) {
                     lines.push("Error:", "", entry.error, "")
                 }
@@ -118,11 +110,11 @@ export const serializeCodexConversationCompact = (
             case "assistant":
                 lines.push("## Codex", "", entry.text, "")
                 break
-            case "tool": {
+            case "activity": {
                 const error = entry.status === "failed" && entry.error !== undefined
                     ? ` — ${compactLine(entry.error)}`
                     : ""
-                lines.push(`[${entry.status}] ${toolName(entry)}${error}`)
+                lines.push(`[${entry.status}] ${entry.label}${error}`)
                 break
             }
         }
