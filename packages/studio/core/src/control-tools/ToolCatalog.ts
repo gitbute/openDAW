@@ -32,7 +32,7 @@ const namespacesForRoots = {
 } as const
 
 const namespaceDescriptions: Readonly<Record<string, string>> = {
-    daw_project: "Create and edit the canonical openDAW project structure, including ordered atomic edits.",
+    daw_project: "Create and edit canonical openDAW project structure. Use daw_resources to discover device definitions, semantic properties, parameters and handles before editing.",
     daw_modulation: "Create and connect canonical openDAW modulators.",
     daw_transport: "Control playback and transport state.",
     daw_parameter: "Read and edit discovered automatable parameters.",

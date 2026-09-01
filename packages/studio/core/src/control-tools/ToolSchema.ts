@@ -1,4 +1,4 @@
-import {InstrumentFactories, SupportedDeviceBoxNames} from "@opendaw/studio-adapters"
+import {InstrumentFactories} from "@opendaw/studio-adapters"
 import {EffectFactories} from "../EffectFactories"
 import type {OperationDescriptor, ParameterSpec, PropertySpec, TypeSpec} from "../control-api/types"
 import type {JsonSchema} from "./types"
@@ -59,6 +59,11 @@ const handleSchema = (spec?: HandleSpec): JsonSchema => ({
     }, ["$address"]),
     description: handleDescription(spec)
 })
+
+const deviceHandleSchema: JsonSchema = {
+    ...handleSchema({kind: "handle", handle: "box", name: "Box"}),
+    description: `Handle to a supported live instrument or effect device.${completeHandleGuidance}`
+}
 
 const semanticDescription = (semantic: string): string => {
     switch (semantic) {
@@ -240,11 +245,7 @@ export const deviceDefinitionInspectInputSchema: JsonSchema = strictObject({
 }, ["category", "factory"])
 
 export const deviceInspectInputSchema: JsonSchema = strictObject({
-    device: {
-        anyOf: SupportedDeviceBoxNames.map(name => handleSchema({
-            kind: "handle", handle: "box", name
-        }))
-    },
+    device: deviceHandleSchema,
     group: {
         type: "string",
         description: "Optional exact semantic group prefix returned in the device's groups list."
@@ -257,11 +258,7 @@ const deviceHelpFactoryInputSchema: JsonSchema = strictObject({
 }, ["category", "factory"])
 
 const deviceHelpLiveInputSchema: JsonSchema = strictObject({
-    device: {
-        anyOf: SupportedDeviceBoxNames.map(name => handleSchema({
-            kind: "handle", handle: "box", name
-        }))
-    }
+    device: deviceHandleSchema
 }, ["device"])
 
 export const deviceHelpInspectInputSchema: JsonSchema = {

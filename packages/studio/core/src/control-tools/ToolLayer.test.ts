@@ -190,10 +190,9 @@ describe("Slice 2 control tools", () => {
                 additionalProperties: false,
                 properties: expect.objectContaining({
                     device: expect.objectContaining({
-                        anyOf: expect.arrayContaining([
-                            expect.objectContaining({description: expect.stringContaining("Handle to an ApparatDeviceBox.")}),
-                            expect.objectContaining({description: expect.stringContaining("Handle to a WerkstattDeviceBox.")})
-                        ])
+                        type: "object",
+                        additionalProperties: false,
+                        description: expect.stringContaining("supported live instrument or effect device")
                     })
                 })
             })
@@ -396,29 +395,31 @@ describe("Slice 2 control tools", () => {
         }
 
         const inspectDevice = catalog.get("daw_resources", "inspect_device")?.spec
-        expect(inspectDevice?.inputSchema.properties?.device?.anyOf
-            ?.map(schema => schema.description)).toContainEqual(expect.stringContaining("Handle to an ApparatDeviceBox."))
+        const inspectDeviceHandle = inspectDevice?.inputSchema.properties?.device
+        expect(inspectDeviceHandle).toMatchObject({
+            type: "object",
+            additionalProperties: false,
+            properties: {$address: {type: "string"}},
+            description: expect.stringContaining("supported live instrument or effect device")
+        })
+        expect(inspectDeviceHandle?.anyOf).toBeUndefined()
 
         const generatedOperation = generatedControlManifest.operations
             .find(operation => operation.method === "setDeviceProperties")
         expect(generatedOperation).toBeDefined()
+        const deviceParameter = generatedOperation?.parameters.find(parameter =>
+            parameter.binding.kind === "identifier" && parameter.binding.name === "device")
+        expect(deviceParameter?.type).toEqual({kind: "handle", handle: "box", name: "Box"})
         const deviceMutation = catalog.get("daw_project", "set_device_properties")
         expect(deviceMutation?.spec.exposure).toBe("deferred")
-        expect(deviceMutation?.spec.inputSchema.properties?.device?.anyOf
-            ?.map(schema => schema.description)).toEqual(expect.arrayContaining([
-                expect.stringContaining("Handle to an ApparatDeviceBox."),
-                expect.stringContaining("Handle to a CubedDeviceBox."),
-                expect.stringContaining("Handle to a MIDIOutputDeviceBox."),
-                expect.stringContaining("Handle to a NanoDeviceBox."),
-                expect.stringContaining("Handle to a NeonDeviceBox."),
-                expect.stringContaining("Handle to a PlayfieldDeviceBox."),
-                expect.stringContaining("Handle to a SoundfontDeviceBox."),
-                expect.stringContaining("Handle to a TapeDeviceBox."),
-                expect.stringContaining("Handle to a VaporisateurDeviceBox."),
-                expect.stringContaining("Handle to an ArpeggioDeviceBox."),
-                expect.stringContaining("Handle to a NeuralAmpDeviceBox."),
-                expect.stringContaining("Handle to a WerkstattDeviceBox.")
-            ]))
+        const mutationDevice = deviceMutation?.spec.inputSchema.properties?.device
+        expect(mutationDevice).toMatchObject({
+            type: "object",
+            additionalProperties: false,
+            properties: {$address: {type: "string"}},
+            description: expect.stringContaining("Handle to a Box.")
+        })
+        expect(mutationDevice?.anyOf).toBeUndefined()
         const changesSchema = deviceMutation?.spec.inputSchema.properties?.changes
         if (changesSchema?.items === undefined || changesSchema.items === false) {
             throw new Error("set_device_properties changes schema is missing")

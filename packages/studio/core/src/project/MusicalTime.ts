@@ -1,8 +1,6 @@
 import {PPQN, ppqn, PPQNParts} from "@opendaw/lib-dsp"
 import {int} from "@opendaw/lib-std"
-import {SignatureTrackAdapter} from "@opendaw/studio-adapters"
-import type {JsonObject} from "../control-api/types"
-import {assertKnownProperties, assertRecord, finiteNumber, optionalNonNegativeInteger} from "./ToolInput"
+import type {SignatureTrackAdapter} from "@opendaw/studio-adapters"
 
 /** One-based musical position used by producer-facing control operations. */
 export type MusicalPosition = {
@@ -52,21 +50,6 @@ export const musicalPosition = (signatureTrack: SignatureTrackAdapter,
     }
 }
 
-export const parseMusicalPosition = (value: unknown, context: string): MusicalPosition => {
-    const object = assertRecord(value, context)
-    assertKnownProperties(object, ["bar", "beat", "sixteenth", "ticks"], context)
-    const bar = finiteNumber(object, "bar")
-    const beat = object.beat === undefined ? 1 : finiteNumber(object, "beat")
-    const sixteenth = object.sixteenth === undefined ? 1 : finiteNumber(object, "sixteenth")
-    const ticks = optionalNonNegativeInteger(object, "ticks") ?? 0
-    if (!Number.isInteger(bar) || bar < 1) {throw new Error(`${context}.bar must be a positive integer`)}
-    if (!Number.isInteger(beat) || beat < 1) {throw new Error(`${context}.beat must be a positive integer`)}
-    if (!Number.isInteger(sixteenth) || sixteenth < 1) {
-        throw new Error(`${context}.sixteenth must be a positive integer`)
-    }
-    return {bar, beat, sixteenth, ticks} as MusicalPosition
-}
-
 export const musicalPositionParts = (position: MusicalPosition): PPQNParts => {
     const {bar, beat = 1, sixteenth = 1, ticks = 0} = position
     if (!Number.isInteger(bar) || bar < 1) {throw new Error("bar must be a positive integer")}
@@ -104,44 +87,5 @@ export const musicalDurationToPulses = (signatureTrack: SignatureTrackAdapter,
         case "triplet-half": return PPQN.Triplet(PPQN.Half)
         case "triplet-quarter": return PPQN.Triplet(PPQN.Quarter)
         case "triplet-eighth": return PPQN.Triplet(PPQN.Eighth)
-    }
-}
-
-/** Resolve one of the paired raw or musical range forms used by manual tools. */
-export const resolveMusicalRange = (value: JsonObject,
-                                    signatureTrack: SignatureTrackAdapter,
-                                    defaults: {readonly startPosition: ppqn, readonly endPosition: ppqn},
-                                    context: string): MusicalTimelineRange => {
-    const hasRawStart = Object.hasOwn(value, "startPosition")
-    const hasRawEnd = Object.hasOwn(value, "endPosition")
-    const hasMusicalStart = Object.hasOwn(value, "startMusical")
-    const hasMusicalEnd = Object.hasOwn(value, "endMusical")
-    if (hasRawStart !== hasRawEnd) {throw new Error("startPosition and endPosition must be supplied together")}
-    if (hasMusicalStart !== hasMusicalEnd) {throw new Error("startMusical and endMusical must be supplied together")}
-    if ((hasRawStart || hasRawEnd) && (hasMusicalStart || hasMusicalEnd)) {
-        throw new Error("Use either startPosition/endPosition or startMusical/endMusical, not both")
-    }
-    let startPosition = defaults.startPosition
-    let endPosition = defaults.endPosition
-    if (hasRawStart) {
-        startPosition = finiteNumber(value, "startPosition")
-        endPosition = finiteNumber(value, "endPosition")
-    } else if (hasMusicalStart) {
-        const start = parseMusicalPosition(value.startMusical, `${context}.startMusical`)
-        const end = parseMusicalPosition(value.endMusical, `${context}.endMusical`)
-        startPosition = musicalPositionToPulses(signatureTrack, start)
-        endPosition = musicalPositionToPulses(signatureTrack, end)
-    }
-    if (startPosition < 0 || endPosition < 0) {
-        throw new Error("timeline positions must be non-negative")
-    }
-    if (endPosition < startPosition) {
-        throw new Error("endPosition must be greater than or equal to startPosition")
-    }
-    return {
-        startPosition,
-        endPosition,
-        startMusical: musicalPosition(signatureTrack, startPosition),
-        endMusical: musicalPosition(signatureTrack, endPosition)
     }
 }

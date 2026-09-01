@@ -7,8 +7,7 @@ import {ControlResolver} from "../control-api/ControlResolver"
 import type {JsonObject} from "../control-api/types"
 import type {Project} from "../project/Project"
 import type {AudioAnalysisResult, AudioAnalysisBand} from "./types"
-import {resolveMusicalRange} from "./MusicalTime"
-import {assertKnownProperties, assertRecord} from "./ToolInput"
+import {assertKnownProperties, assertRecord, resolveMusicalRange} from "./ToolInput"
 
 const WAVEFORM_BUCKETS = 64
 const FFT_SIZE = AudioAnalyser.DEFAULT_SIZE << 1

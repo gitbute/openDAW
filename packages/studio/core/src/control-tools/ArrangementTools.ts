@@ -16,8 +16,8 @@ import {
 } from "@opendaw/studio-adapters"
 import type {ControlHandle, JsonObject} from "../control-api/types"
 import {ControlResolver} from "../control-api/ControlResolver"
-import {musicalPosition, resolveMusicalRange} from "./MusicalTime"
-import {assertKnownProperties, assertRecord} from "./ToolInput"
+import {musicalPosition} from "../project/MusicalTime"
+import {assertKnownProperties, assertRecord, resolveMusicalRange} from "./ToolInput"
 import {noteRegionHasActivity} from "./PatternTools"
 import type {
     ArrangementAudioUnit,

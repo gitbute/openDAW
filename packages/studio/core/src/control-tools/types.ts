@@ -1,6 +1,6 @@
 import type {ControlHandle, JsonObject, JsonValue, OperationDescriptor} from "../control-api/types"
 import type {Sample} from "@opendaw/studio-adapters"
-import type {MusicalPosition, MusicalPositionView} from "./MusicalTime"
+import type {MusicalPosition, MusicalPositionView} from "../project/MusicalTime"
 
 export type JsonSchemaType = "object" | "array" | "string" | "number" | "integer" | "boolean" | "null"
 

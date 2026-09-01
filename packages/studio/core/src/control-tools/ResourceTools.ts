@@ -7,14 +7,12 @@ import {
     DeviceSemantics,
     InstrumentFactories,
     ParameterOwner,
-    labeledAudioOutputLeaves,
     RootBoxAdapter,
-    SupportedDeviceBoxNames,
     SemanticFields,
     TimelineBoxAdapter,
     TrackType
 } from "@opendaw/studio-adapters"
-import type {Sample} from "@opendaw/studio-adapters"
+import type {LabeledAudioOutput, Sample} from "@opendaw/studio-adapters"
 import {ControlResolver} from "../control-api/ControlResolver"
 import type {JsonObject, JsonValue} from "../control-api/types"
 import {EffectFactories} from "../EffectFactories"
@@ -61,6 +59,12 @@ type ResourceEntry = {
     readonly view: JsonObject
 }
 
+type AudioOutputLeaf = {
+    readonly address: Address
+    readonly label: string
+    readonly path: ReadonlyArray<string>
+}
+
 const addressSpec = {
     kind: "handle",
     handle: "address",
@@ -84,6 +88,23 @@ const deviceDefaultLimit = 50
 const deviceMaxLimit = 50
 const sampleOrigins: ReadonlyArray<Sample["origin"]> = ["openDAW", "recording", "import"]
 const deviceCategories: ReadonlyArray<DeviceCatalogCategory> = ["instrument", "midi-effect", "audio-effect"]
+
+const audioOutputLeaves = (
+    outputs: Iterable<LabeledAudioOutput>,
+    parentPath: ReadonlyArray<string> = []
+): ReadonlyArray<AudioOutputLeaf> => {
+    const result: Array<AudioOutputLeaf> = []
+    for (const output of outputs) {
+        const path = [...parentPath, output.label]
+        const children = output.children().unwrapOrUndefined()
+        if (children === undefined) {
+            result.push({address: output.address, label: output.label, path})
+        } else {
+            result.push(...audioOutputLeaves(children, path))
+        }
+    }
+    return result
+}
 
 const asJsonValue = (value: unknown): JsonValue | undefined => {
     if (value === null || typeof value === "boolean" || typeof value === "string") {return value}
@@ -275,8 +296,7 @@ const parameterView = (resolver: ControlResolver,
     } as JsonObject
 }
 
-const audioOutputView = (resolver: ControlResolver,
-                         output: ReturnType<typeof labeledAudioOutputLeaves>[number]): JsonObject => ({
+const audioOutputView = (resolver: ControlResolver, output: AudioOutputLeaf): JsonObject => ({
     kind: "audio-output",
     handle: resolver.handle(output.address),
     label: output.label,
@@ -642,7 +662,7 @@ export class ResourceTools {
         if (handle === undefined) {throw new Error("Missing argument 'device'")}
         const resolved = this.#resolver.resolve(boxSpec, handle)
         if (!(resolved instanceof Box)) {throw new Error("device must be a box handle")}
-        if (!(SupportedDeviceBoxNames as ReadonlyArray<string>).includes(resolved.name)) {
+        if (DeviceSemantics.forBox(resolved) === null) {
             throw new Error(`Device help target '${resolved.name}' is not a supported device box.`)
         }
         const adapter = this.#resolver.adapters().find(candidate => candidate.box === resolved)
@@ -739,7 +759,7 @@ export class ResourceTools {
             [parameter.name, parameter.field.fieldName])))
         const root = adapters.find(adapter => adapter instanceof RootBoxAdapter)
         if (root instanceof RootBoxAdapter) {
-            labeledAudioOutputLeaves(root).forEach(output => entries.push(entry(
+            audioOutputLeaves(root.labeledAudioOutputs()).forEach(output => entries.push(entry(
                 "audio-output", output.address, audioOutputView(this.#resolver, output),
                 "LabeledAudioOutput", undefined, output.path)))
         }

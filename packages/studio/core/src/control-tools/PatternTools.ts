@@ -10,8 +10,8 @@ import {
 import {NoteRegionBox, ValueRegionBox} from "@opendaw/studio-boxes"
 import type {JsonObject} from "../control-api/types"
 import {ControlResolver} from "../control-api/ControlResolver"
-import {resolveMusicalRange, musicalPosition} from "./MusicalTime"
-import {assertKnownProperties, assertRecord} from "./ToolInput"
+import {musicalPosition} from "../project/MusicalTime"
+import {assertKnownProperties, assertRecord, resolveMusicalRange} from "./ToolInput"
 import type {
     PatternInspectionInput,
     PatternInspectionRegion,

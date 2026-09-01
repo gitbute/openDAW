@@ -129,7 +129,7 @@ export const generatedControlManifest: GeneratedManifest = {
                     }
                 ]
             },
-            "description": "Create an instrument from a canonical factory after reading its canonical device help."
+            "description": "Create an instrument from a canonical factory."
         },
         {
             "id": "project.setDeviceProperties",
@@ -148,179 +148,9 @@ export const generatedControlManifest: GeneratedManifest = {
                         "name": "device"
                     },
                     "type": {
-                        "kind": "union",
-                        "alternatives": [
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ApparatDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "CubedDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "TapeDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "VaporisateurDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "NeonDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "NanoDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "PlayfieldDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "SoundfontDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "MIDIOutputDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ArpeggioDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "PitchDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "SpielwerkDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "VelocityDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ZeitgeistDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "AudioEffectCompositeBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "StereoCompositeBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "FrequencySplitBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "AutotuneDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "CompressorDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ConvolverDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "CrusherDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "DattorroReverbDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "DelayDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "FoldDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ReverbDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "GateDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "MaximizerDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "RevampDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "StereoToolDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "TidalDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "NeuralAmpDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "VocoderDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "WaveshaperDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "WerkstattDeviceBox"
-                            }
-                        ]
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "Box"
                     }
                 },
                 {
@@ -388,7 +218,7 @@ export const generatedControlManifest: GeneratedManifest = {
             "result": {
                 "kind": "void"
             },
-            "description": "Set semantic device properties discovered with `daw_resources.inspect_device`.\nPaths are canonical device property paths, not raw field addresses. Multiple changes\nare applied together; use the returned paths exactly when making subsequent edits.\nOrdinary automatable controls remain available through the generic parameter API."
+            "description": "Set semantic properties on a supported device.\nPaths are stable semantic property paths rather than raw field addresses.\nMultiple changes are applied together by the caller's transaction."
         },
         {
             "id": "project.createAudioBus",
@@ -1295,17 +1125,22 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
+                        "name": "WerkstattDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "SpielwerkDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
                         "name": "ArpeggioDeviceBox"
                     },
                     {
                         "kind": "handle",
                         "handle": "box",
                         "name": "PitchDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "SpielwerkDeviceBox"
                     },
                     {
                         "kind": "handle",
@@ -1320,37 +1155,12 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "AudioEffectCompositeBox"
+                        "name": "UnknownMidiEffectDeviceBox"
                     },
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "StereoCompositeBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "AutotuneDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "CompressorDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "ConvolverDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "CrusherDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "DattorroReverbDeviceBox"
+                        "name": "MaximizerDeviceBox"
                     },
                     {
                         "kind": "handle",
@@ -1360,22 +1170,7 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "FoldDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
                         "name": "ReverbDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "GateDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "MaximizerDeviceBox"
                     },
                     {
                         "kind": "handle",
@@ -1395,6 +1190,51 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
+                        "name": "ModularDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "UnknownAudioEffectDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "CompressorDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "GateDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "AutotuneDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ConvolverDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "CrusherDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "FoldDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "DattorroReverbDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
                         "name": "NeuralAmpDeviceBox"
                     },
                     {
@@ -1410,22 +1250,12 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "WerkstattDeviceBox"
+                        "name": "AudioEffectCompositeBox"
                     },
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "UnknownMidiEffectDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "ModularDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "UnknownAudioEffectDeviceBox"
+                        "name": "StereoCompositeBox"
                     }
                 ]
             }
@@ -1484,17 +1314,22 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
+                        "name": "WerkstattDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "SpielwerkDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
                         "name": "ArpeggioDeviceBox"
                     },
                     {
                         "kind": "handle",
                         "handle": "box",
                         "name": "PitchDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "SpielwerkDeviceBox"
                     },
                     {
                         "kind": "handle",
@@ -1509,37 +1344,12 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "AudioEffectCompositeBox"
+                        "name": "UnknownMidiEffectDeviceBox"
                     },
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "StereoCompositeBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "AutotuneDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "CompressorDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "ConvolverDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "CrusherDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "DattorroReverbDeviceBox"
+                        "name": "MaximizerDeviceBox"
                     },
                     {
                         "kind": "handle",
@@ -1549,22 +1359,7 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "FoldDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
                         "name": "ReverbDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "GateDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "MaximizerDeviceBox"
                     },
                     {
                         "kind": "handle",
@@ -1584,6 +1379,51 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
+                        "name": "ModularDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "UnknownAudioEffectDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "CompressorDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "GateDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "AutotuneDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ConvolverDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "CrusherDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "FoldDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "DattorroReverbDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
                         "name": "NeuralAmpDeviceBox"
                     },
                     {
@@ -1599,22 +1439,12 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "WerkstattDeviceBox"
+                        "name": "AudioEffectCompositeBox"
                     },
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "UnknownMidiEffectDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "ModularDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "UnknownAudioEffectDeviceBox"
+                        "name": "StereoCompositeBox"
                     }
                 ]
             },
@@ -1674,17 +1504,22 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
+                        "name": "WerkstattDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "SpielwerkDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
                         "name": "ArpeggioDeviceBox"
                     },
                     {
                         "kind": "handle",
                         "handle": "box",
                         "name": "PitchDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "SpielwerkDeviceBox"
                     },
                     {
                         "kind": "handle",
@@ -1699,37 +1534,12 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "AudioEffectCompositeBox"
+                        "name": "UnknownMidiEffectDeviceBox"
                     },
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "StereoCompositeBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "AutotuneDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "CompressorDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "ConvolverDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "CrusherDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "DattorroReverbDeviceBox"
+                        "name": "MaximizerDeviceBox"
                     },
                     {
                         "kind": "handle",
@@ -1739,22 +1549,7 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "FoldDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
                         "name": "ReverbDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "GateDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "MaximizerDeviceBox"
                     },
                     {
                         "kind": "handle",
@@ -1774,6 +1569,51 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
+                        "name": "ModularDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "UnknownAudioEffectDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "CompressorDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "GateDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "AutotuneDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "ConvolverDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "CrusherDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "FoldDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
+                        "name": "DattorroReverbDeviceBox"
+                    },
+                    {
+                        "kind": "handle",
+                        "handle": "box",
                         "name": "NeuralAmpDeviceBox"
                     },
                     {
@@ -1789,22 +1629,12 @@ export const generatedControlManifest: GeneratedManifest = {
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "WerkstattDeviceBox"
+                        "name": "AudioEffectCompositeBox"
                     },
                     {
                         "kind": "handle",
                         "handle": "box",
-                        "name": "UnknownMidiEffectDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "ModularDeviceBox"
-                    },
-                    {
-                        "kind": "handle",
-                        "handle": "box",
-                        "name": "UnknownAudioEffectDeviceBox"
+                        "name": "StereoCompositeBox"
                     }
                 ]
             },
@@ -1852,17 +1682,22 @@ export const generatedControlManifest: GeneratedManifest = {
                                 {
                                     "kind": "handle",
                                     "handle": "box",
+                                    "name": "WerkstattDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "SpielwerkDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
                                     "name": "ArpeggioDeviceBox"
                                 },
                                 {
                                     "kind": "handle",
                                     "handle": "box",
                                     "name": "PitchDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "SpielwerkDeviceBox"
                                 },
                                 {
                                     "kind": "handle",
@@ -1877,37 +1712,12 @@ export const generatedControlManifest: GeneratedManifest = {
                                 {
                                     "kind": "handle",
                                     "handle": "box",
-                                    "name": "AudioEffectCompositeBox"
+                                    "name": "UnknownMidiEffectDeviceBox"
                                 },
                                 {
                                     "kind": "handle",
                                     "handle": "box",
-                                    "name": "StereoCompositeBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "AutotuneDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "CompressorDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "ConvolverDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "CrusherDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "DattorroReverbDeviceBox"
+                                    "name": "MaximizerDeviceBox"
                                 },
                                 {
                                     "kind": "handle",
@@ -1917,22 +1727,7 @@ export const generatedControlManifest: GeneratedManifest = {
                                 {
                                     "kind": "handle",
                                     "handle": "box",
-                                    "name": "FoldDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
                                     "name": "ReverbDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "GateDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "MaximizerDeviceBox"
                                 },
                                 {
                                     "kind": "handle",
@@ -1952,6 +1747,51 @@ export const generatedControlManifest: GeneratedManifest = {
                                 {
                                     "kind": "handle",
                                     "handle": "box",
+                                    "name": "ModularDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "UnknownAudioEffectDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "CompressorDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "GateDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "AutotuneDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "ConvolverDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "CrusherDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "FoldDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
+                                    "name": "DattorroReverbDeviceBox"
+                                },
+                                {
+                                    "kind": "handle",
+                                    "handle": "box",
                                     "name": "NeuralAmpDeviceBox"
                                 },
                                 {
@@ -1967,22 +1807,12 @@ export const generatedControlManifest: GeneratedManifest = {
                                 {
                                     "kind": "handle",
                                     "handle": "box",
-                                    "name": "WerkstattDeviceBox"
+                                    "name": "AudioEffectCompositeBox"
                                 },
                                 {
                                     "kind": "handle",
                                     "handle": "box",
-                                    "name": "UnknownMidiEffectDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "ModularDeviceBox"
-                                },
-                                {
-                                    "kind": "handle",
-                                    "handle": "box",
-                                    "name": "UnknownAudioEffectDeviceBox"
+                                    "name": "StereoCompositeBox"
                                 }
                             ]
                         }
@@ -2028,17 +1858,22 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
+                                "name": "WerkstattDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "SpielwerkDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
                                 "name": "ArpeggioDeviceBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
                                 "name": "PitchDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "SpielwerkDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -2053,37 +1888,12 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "AudioEffectCompositeBox"
+                                "name": "UnknownMidiEffectDeviceBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "StereoCompositeBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "AutotuneDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "CompressorDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ConvolverDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "CrusherDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "DattorroReverbDeviceBox"
+                                "name": "MaximizerDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -2093,22 +1903,7 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "FoldDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
                                 "name": "ReverbDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "GateDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "MaximizerDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -2128,6 +1923,51 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
+                                "name": "ModularDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "UnknownAudioEffectDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "CompressorDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "GateDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "AutotuneDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "ConvolverDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "CrusherDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "FoldDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "DattorroReverbDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
                                 "name": "NeuralAmpDeviceBox"
                             },
                             {
@@ -2143,22 +1983,12 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "WerkstattDeviceBox"
+                                "name": "AudioEffectCompositeBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "UnknownMidiEffectDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ModularDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "UnknownAudioEffectDeviceBox"
+                                "name": "StereoCompositeBox"
                             }
                         ]
                     }
@@ -2190,17 +2020,22 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
+                                "name": "WerkstattDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "SpielwerkDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
                                 "name": "ArpeggioDeviceBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
                                 "name": "PitchDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "SpielwerkDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -2215,37 +2050,12 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "AudioEffectCompositeBox"
+                                "name": "UnknownMidiEffectDeviceBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "StereoCompositeBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "AutotuneDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "CompressorDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ConvolverDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "CrusherDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "DattorroReverbDeviceBox"
+                                "name": "MaximizerDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -2255,22 +2065,7 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "FoldDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
                                 "name": "ReverbDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "GateDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "MaximizerDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -2290,6 +2085,51 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
+                                "name": "ModularDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "UnknownAudioEffectDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "CompressorDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "GateDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "AutotuneDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "ConvolverDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "CrusherDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "FoldDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "DattorroReverbDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
                                 "name": "NeuralAmpDeviceBox"
                             },
                             {
@@ -2305,22 +2145,12 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "WerkstattDeviceBox"
+                                "name": "AudioEffectCompositeBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "UnknownMidiEffectDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ModularDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "UnknownAudioEffectDeviceBox"
+                                "name": "StereoCompositeBox"
                             }
                         ]
                     }
@@ -5393,17 +5223,22 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
+                                "name": "WerkstattDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "SpielwerkDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
                                 "name": "ArpeggioDeviceBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
                                 "name": "PitchDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "SpielwerkDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -5418,37 +5253,12 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "AudioEffectCompositeBox"
+                                "name": "UnknownMidiEffectDeviceBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "StereoCompositeBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "AutotuneDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "CompressorDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ConvolverDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "CrusherDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "DattorroReverbDeviceBox"
+                                "name": "MaximizerDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -5458,22 +5268,7 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "FoldDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
                                 "name": "ReverbDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "GateDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "MaximizerDeviceBox"
                             },
                             {
                                 "kind": "handle",
@@ -5493,6 +5288,51 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
+                                "name": "ModularDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "UnknownAudioEffectDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "CompressorDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "GateDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "AutotuneDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "ConvolverDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "CrusherDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "FoldDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
+                                "name": "DattorroReverbDeviceBox"
+                            },
+                            {
+                                "kind": "handle",
+                                "handle": "box",
                                 "name": "NeuralAmpDeviceBox"
                             },
                             {
@@ -5508,22 +5348,12 @@ export const generatedControlManifest: GeneratedManifest = {
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "WerkstattDeviceBox"
+                                "name": "AudioEffectCompositeBox"
                             },
                             {
                                 "kind": "handle",
                                 "handle": "box",
-                                "name": "UnknownMidiEffectDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "ModularDeviceBox"
-                            },
-                            {
-                                "kind": "handle",
-                                "handle": "box",
-                                "name": "UnknownAudioEffectDeviceBox"
+                                "name": "StereoCompositeBox"
                             }
                         ]
                     }

@@ -35,258 +35,215 @@ import {
     WerkstattDeviceBox,
     ZeitgeistDeviceBox
 } from "@opendaw/studio-boxes"
-import {
-    InstrumentSemantics,
-    SupportedInstrumentBox as MappedInstrumentBox,
-    InstrumentSemanticGroup
-} from "./InstrumentSemantics"
-import {SemanticFieldSpec, SemanticFields} from "./SemanticFields"
+import {Neon} from "../devices/instruments/NeonDeviceBoxAdapter"
+import {SemanticFieldSpec} from "./SemanticFields"
 
 export type DeviceCategory = "instrument" | "midi-effect" | "audio-effect"
 
-export type SupportedPublicInstrumentBox =
-    | MappedInstrumentBox
-    | ApparatDeviceBox
-    | PlayfieldDeviceBox
-
-export type SupportedMidiEffectBox =
-    | ArpeggioDeviceBox
-    | PitchDeviceBox
-    | SpielwerkDeviceBox
-    | VelocityDeviceBox
-    | ZeitgeistDeviceBox
-
-export type SupportedAudioEffectBox =
-    | AudioEffectCompositeBox
-    | StereoCompositeBox
-    | FrequencySplitBox
-    | AutotuneDeviceBox
-    | CompressorDeviceBox
-    | ConvolverDeviceBox
-    | CrusherDeviceBox
-    | DattorroReverbDeviceBox
-    | DelayDeviceBox
-    | FoldDeviceBox
-    | ReverbDeviceBox
-    | GateDeviceBox
-    | MaximizerDeviceBox
-    | RevampDeviceBox
-    | StereoToolDeviceBox
-    | TidalDeviceBox
-    | NeuralAmpDeviceBox
-    | VocoderDeviceBox
-    | WaveshaperDeviceBox
-    | WerkstattDeviceBox
-
-export type SupportedSidechainDeviceBox = CompressorDeviceBox | GateDeviceBox | VocoderDeviceBox
-
-export type SupportedDeviceBox =
-    | SupportedPublicInstrumentBox
-    | SupportedMidiEffectBox
-    | SupportedAudioEffectBox
-
-export type DeviceSemanticType =
-    | "Apparat"
-    | "Cubed"
-    | "MIDIOutput"
-    | "Nano"
-    | "Neon"
-    | "Playfield"
-    | "Soundfont"
-    | "Tape"
-    | "Vaporisateur"
-    | "Arpeggio"
-    | "Pitch"
-    | "Spielwerk"
-    | "Velocity"
-    | "Zeitgeist"
-    | "AudioEffectComposite"
-    | "StereoComposite"
-    | "FrequencySplit"
-    | "Autotune"
-    | "Compressor"
-    | "Convolver"
-    | "Crusher"
-    | "DattorroReverb"
-    | "Delay"
-    | "Fold"
-    | "Reverb"
-    | "Gate"
-    | "Maximizer"
-    | "Revamp"
-    | "StereoTool"
-    | "Tidal"
-    | "NeuralAmp"
-    | "Vocoder"
-    | "Waveshaper"
-    | "Werkstatt"
-
-export type DeviceSemanticGroup = InstrumentSemanticGroup
+export type DeviceSemanticGroup = {
+    readonly prefix: string
+    readonly label: string
+}
 
 export type DeviceSemantic = {
-    /** The provider-neutral device category. */
     readonly category: DeviceCategory
-    /** The public device identity, normally matching its factory key. */
-    readonly type: DeviceSemanticType
-    /** The original live box; semantic leaves point into this box. */
-    readonly box: SupportedDeviceBox
-    /** Only controls without an equivalent generic parameter need to be listed here. */
+    readonly type: string
+    readonly box: Box
     readonly spec: SemanticFieldSpec
-    /** Alias for callers that prefer the term `fields`. */
-    readonly fields: SemanticFieldSpec
     readonly groups: ReadonlyArray<DeviceSemanticGroup>
 }
 
-export const SupportedPublicInstrumentBoxNames = [
-    "ApparatDeviceBox",
-    "CubedDeviceBox",
-    "NeonDeviceBox",
-    "MIDIOutputDeviceBox",
-    "NanoDeviceBox",
-    "PlayfieldDeviceBox",
-    "SoundfontDeviceBox",
-    "TapeDeviceBox",
-    "VaporisateurDeviceBox"
-] as const
+const cubedSpec = (box: CubedDeviceBox): SemanticFieldSpec => ({
+    tuning: box.tuning,
+    cutoff: box.cutoff,
+    resonance: box.resonance,
+    envMod: box.envMod,
+    decay: box.decay,
+    accent: box.accent,
+    volume: box.volume,
+    waveform: box.waveform,
+    patternIndex: box.patternIndex
+})
 
-export const SupportedMidiEffectBoxNames = [
-    "ArpeggioDeviceBox",
-    "PitchDeviceBox",
-    "SpielwerkDeviceBox",
-    "VelocityDeviceBox",
-    "ZeitgeistDeviceBox"
-] as const
+const neonSpec = (box: NeonDeviceBox): SemanticFieldSpec => ({
+    lineSelect: box.lineSelect,
+    modulation: box.modulation,
+    octave: box.octave,
+    detune: box.detune,
+    tune: box.tune,
+    glideTime: box.glideTime,
+    voicingMode: box.voicingMode,
+    vibrato: {
+        wave: box.vibrato.wave,
+        delay: box.vibrato.delay,
+        rate: box.vibrato.rate,
+        depth: box.vibrato.depth
+    },
+    lines: box.lines.fields().map(line => ({
+        wave1: line.wave1,
+        wave2: line.wave2,
+        dcwKeyFollow: line.dcwKeyFollow,
+        dcaKeyFollow: line.dcaKeyFollow
+    })),
+    envelopes: box.envelopes.fields().map(envelope => ({
+        rate1: envelope.rate1,
+        rate2: envelope.rate2,
+        rate3: envelope.rate3,
+        rate4: envelope.rate4,
+        rate5: envelope.rate5,
+        rate6: envelope.rate6,
+        rate7: envelope.rate7,
+        rate8: envelope.rate8,
+        level1: envelope.level1,
+        level2: envelope.level2,
+        level3: envelope.level3,
+        level4: envelope.level4,
+        level5: envelope.level5,
+        level6: envelope.level6,
+        level7: envelope.level7,
+        level8: envelope.level8,
+        sustain: envelope.sustain,
+        end: envelope.end
+    }))
+})
 
-export const SupportedAudioEffectBoxNames = [
-    "AudioEffectCompositeBox",
-    "StereoCompositeBox",
-    "FrequencySplitBox",
-    "AutotuneDeviceBox",
-    "CompressorDeviceBox",
-    "ConvolverDeviceBox",
-    "CrusherDeviceBox",
-    "DattorroReverbDeviceBox",
-    "DelayDeviceBox",
-    "FoldDeviceBox",
-    "ReverbDeviceBox",
-    "GateDeviceBox",
-    "MaximizerDeviceBox",
-    "RevampDeviceBox",
-    "StereoToolDeviceBox",
-    "TidalDeviceBox",
-    "NeuralAmpDeviceBox",
-    "VocoderDeviceBox",
-    "WaveshaperDeviceBox",
-    "WerkstattDeviceBox"
-] as const
+const vaporisateurSpec = (box: VaporisateurDeviceBox): SemanticFieldSpec => ({
+    cutoff: box.cutoff,
+    resonance: box.resonance,
+    filterOrder: box.filterOrder,
+    attack: box.attack,
+    decay: box.decay,
+    sustain: box.sustain,
+    release: box.release,
+    filterEnvelope: box.filterEnvelope,
+    filterKeyboard: box.filterKeyboard,
+    voicingMode: box.voicingMode,
+    glideTime: box.glideTime,
+    unisonCount: box.unisonCount,
+    unisonDetune: box.unisonDetune,
+    unisonStereo: box.unisonStereo,
+    lfo: {
+        waveform: box.lfo.waveform,
+        rate: box.lfo.rate,
+        sync: box.lfo.sync,
+        targetTune: box.lfo.targetTune,
+        targetCutoff: box.lfo.targetCutoff,
+        targetVolume: box.lfo.targetVolume
+    },
+    oscillators: box.oscillators.fields().map(oscillator => ({
+        waveform: oscillator.waveform,
+        volume: oscillator.volume,
+        octave: oscillator.octave,
+        tune: oscillator.tune
+    })),
+    noise: {
+        attack: box.noise.attack,
+        hold: box.noise.hold,
+        release: box.noise.release,
+        volume: box.noise.volume
+    }
+})
 
-export const SupportedSidechainDeviceBoxNames = [
-    "CompressorDeviceBox",
-    "GateDeviceBox",
-    "VocoderDeviceBox"
-] as const
+const nanoSpec = (box: NanoDeviceBox): SemanticFieldSpec => ({
+    volume: box.volume,
+    release: box.release
+})
 
-export const SupportedDeviceBoxNames = [
-    ...SupportedPublicInstrumentBoxNames,
-    ...SupportedMidiEffectBoxNames,
-    ...SupportedAudioEffectBoxNames
-] as const
+const tapeSpec = (box: TapeDeviceBox): SemanticFieldSpec => ({
+    flutter: box.flutter,
+    wow: box.wow,
+    noise: box.noise,
+    saturation: box.saturation
+})
 
-const emptySpec = (): SemanticFieldSpec => ({})
+const soundfontSpec = (box: SoundfontDeviceBox): SemanticFieldSpec => ({
+    presetIndex: box.presetIndex
+})
 
-const isSidechainDevice = (box: SupportedAudioEffectBox): box is SupportedSidechainDeviceBox =>
-    box instanceof CompressorDeviceBox || box instanceof GateDeviceBox || box instanceof VocoderDeviceBox
+const midiOutputSpec = (box: MIDIOutputDeviceBox): SemanticFieldSpec => ({
+    channel: box.channel
+})
 
-const sidechainSpec = (box: SupportedSidechainDeviceBox): SemanticFieldSpec => ({sideChain: box.sideChain})
+const boxGroups = (length: number,
+                   prefix: (index: number) => string,
+                   label: (index: number) => string): ReadonlyArray<DeviceSemanticGroup> =>
+    Array.from({length}, (_, index) => ({prefix: prefix(index), label: label(index)}))
 
-const device = <BOX extends SupportedDeviceBox>(
-    category: DeviceCategory,
-    type: DeviceSemanticType,
-    box: BOX,
-    spec: SemanticFieldSpec = emptySpec(),
-    groups: ReadonlyArray<DeviceSemanticGroup> = []
-): DeviceSemantic => ({category, type, box, spec, fields: spec, groups})
+const neonGroups = (): ReadonlyArray<DeviceSemanticGroup> =>
+    boxGroups(6, index => `envelopes.${index}`, index => Neon.envelopeContext(index)?.label ?? `Envelope ${index}`)
 
-const isSupportedInstrument = (box: Box): box is SupportedPublicInstrumentBox =>
-    box instanceof ApparatDeviceBox
-    || box instanceof CubedDeviceBox
-    || box instanceof NeonDeviceBox
-    || box instanceof MIDIOutputDeviceBox
-    || box instanceof NanoDeviceBox
-    || box instanceof PlayfieldDeviceBox
-    || box instanceof SoundfontDeviceBox
-    || box instanceof TapeDeviceBox
-    || box instanceof VaporisateurDeviceBox
+const device = (category: DeviceCategory,
+                type: string,
+                box: Box,
+                spec: SemanticFieldSpec = {},
+                groups: ReadonlyArray<DeviceSemanticGroup> = []): DeviceSemantic =>
+    ({category, type, box, spec, groups})
 
-const isSupportedMidiEffect = (box: Box): box is SupportedMidiEffectBox =>
-    box instanceof ArpeggioDeviceBox
-    || box instanceof PitchDeviceBox
-    || box instanceof SpielwerkDeviceBox
-    || box instanceof VelocityDeviceBox
-    || box instanceof ZeitgeistDeviceBox
+const typeOf = (box: Box): string => box.name.replace(/DeviceBox$|Box$/, "")
 
-const isSupportedAudioEffect = (box: Box): box is SupportedAudioEffectBox =>
-    box instanceof AudioEffectCompositeBox
-    || box instanceof StereoCompositeBox
-    || box instanceof FrequencySplitBox
-    || box instanceof AutotuneDeviceBox
-    || box instanceof CompressorDeviceBox
-    || box instanceof ConvolverDeviceBox
-    || box instanceof CrusherDeviceBox
-    || box instanceof DattorroReverbDeviceBox
-    || box instanceof DelayDeviceBox
-    || box instanceof FoldDeviceBox
-    || box instanceof ReverbDeviceBox
-    || box instanceof GateDeviceBox
-    || box instanceof MaximizerDeviceBox
-    || box instanceof RevampDeviceBox
-    || box instanceof StereoToolDeviceBox
-    || box instanceof TidalDeviceBox
-    || box instanceof NeuralAmpDeviceBox
-    || box instanceof VocoderDeviceBox
-    || box instanceof WaveshaperDeviceBox
-    || box instanceof WerkstattDeviceBox
-
-export const isSupportedDeviceBox = (box: Box): box is SupportedDeviceBox =>
-    isSupportedInstrument(box) || isSupportedMidiEffect(box) || isSupportedAudioEffect(box)
-
-const typeOf = (box: SupportedDeviceBox): DeviceSemanticType =>
-    box.name.replace(/DeviceBox$|Box$/, "") as DeviceSemanticType
-
-/**
- * Canonical semantic mappings for public instruments and effects.
- *
- * Ordinary effect controls are deliberately not copied here: their
- * AutomatableParameterFieldAdapter is already the canonical generic parameter
- * surface. This mapping only promotes fields that need a provider-neutral
- * semantic route in addition to that surface.
- */
 export namespace DeviceSemantics {
     export const forBox = (box: Box): DeviceSemantic | null => {
-        if (isSupportedInstrument(box)) {
-            const instrument = InstrumentSemantics.forBox(box)
-            if (instrument !== null) {
-                return device("instrument", instrument.type, box, instrument.spec, instrument.groups)
-            }
+        if (box instanceof CubedDeviceBox) {
+            return device("instrument", "Cubed", box, cubedSpec(box))
+        }
+        if (box instanceof MIDIOutputDeviceBox) {
+            return device("instrument", "MIDIOutput", box, midiOutputSpec(box))
+        }
+        if (box instanceof NanoDeviceBox) {
+            return device("instrument", "Nano", box, nanoSpec(box))
+        }
+        if (box instanceof NeonDeviceBox) {
+            return device("instrument", "Neon", box, neonSpec(box), neonGroups())
+        }
+        if (box instanceof SoundfontDeviceBox) {
+            return device("instrument", "Soundfont", box, soundfontSpec(box))
+        }
+        if (box instanceof TapeDeviceBox) {
+            return device("instrument", "Tape", box, tapeSpec(box))
+        }
+        if (box instanceof VaporisateurDeviceBox) {
+            return device("instrument", "Vaporisateur", box, vaporisateurSpec(box))
+        }
+        if (box instanceof ApparatDeviceBox || box instanceof PlayfieldDeviceBox) {
             return device("instrument", typeOf(box), box)
         }
-        if (isSupportedMidiEffect(box)) {
+
+        if (
+            box instanceof ArpeggioDeviceBox
+            || box instanceof PitchDeviceBox
+            || box instanceof SpielwerkDeviceBox
+            || box instanceof VelocityDeviceBox
+            || box instanceof ZeitgeistDeviceBox
+        ) {
             return device("midi-effect", typeOf(box), box)
         }
-        if (isSupportedAudioEffect(box)) {
-            // `mono` is a stable user-facing NeuralAmp switch that is not
-            // represented by its generic named-parameter set. All other public
-            // effect controls are already exposed through generic parameters.
-            const spec = box instanceof NeuralAmpDeviceBox
-                ? {mono: box.mono}
-                : isSidechainDevice(box) ? sidechainSpec(box) : emptySpec()
-            return device("audio-effect", typeOf(box), box, spec)
+
+        if (box instanceof CompressorDeviceBox || box instanceof GateDeviceBox || box instanceof VocoderDeviceBox) {
+            return device("audio-effect", typeOf(box), box, {sideChain: box.sideChain})
+        }
+        if (box instanceof NeuralAmpDeviceBox) {
+            return device("audio-effect", typeOf(box), box, {mono: box.mono})
+        }
+        if (
+            box instanceof AudioEffectCompositeBox
+            || box instanceof StereoCompositeBox
+            || box instanceof FrequencySplitBox
+            || box instanceof AutotuneDeviceBox
+            || box instanceof ConvolverDeviceBox
+            || box instanceof CrusherDeviceBox
+            || box instanceof DattorroReverbDeviceBox
+            || box instanceof DelayDeviceBox
+            || box instanceof FoldDeviceBox
+            || box instanceof ReverbDeviceBox
+            || box instanceof MaximizerDeviceBox
+            || box instanceof RevampDeviceBox
+            || box instanceof StereoToolDeviceBox
+            || box instanceof TidalDeviceBox
+            || box instanceof WaveshaperDeviceBox
+            || box instanceof WerkstattDeviceBox
+        ) {
+            return device("audio-effect", typeOf(box), box)
         }
         return null
-    }
-
-    export const paths = (box: Box): ReadonlyArray<string> => {
-        const semantics = forBox(box)
-        return semantics === null ? [] : SemanticFields.paths(semantics.spec)
     }
 }

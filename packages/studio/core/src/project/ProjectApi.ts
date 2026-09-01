@@ -77,8 +77,6 @@ import {
     ScriptCompiler,
     ScriptDeviceConfigs,
     SemanticFields,
-    labeledAudioOutputLeaves,
-    SupportedDeviceBox,
     TrackBoxAdapter,
     TrackType,
     ValueEventCollectionBoxAdapter
@@ -93,9 +91,9 @@ import {PresetSource} from "../presets"
 import {AudioContentFactory} from "./audio"
 import {NoteMidiExport} from "./NoteMidiExport"
 import {AudioWavExport} from "./AudioWavExport"
-import {musicalDurationToPulses, musicalPositionToPulses} from "../control-tools/MusicalTime"
-import type {MusicalDuration, MusicalPosition} from "../control-tools/MusicalTime"
-export type {MusicalDuration, MusicalPosition} from "../control-tools/MusicalTime"
+import {musicalDurationToPulses, musicalPositionToPulses} from "./MusicalTime"
+import type {MusicalDuration, MusicalPosition} from "./MusicalTime"
+export type {MusicalDuration, MusicalPosition} from "./MusicalTime"
 
 export type ClipRegionOptions = {
     name?: string
@@ -245,44 +243,29 @@ export class ProjectApi {
         return {audioUnitBox, instrumentBox, trackBox}
     }
 
-    /** Create an instrument from a canonical factory after reading its canonical device help. */
+    /** Create an instrument from a canonical factory. */
     createAnyInstrument(factory: InstrumentFactory<any, any>): InstrumentProduct<InstrumentBox> {
         return this.createInstrument(factory)
     }
 
     /**
-     * Set semantic device properties discovered with `daw_resources.inspect_device`.
-     * Paths are canonical device property paths, not raw field addresses. Multiple changes
-     * are applied together; use the returned paths exactly when making subsequent edits.
-     * Ordinary automatable controls remain available through the generic parameter API.
+     * Set semantic properties on a supported device.
+     * Paths are stable semantic property paths rather than raw field addresses.
+     * Multiple changes are applied together by the caller's transaction.
      */
-    setDeviceProperties(device: SupportedDeviceBox,
+    setDeviceProperties(device: Box,
                         changes: ReadonlyArray<DevicePropertyChange>): void {
         const semantics = DeviceSemantics.forBox(device)
         if (semantics === null) {
             throw new Error(`Unsupported device '${device.name}'.`)
         }
-        const audioOutputAddresses = new Set(
-            labeledAudioOutputLeaves(this.#project.rootBoxAdapter).map(output => output.address.toString()))
         const writes = changes.map(change => {
             const field = SemanticFields.resolve(semantics.spec, change.path)
             if (field === undefined) {
                 throw new Error(`'${change.path}' is not a semantic property of ${semantics.type}. `
-                    + "Use inspect_device to discover valid paths.")
+                    + "Use a valid semantic property path.")
             }
             const value = SemanticFields.coerceValue(field, change.value, change.path)
-            if (field instanceof PointerField && value !== null) {
-                if (!(value instanceof Address)) {
-                    throw new Error(`'${change.path}' requires an Address handle or null.`)
-                }
-                if (!audioOutputAddresses.has(value.toString())) {
-                    throw new Error(`'${change.path}' must target a selectable audio output returned by `
-                        + "query_resources with kind 'audio-output'.")
-                }
-                if (this.#project.boxGraph.findVertex(value).isEmpty()) {
-                    throw new Error(`No resource at ${value.toString()}`)
-                }
-            }
             return {field, value}
         })
         writes.forEach(({field, value}) => {
