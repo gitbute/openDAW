@@ -78,6 +78,8 @@ export type SupportedAudioEffectBox =
     | WaveshaperDeviceBox
     | WerkstattDeviceBox
 
+export type SupportedSidechainDeviceBox = CompressorDeviceBox | GateDeviceBox | VocoderDeviceBox
+
 export type SupportedDeviceBox =
     | SupportedPublicInstrumentBox
     | SupportedMidiEffectBox
@@ -178,6 +180,12 @@ export const SupportedAudioEffectBoxNames = [
     "WerkstattDeviceBox"
 ] as const
 
+export const SupportedSidechainDeviceBoxNames = [
+    "CompressorDeviceBox",
+    "GateDeviceBox",
+    "VocoderDeviceBox"
+] as const
+
 export const SupportedDeviceBoxNames = [
     ...SupportedPublicInstrumentBoxNames,
     ...SupportedMidiEffectBoxNames,
@@ -185,6 +193,11 @@ export const SupportedDeviceBoxNames = [
 ] as const
 
 const emptySpec = (): SemanticFieldSpec => ({})
+
+const isSidechainDevice = (box: SupportedAudioEffectBox): box is SupportedSidechainDeviceBox =>
+    box instanceof CompressorDeviceBox || box instanceof GateDeviceBox || box instanceof VocoderDeviceBox
+
+const sidechainSpec = (box: SupportedSidechainDeviceBox): SemanticFieldSpec => ({sideChain: box.sideChain})
 
 const device = <BOX extends SupportedDeviceBox>(
     category: DeviceCategory,
@@ -266,7 +279,7 @@ export namespace DeviceSemantics {
             // effect controls are already exposed through generic parameters.
             const spec = box instanceof NeuralAmpDeviceBox
                 ? {mono: box.mono}
-                : emptySpec()
+                : isSidechainDevice(box) ? sidechainSpec(box) : emptySpec()
             return device("audio-effect", typeOf(box), box, spec)
         }
         return null

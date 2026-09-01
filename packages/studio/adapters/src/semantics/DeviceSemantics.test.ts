@@ -7,7 +7,8 @@ import {
     SupportedAudioEffectBoxNames,
     SupportedDeviceBoxNames,
     SupportedMidiEffectBoxNames,
-    SupportedPublicInstrumentBoxNames
+    SupportedPublicInstrumentBoxNames,
+    SupportedSidechainDeviceBoxNames
 } from "./DeviceSemantics"
 import {SemanticFields} from "./SemanticFields"
 
@@ -34,6 +35,18 @@ describe("DeviceSemantics", () => {
         expect(semantics?.category).toBe("audio-effect")
         expect(semantics?.type).toBe("NeuralAmp")
         expect(SemanticFields.paths(semantics!.spec)).toEqual(["mono"])
+        graph.abortTransaction()
+    })
+
+    it("exposes sideChain only on the existing sidechain-capable devices", () => {
+        const graph = new BoxGraph<BoxIO.TypeMap>(Option.wrap(BoxIO.create))
+        graph.beginTransaction()
+        for (const name of SupportedSidechainDeviceBoxNames) {
+            const box = BoxIO.create(name as keyof BoxIO.TypeMap, graph, UUID.generate())
+            expect(SemanticFields.paths(DeviceSemantics.forBox(box)!.spec)).toEqual(["sideChain"])
+        }
+        const ordinaryEffect = BoxIO.create("DelayDeviceBox", graph, UUID.generate())
+        expect(SemanticFields.paths(DeviceSemantics.forBox(ordinaryEffect)!.spec)).not.toContain("sideChain")
         graph.abortTransaction()
     })
 })

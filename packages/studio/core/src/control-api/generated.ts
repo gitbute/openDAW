@@ -351,6 +351,12 @@ export const generatedControlManifest: GeneratedManifest = {
                                         "kind": "union",
                                         "alternatives": [
                                             {
+                                                "kind": "literal",
+                                                "values": [
+                                                    null
+                                                ]
+                                            },
+                                            {
                                                 "kind": "primitive",
                                                 "type": "string"
                                             },
@@ -365,6 +371,11 @@ export const generatedControlManifest: GeneratedManifest = {
                                             {
                                                 "kind": "primitive",
                                                 "type": "boolean"
+                                            },
+                                            {
+                                                "kind": "handle",
+                                                "handle": "address",
+                                                "name": "Address"
                                             }
                                         ]
                                     }

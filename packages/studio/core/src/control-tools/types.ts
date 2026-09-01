@@ -44,7 +44,7 @@ export type ToolCatalogSpec = {
     readonly tools: ReadonlyArray<ToolSpec>
 }
 
-export type ResourceKind = "box" | "field" | "adapter" | "parameter"
+export type ResourceKind = "box" | "field" | "adapter" | "parameter" | "audio-output"
 
 export type SampleCatalog = {
     list(): Promise<ReadonlyArray<Sample>>

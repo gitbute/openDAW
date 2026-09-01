@@ -1,9 +1,11 @@
 import {
+    Address,
     BooleanField,
     ByteArrayField,
     Constraints,
     Float32Field,
     Int32Field,
+    PointerField,
     PrimitiveField,
     PrimitiveValues,
     StringField
@@ -14,15 +16,16 @@ export interface SemanticFieldRecord {
     readonly [key: string]: SemanticFieldSpec
 }
 
-type AnyPrimitiveField = PrimitiveField<any, any>
+type AnySemanticField = PrimitiveField<any, any> | PointerField<any>
 
 export type SemanticFieldSpec =
-    | AnyPrimitiveField
+    | AnySemanticField
     | SemanticFieldRecord
     | ReadonlyArray<SemanticFieldSpec>
 
 const isRecord = (value: SemanticFieldSpec): value is SemanticFieldRecord =>
-    typeof value === "object" && value !== null && !Array.isArray(value) && !(value instanceof PrimitiveField)
+    typeof value === "object" && value !== null && !Array.isArray(value)
+    && !(value instanceof PrimitiveField) && !(value instanceof PointerField)
 
 const invalid = (path: string, message: string): never => {
     throw new Error(`${path}: ${message}`)
@@ -81,7 +84,7 @@ const validateFloat32 = (field: Float32Field, value: unknown, path: string): num
     return number
 }
 
-const resolvePath = (spec: SemanticFieldSpec, path: string): AnyPrimitiveField | undefined => {
+const resolvePath = (spec: SemanticFieldSpec, path: string): AnySemanticField | undefined => {
     if (path.length === 0) {return undefined}
     let current: SemanticFieldSpec = spec
     for (const segment of path.split(".")) {
@@ -97,13 +100,13 @@ const resolvePath = (spec: SemanticFieldSpec, path: string): AnyPrimitiveField |
             return undefined
         }
     }
-    return current instanceof PrimitiveField ? current : undefined
+    return current instanceof PrimitiveField || current instanceof PointerField ? current : undefined
 }
 
 const enumeratePaths = (spec: SemanticFieldSpec): ReadonlyArray<string> => {
     const result: Array<string> = []
     const visit = (current: SemanticFieldSpec, prefix: string): void => {
-        if (current instanceof PrimitiveField) {
+        if (current instanceof PrimitiveField || current instanceof PointerField) {
             if (prefix.length > 0) {result.push(prefix)}
             return
         }
@@ -128,7 +131,13 @@ export namespace SemanticFields {
     export const resolve = resolvePath
 
     /** Validate a semantic value using the constraints of its live primitive field. */
-    export const coerceValue = (field: AnyPrimitiveField, value: unknown, path: string): PrimitiveValues => {
+    export const coerceValue = (field: AnySemanticField, value: unknown, path: string): PrimitiveValues | Address | null => {
+        if (field instanceof PointerField) {
+            if (value === null) {return null}
+            return value instanceof Address
+                ? value
+                : invalid(path, "value must be an Address handle or null")
+        }
         if (field instanceof Float32Field) {return validateFloat32(field, value, path)}
         if (field instanceof Int32Field) {return validateInt32(field, value, path)}
         if (field instanceof BooleanField) {

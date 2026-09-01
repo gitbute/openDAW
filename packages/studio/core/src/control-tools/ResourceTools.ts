@@ -7,6 +7,8 @@ import {
     DeviceSemantics,
     InstrumentFactories,
     ParameterOwner,
+    labeledAudioOutputLeaves,
+    RootBoxAdapter,
     SupportedDeviceBoxNames,
     SemanticFields,
     TimelineBoxAdapter,
@@ -71,8 +73,10 @@ const boxSpec = {
     name: "Box"
 } as const
 
-const knownKinds: ReadonlyArray<ResourceKind> = ["box", "field", "adapter", "parameter"]
-const kindOrder: Readonly<Record<ResourceKind, number>> = {box: 0, field: 1, adapter: 2, parameter: 3}
+const knownKinds: ReadonlyArray<ResourceKind> = ["box", "field", "adapter", "parameter", "audio-output"]
+const kindOrder: Readonly<Record<ResourceKind, number>> = {
+    box: 0, field: 1, adapter: 2, parameter: 3, "audio-output": 4
+}
 const defaultLimit = 50
 const sampleDefaultLimit = 50
 const sampleMaxLimit = 50
@@ -271,17 +275,30 @@ const parameterView = (resolver: ControlResolver,
     } as JsonObject
 }
 
-const semanticPropertyView = (resolver: ControlResolver, path: string, field: PrimitiveField<any, any>,
+const audioOutputView = (resolver: ControlResolver,
+                         output: ReturnType<typeof labeledAudioOutputLeaves>[number]): JsonObject => ({
+    kind: "audio-output",
+    handle: resolver.handle(output.address),
+    label: output.label,
+    path: output.path
+})
+
+const semanticPropertyView = (resolver: ControlResolver, path: string, field: Field,
                               parameter: AutomatableParameterFieldAdapter | undefined): DevicePropertyInspection => {
     const constraints = field instanceof Float32Field || field instanceof Int32Field
         ? asJsonValue(field.constraints) ?? null
         : null
+    const value = field instanceof PointerField
+        ? field.targetAddress.map(address => resolver.handle(address)).unwrapOrNull()
+        : primitiveValue(field) ?? null
     return {
         path,
-        value: primitiveValue(field) ?? null,
-        fieldType: String(field.type),
+        value,
+        fieldType: field instanceof PointerField
+            ? "pointer"
+            : field instanceof PrimitiveField ? String(field.type) : field.constructor.name,
         constraints,
-        automatable: parameter !== undefined,
+        automatable: field instanceof PointerField ? false : parameter !== undefined,
         ...(parameter === undefined ? {} : {
             parameterName: parameter.name,
             parameterHandle: resolver.handle(parameter),
@@ -388,6 +405,13 @@ const resourceSummary = (kind: ResourceKind, view: JsonObject): JsonObject => {
                 ...(view.ownerLabel === undefined ? {} : {ownerLabel: view.ownerLabel}),
                 ...(view.printValue === undefined ? {} : {printValue: view.printValue})
             }
+        case "audio-output":
+            return {
+                kind,
+                handle: view.handle,
+                label: view.label,
+                path: view.path
+            }
     }
 }
 
@@ -448,7 +472,7 @@ export class ResourceTools {
         const kindValue = value.kind
         if (kindValue !== undefined && (typeof kindValue !== "string"
             || !(knownKinds as ReadonlyArray<string>).includes(kindValue))) {
-            throw new Error("kind must be one of box, field, adapter, parameter")
+            throw new Error("kind must be one of box, field, adapter, parameter, audio-output")
         }
         const kind = kindValue as ResourceKind | undefined
         const text = optionalString(value, "text")?.trim().toLocaleLowerCase()
@@ -713,6 +737,12 @@ export class ResourceTools {
             "parameter", parameter.address, parameterView(this.#resolver, parameter),
             String(parameter.type), ParameterOwner.ownerBoxOf(parameter.field).address,
             [parameter.name, parameter.field.fieldName])))
+        const root = adapters.find(adapter => adapter instanceof RootBoxAdapter)
+        if (root instanceof RootBoxAdapter) {
+            labeledAudioOutputLeaves(root).forEach(output => entries.push(entry(
+                "audio-output", output.address, audioOutputView(this.#resolver, output),
+                "LabeledAudioOutput", undefined, output.path)))
+        }
         return entries.toSorted((left, right) =>
             kindOrder[left.kind] - kindOrder[right.kind]
             || left.address.localeCompare(right.address))

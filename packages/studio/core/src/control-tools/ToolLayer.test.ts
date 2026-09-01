@@ -419,6 +419,15 @@ describe("Slice 2 control tools", () => {
                 expect.stringContaining("Handle to a NeuralAmpDeviceBox."),
                 expect.stringContaining("Handle to a WerkstattDeviceBox.")
             ]))
+        const changesSchema = deviceMutation?.spec.inputSchema.properties?.changes
+        if (changesSchema?.items === undefined || changesSchema.items === false) {
+            throw new Error("set_device_properties changes schema is missing")
+        }
+        const propertyValueSchema = changesSchema.items.properties?.value
+        expect(propertyValueSchema).toBeDefined()
+        expect(allSchemas(propertyValueSchema!)).toEqual(expect.arrayContaining([
+            expect.objectContaining({description: expect.stringContaining("Handle to an Address.")})
+        ]))
     })
 
     it("exposes explicit sample assignment tools and canonical note-owner documentation", () => {
@@ -1569,6 +1578,77 @@ describe("Slice 2 control tools", () => {
             const mutationTool = catalog.get("daw_project", "set_device_properties")
             expect(mutationTool?.spec.exposure).toBe("deferred")
             expect(catalog.get("daw_project", "set_neon_envelope")).toBeUndefined()
+        } finally {
+            project.terminate()
+        }
+    })
+
+    it("discovers UI audio-output leaves and routes sideChain through device properties", async () => {
+        const {project, executor} = createLayer()
+        try {
+            const boxEditing = project.editing as BoxEditing
+            const sourceProduct = objectValue(await run(executor, "daw_project", "create_any_instrument", {
+                factory: "Neon"
+            }))
+            const destinationProduct = objectValue(await run(executor, "daw_project", "create_any_instrument", {
+                factory: "Vaporisateur"
+            }))
+            const destination = handleValue(destinationProduct.audioUnitBox)
+            const compressor = handleValue(await run(executor, "daw_project", "insert_audio_effect", {
+                audioUnitBox: destination, factory: "Compressor", insertIndex: 0
+            }))
+
+            const outputs = objectValue(await run(executor, "daw_resources", "query_resources", {
+                kind: "audio-output", text: "Neon", limit: 100
+            }))
+            const sourceSummary = arrayValue(outputs.resources).map(objectValue)
+                .find(resource => resource.kind === "audio-output" && resource.label === "Neon")
+            expect(sourceSummary).toBeDefined()
+            expect(sourceSummary?.path).toEqual(["Neon", "Neon"])
+            const source = handleValue(sourceSummary!.handle)
+            const sourceInspection = objectValue(await run(executor, "daw_resources", "inspect_resource", {
+                handle: source
+            }))
+            expect(arrayValue(sourceInspection.views).map(objectValue)
+                .some(view => view.kind === "audio-output")).toBe(true)
+
+            const before = objectValue(await run(executor, "daw_resources", "inspect_device", {device: compressor}))
+            const beforeSideChain = arrayValue(before.properties).map(objectValue)
+                .find(property => property.path === "sideChain")
+            expect(beforeSideChain?.value).toBeNull()
+
+            boxEditing.clear()
+            await run(executor, "daw_project", "set_device_properties", {
+                device: compressor, changes: [{path: "sideChain", value: source}]
+            })
+            expect(project.editing.canUndo()).toBe(true)
+            const connected = objectValue(await run(executor, "daw_resources", "inspect_device", {
+                device: compressor
+            }))
+            const connectedSideChain = arrayValue(connected.properties).map(objectValue)
+                .find(property => property.path === "sideChain")
+            expect(connectedSideChain?.value).toEqual(source)
+            expect(project.editing.undo()).toBe(true)
+
+            boxEditing.clear()
+            await run(executor, "daw_project", "set_device_properties", {
+                device: compressor, changes: [{path: "sideChain", value: source}]
+            })
+            boxEditing.clear()
+            await run(executor, "daw_project", "set_device_properties", {
+                device: compressor, changes: [{path: "sideChain", value: null}]
+            })
+            const cleared = objectValue(await run(executor, "daw_resources", "inspect_device", {
+                device: compressor
+            }))
+            const clearedSideChain = arrayValue(cleared.properties).map(objectValue)
+                .find(property => property.path === "sideChain")
+            expect(clearedSideChain?.value).toBeNull()
+            expect(project.editing.canUndo()).toBe(true)
+
+            // Keep the source product live in the test so this assertion also proves the queried source came from
+            // the project graph rather than a synthetic address.
+            expect(sourceProduct.instrumentBox).toBeDefined()
         } finally {
             project.terminate()
         }

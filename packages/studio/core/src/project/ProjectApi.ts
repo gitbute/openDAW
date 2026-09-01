@@ -19,7 +19,7 @@ import {
     UUID
 } from "@opendaw/lib-std"
 import {Interpolation, ppqn, PPQN, TimeBase} from "@opendaw/lib-dsp"
-import {Box, BoxGraph, Field, IndexedBox, PointerField} from "@opendaw/lib-box"
+import {Address, Box, BoxGraph, Field, IndexedBox, PointerField} from "@opendaw/lib-box"
 import {AudioUnitType, Colors, IconSymbol, Pointers} from "@opendaw/studio-enums"
 import {
     AudioClipBox,
@@ -77,6 +77,7 @@ import {
     ScriptCompiler,
     ScriptDeviceConfigs,
     SemanticFields,
+    labeledAudioOutputLeaves,
     SupportedDeviceBox,
     TrackBoxAdapter,
     TrackType,
@@ -143,7 +144,7 @@ export type NoteEventOwner = NoteRegionBox | NoteClipBox | NoteEventCollectionBo
 
 export type DevicePropertyChange = {
     path: string
-    value: number | string | boolean
+    value: number | string | boolean | Address | null
 }
 
 export type NoteEventParams = {
@@ -261,15 +262,48 @@ export class ProjectApi {
         if (semantics === null) {
             throw new Error(`Unsupported device '${device.name}'.`)
         }
+        const audioOutputAddresses = new Set(
+            labeledAudioOutputLeaves(this.#project.rootBoxAdapter).map(output => output.address.toString()))
         const writes = changes.map(change => {
             const field = SemanticFields.resolve(semantics.spec, change.path)
             if (field === undefined) {
                 throw new Error(`'${change.path}' is not a semantic property of ${semantics.type}. `
                     + "Use inspect_device to discover valid paths.")
             }
-            return {field, value: SemanticFields.coerceValue(field, change.value, change.path)}
+            const value = SemanticFields.coerceValue(field, change.value, change.path)
+            if (field instanceof PointerField && value !== null) {
+                if (!(value instanceof Address)) {
+                    throw new Error(`'${change.path}' requires an Address handle or null.`)
+                }
+                if (!audioOutputAddresses.has(value.toString())) {
+                    throw new Error(`'${change.path}' must target a selectable audio output returned by `
+                        + "query_resources with kind 'audio-output'.")
+                }
+                if (this.#project.boxGraph.findVertex(value).isEmpty()) {
+                    throw new Error(`No resource at ${value.toString()}`)
+                }
+            }
+            return {field, value}
         })
-        writes.forEach(({field, value}) => field.setValue(value))
+        writes.forEach(({field, value}) => {
+            if (field instanceof PointerField) {
+                if (value === null) {
+                    field.defer()
+                    return
+                }
+                if (!(value instanceof Address)) {
+                    throw new Error(`'${field.fieldName}' requires an Address handle or null.`)
+                }
+                const target = this.#project.boxGraph.findVertex(value)
+                    .unwrap(`No resource at ${value.toString()}`)
+                field.targetVertex = Option.wrap(target)
+                return
+            }
+            if (value === null || value instanceof Address) {
+                throw new Error(`'${field.fieldName}' requires a primitive value.`)
+            }
+            field.setValue(value)
+        })
     }
 
     createAudioBus(name: string, type: "bus" | "aux" = "bus"): AudioBusBox {

@@ -204,7 +204,7 @@ export const operationInputSchema = (operation: OperationDescriptor): JsonSchema
 }
 
 export const resourceQueryInputSchema: JsonSchema = strictObject({
-    kind: literalSchema(["box", "field", "adapter", "parameter"]),
+    kind: literalSchema(["box", "field", "adapter", "parameter", "audio-output"]),
     text: {type: "string"},
     type: {type: "string"},
     owner: handleSchema(),
