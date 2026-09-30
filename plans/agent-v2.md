@@ -88,6 +88,10 @@ User verdict across runs: steadily better, sound still clean/flat ("bass sounds 
 
 Note: most "missing" effects already exist (Fold, Waveshaper, Crusher, Frequency Split, Revamp, Neural Amp); the device palette
 in the prompt (added before run 4) should surface them — check whether run 4+ actually uses them.
+Run 4 devices: Apparat ×5, Playfield ×3, Vaporisateur ×1; effects Revamp ×5, StereoTool ×2, Compressor, Reverb, Delay.
+It used NO distortion (Fold/Waveshaper/Crusher/Neural Amp) and no saturation in its scripts → most likely cause of the
+"clean, flat, not in-your-face" verdict. First lead next session: find out why it doesn't reach for distortion when the style
+demands aggression (without adding genre recipes), e.g. make the sound-design loop compare its growl against the intent.
 
 ## Parked roadmap
 
