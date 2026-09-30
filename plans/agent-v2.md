@@ -47,6 +47,17 @@ Local work branches: `wip/v2-integration` (full history), `wip/v2-base`; `agent/
 - Subagents: no hard rules, only coordination (agree on ownership).
 - Commits only on work branches; push only to `origin` (the fork), never upstream.
 
+## Test log (GPT-6.1-Sol, identical dubstep prompt, 2026-09-30)
+
+| Run | Effort | Tool calls | Failed scripts | Notes |
+|---|---|---|---|---|
+| 1 (pre-fixes, killed by HMR reload) | low | ~24 | 3 | `throw Error()` typing, @param automation broken |
+| 2 | low | 36 | 1 | PPQN docs wrong (8 bars → 4), unit.output crash, Maximizer +3.1 dBTP, live CPU stutter |
+| 3 | low | 27 | 2 | loop assignment, @param by label; images still unusable in code cells |
+| 4 | medium | 32 | 0 | used audition, images reached the model; user: "fine, not slap-in-your-face" |
+
+User verdict across runs: steadily better, sound still clean/flat ("bass sounds like mids"), not aggressive enough.
+
 ## Open issues (next)
 
 1. Masking still pairs a unit with its group bus in live projects (`lead.output = MELODY` → pair "Crystal hook"/"MELODY"),
@@ -56,6 +67,27 @@ Local work branches: `wip/v2-integration` (full history), `wip/v2-base`; `agent/
 3. Loop API: `p.loop = {...}` fails (read-only); add a hint or setter.
 4. Gain-reduction traces for compressors/limiter; automation curve readback.
 5. Maximizer has no true-peak limiting (engine, Rust).
+6. Replacing script device code resets matching @param values (e.g. `bite` 0.95 → 0.70): preserve values for params whose
+   label survives, or report resets in the run_script change summary.
+7. inspect_project compact mode hides non-default output destinations (group routing) — always show them.
+8. inspect_notes pitch names: state the octave convention (MIDI 41 shown as F1) and include MIDI numbers.
+9. listen loudness: expose gating/active duration; short stems read louder than the mix (gated LUFS) and confuse the agent.
+10. CPU load: a worst block >100% was reported without a warning, readings unstable; separate warm-up/JIT outliers,
+    report percentiles / consecutive overruns.
+11. browse samples: filter one-shot vs loop, transient/tonal descriptors.
+12. Naming consistency across API, snapshots and references (`volume` vs `volumeDb`, `panning` vs `pan`).
+13. Images in code cells still need manual parsing; a helper in the result (or structured blocks) would remove friction.
+
+## Agent's own top wishes (latest, medium run)
+
+1. Perceptual, loudness-matched audition/A-B (descriptions of distortion texture, transient impact, bass articulation).
+2. Oversampled distortion + mastering with meters (multiband saturation, clipper, true-peak limiter, GR traces).
+3. Resampling as a first-class workflow ("if you implement only one creative capability next").
+4. Efficient DSP library for Apparat/Werkstatt (band-limited oscillators, tables, formant filters, oversampled nonlinearities).
+5. Unified inspection + targeted patching that preserves parameter state.
+
+Note: most "missing" effects already exist (Fold, Waveshaper, Crusher, Frequency Split, Revamp, Neural Amp); the device palette
+in the prompt (added before run 4) should surface them — check whether run 4+ actually uses them.
 
 ## Parked roadmap
 
