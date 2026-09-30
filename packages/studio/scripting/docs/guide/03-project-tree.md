@@ -26,13 +26,31 @@ drums.output = bus
 bus.addAudioEffect("Compressor", {threshold: -18, ratio: 4})
 ```
 
-`project.findAudioUnit(label)` looks a unit up by its label.
+`project.findAudioUnit(label)` looks a unit up by its label and returns the union {@link AnyAudioUnit}: only
+members every unit kind shares are available until you narrow it (`unit.kind === "instrument"`). The typed
+lookups return the precise type, or null when the label is missing or belongs to another kind:
+
+```ts
+const lead = project.findInstrumentUnit("Lead", "Vaporisateur")  // InstrumentAudioUnit<"Vaporisateur">
+if (lead !== null) {lead.instrument.cutoff = 1800}
+const reverb = project.findAuxUnit("Reverb")                      // AuxAudioUnit
+const drums = project.findGroupUnit("Drums")                      // GroupAudioUnit
+if (drums !== null && reverb !== null) {drums.addSend(reverb, {amount: -12})}
+const bass = project.findAudioUnit("Bass", "instrument")          // same as findInstrumentUnit("Bass")
+```
 
 ## Instruments
 
 `addInstrumentUnit` creates the unit together with one default track that matches the instrument: a note track
 for synths and samplers, an audio track for Tape. `unit.setInstrument(key)` swaps the instrument and keeps
-tracks and effects.
+tracks and effects. It returns the new instrument typed by `key`; keep using that return value, because the
+static type of `unit.instrument` does not change. `unit.hasInstrument(key)` narrows `unit.instrument`:
+
+```ts
+const apparat = unit.setInstrument("Apparat")
+apparat.code = "..."
+if (unit.hasInstrument("Vaporisateur")) {unit.instrument.cutoff = 900}
+```
 
 Available keys are the properties of {@link Instruments}.
 
@@ -71,7 +89,8 @@ synth.addSend(reverb, {amount: -12, mode: "post"})
 
 ## Global timeline
 
-* `project.markers` and `addMarker()` for arrangement markers.
+* `project.markers` and `addMarker({position, label})` for arrangement markers. `position` is absolute PPQN
+  (`0` = bar 1, `PPQN.Bar * 16` = bar 17), negative positions clamp to 0.
 * `project.tempoTrack` for tempo changes (enable it, then `addEvent({position, bpm})`).
 * `project.signatureTrack` for time signature changes.
 * `project.loop` for the transport loop, `project.duration` for the project length.

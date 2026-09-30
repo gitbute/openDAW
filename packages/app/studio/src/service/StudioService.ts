@@ -83,6 +83,9 @@ import {ShadertoyState} from "@/ui/shadertoy/ShadertoyState"
 import {CodeEditorState} from "@/ui/code-editor/CodeEditorState"
 import {RoomAwareness} from "@/service/RoomAwareness"
 import {ChatService} from "@/chat/ChatService"
+import {CodexAgentController} from "@/codex/CodexAgentController"
+import {CodexProjectConversationStore} from "@/codex/CodexProjectConversationStore"
+import {AgentToolboxes} from "@/agent/AgentToolboxes"
 
 /**
  * I am just piling stuff after stuff in here to boot the environment.
@@ -104,6 +107,7 @@ export class StudioService implements ProjectEnv {
         screen: new DefaultObservableValue<Nullable<Workspace.ScreenKeys>>("default"),
         browseScope: new DefaultObservableValue<BrowseScope>(BrowseScope.Presets)
     } as const
+    readonly codexAgent: CodexAgentController
     readonly timeline = {
         range,
         snapping,
@@ -157,6 +161,10 @@ export class StudioService implements ProjectEnv {
             type: "import-sample",
             sample
         }))
+        this.codexAgent = new CodexAgentController({
+            createToolboxes: project => AgentToolboxes.create(this, project),
+            developerInstructions: AgentToolboxes.developerInstructions
+        })
         this.#soundfontService = new SoundfontService()
         this.#soundfontService.subscribe(([soundfont, _]) => this.#signals.notify({
             type: "import-soundfont",
@@ -171,6 +179,7 @@ export class StudioService implements ProjectEnv {
             soundfontService: this.#soundfontService, soundfontManager: this.soundfontManager
         })
 
+        this.#projectProfileService.subscribeSaved(() => void this.codexAgent.persist())
         this.#navigation = new StudioNavigation(this.layout.screen, this.#projectProfileService)
         this.#listenProject()
         this.#installConsoleCommands()
@@ -433,6 +442,8 @@ export class StudioService implements ProjectEnv {
     #listenProject(): void {
         const lifeTime = new Terminator()
         const observer = (optProfile: Option<ProjectProfile>) => {
+            this.codexAgent.bindProject(optProfile.nonEmpty() ? optProfile.unwrap().project : null,
+                optProfile.map(profile => CodexProjectConversationStore.forProfile(profile)).unwrapOrUndefined())
             this.layout.screen.setValue(null)
             this.panelLayout.releasePopouts()
             lifeTime.terminate()

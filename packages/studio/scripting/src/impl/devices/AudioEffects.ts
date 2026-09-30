@@ -1,10 +1,8 @@
 import {
-    AudioBusBox,
     AudioEffectCompositeBox,
     AudioEffectCompositeCellBox,
     AudioFileBox,
     AudioSinkDeviceBox,
-    AudioUnitBox,
     AutotuneDeviceBox,
     CompressorDeviceBox,
     ConvolverDeviceBox,
@@ -370,11 +368,8 @@ export class SinkEffectImpl extends AudioEffectFacade<AudioSinkDeviceBox> implem
     }
 
     get target(): Nullable<GroupAudioUnit | AuxAudioUnit> {
-        return this.box.targetBus.targetVertex.mapOr(vertex => {
-            const busBox = asInstanceOf(vertex.box, AudioBusBox)
-            const unitField = busBox.output.targetVertex.unwrap("bus has no audio unit")
-            return AudioUnitImpls.wrap(this.context, asInstanceOf(unitField.box, AudioUnitBox)) as GroupAudioUnit | AuxAudioUnit
-        }, null)
+        return AudioUnitImpls.fromBus(this.context, this.box.targetBus.targetVertex.mapOr(vertex => vertex.box, null)) as
+            Nullable<GroupAudioUnit | AuxAudioUnit>
     }
     set target(target: Nullable<GroupAudioUnit | AuxAudioUnit>) {
         this.context.edit(() => {

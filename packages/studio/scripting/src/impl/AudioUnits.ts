@@ -60,13 +60,13 @@ export abstract class AudioUnitFacade extends Facade<AudioUnitBox> implements Au
     get index(): int {return this.box.index.getValue()}
 
     get output(): Nullable<OutputAudioUnit | GroupAudioUnit | AuxAudioUnit> {
-        return this.box.output.targetVertex.mapOr(vertex => {
-            const busBox = asInstanceOf(vertex.box, AudioBusBox)
-            const unitField = busBox.output.targetVertex.unwrap("bus has no audio unit")
-            return AudioUnitImpls.wrap(this.context, asInstanceOf(unitField.box, AudioUnitBox)) as OutputAudioUnit | GroupAudioUnit | AuxAudioUnit
-        }, null)
+        return AudioUnitImpls.fromBus(this.context, this.box.output.targetVertex.mapOr(vertex => vertex.box, null)) as
+            Nullable<OutputAudioUnit | GroupAudioUnit | AuxAudioUnit>
     }
     set output(target: Nullable<OutputAudioUnit | GroupAudioUnit | AuxAudioUnit>) {
+        if (this.box.type.getValue() === AudioUnitType.Output) {
+            panic(new TypeError("The output unit feeds the audio hardware, its output cannot be rerouted"))
+        }
         this.context.edit(() => {
             if (isNull(target)) {
                 this.box.output.defer()
@@ -185,6 +185,10 @@ export class InstrumentAudioUnitImpl extends SendableAudioUnitFacade implements 
     get label(): string {return this.instrument.label}
     set label(value: string) {this.instrument.label = Guard.string(value, "label")}
 
+    hasInstrument<N extends keyof Instruments>(key: N): this is InstrumentAudioUnit<N> {
+        return DeviceBoxes.instrumentKeyOf(this.instrumentBox.name) === Guard.oneOf(key, Object.keys(InstrumentFactories.Named), "key")
+    }
+
     setInstrument<N extends keyof Instruments>(key: N, props?: DeepPartial<Instruments[N]>): Instruments[N] {
         Guard.oneOf(key, Object.keys(InstrumentFactories.Named), "key")
         return this.context.edit(() => {
@@ -243,6 +247,14 @@ export namespace AudioUnitImpls {
             default: return panic(`Unknown audio unit type '${box.type.getValue()}'`)
         }
     }) as AnyAudioUnitImpl
+
+    // null unless the box is an audio bus wired to a unit (the output unit points at the RootBox)
+    export const fromBus = (context: Context, busBox: Nullable<Box>): Nullable<AnyAudioUnitImpl> => {
+        if (!(busBox instanceof AudioBusBox)) {return null}
+        return busBox.output.targetVertex
+            .map(vertex => vertex.box)
+            .mapOr(box => box instanceof AudioUnitBox ? wrap(context, box) : null, null)
+    }
 
     export const list = (context: Context): ReadonlyArray<AnyAudioUnit> =>
         IndexedBox.collectIndexedBoxes(context.skeleton.mandatoryBoxes.rootBox.audioUnits, AudioUnitBox)

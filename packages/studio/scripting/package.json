@@ -15,13 +15,16 @@
     },
     "./api.declaration": "./src/api.declaration.d.ts",
     "./library": "./src/library.d.ts",
-    "./ScriptWorker.js": "./dist/ScriptWorker.js"
+    "./guide/*": "./docs/guide/*",
+    "./ScriptWorker.js": "./dist/ScriptWorker.js",
+    "./AgentScriptWorker.js": "./dist/AgentScriptWorker.js"
   },
   "files": [
     "dist/**/*",
     "src/script/api.declaration.d.ts",
     "src/script/library.d.ts",
-    "./dist/ScriptWorker.js"
+    "./dist/ScriptWorker.js",
+    "./dist/AgentScriptWorker.js"
   ],
   "scripts": {
     "build": "npm run generate-api && tsc && npm run docs",

@@ -17,6 +17,7 @@ import {
     NoteRegion,
     NoteRegionProps,
     NoteTrack,
+    ParameterInfo,
     Sample,
     ValueClip,
     ValueClipProps,
@@ -24,6 +25,8 @@ import {
     ValueRegionProps,
     ValueTrack
 } from "../../Api"
+import {AnyPrimitiveField} from "../Fields"
+import {ParameterInfoImpl} from "../ParameterMappings"
 import {Context} from "../Context"
 import {Facade, Parameters} from "../Common"
 import {Facades} from "../Facades"
@@ -105,7 +108,7 @@ export class ValueTrackImpl extends TrackFacade implements ValueTrack {
 
     constructor(context: Context, box: TrackBox) {super(context, box)}
 
-    get targetField(): PrimitiveField {
+    get targetField(): AnyPrimitiveField {
         const vertex = this.box.target.targetVertex.unwrap("automation track has no target")
         if (!(vertex instanceof PrimitiveField)) {return panic("automation target is not a parameter")}
         return vertex
@@ -117,6 +120,9 @@ export class ValueTrackImpl extends TrackFacade implements ValueTrack {
     }
     get parameter(): string {
         return Parameters.pathOf(this.target, this.targetField) ?? panic(`Unknown parameter path for ${this.targetField.toString()}`)
+    }
+    get parameterInfo(): ParameterInfo {
+        return new ParameterInfoImpl(this.context, this.target, this.parameter, this.targetField)
     }
     get regions(): ReadonlyArray<ValueRegion> {
         return Regions.list(this.context, this.box).filter((region): region is ValueRegionImpl => region instanceof ValueRegionImpl)

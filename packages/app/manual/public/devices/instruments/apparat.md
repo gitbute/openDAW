@@ -265,7 +265,7 @@ The host clears the output buffer before each block. You write to it with `=` or
 | `s1`     | `number` | Last sample index to process (exclusive)               |
 | `index`  | `number` | Block counter                                          |
 | `bpm`    | `number` | Current project tempo                                  |
-| `p0`     | `number` | Start position in ppqn                                 |
+| `p0`     | `number` | Start position in ppqn (960 per quarter note)          |
 | `p1`     | `number` | End position in ppqn                                   |
 | `flags`  | `number` | Bitmask: 1=transporting, 2=discontinuous, 4=playing, 8=bpmChanged |
 

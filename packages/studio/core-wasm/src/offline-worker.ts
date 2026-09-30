@@ -35,7 +35,8 @@ import {
     OfflineEngineInitializeConfig,
     OfflineEngineProtocol,
     OfflineEngineRenderConfig,
-    ProjectSkeleton
+    ProjectSkeleton,
+    ScriptLoadReport
 } from "@opendaw/studio-adapters"
 import type {SoundFont2} from "soundfont2"
 import {EngineExports, takeReportMessage} from "./engine-exports"
@@ -43,6 +44,7 @@ import {createEngineMemory, loadEngineModules} from "./engine-modules"
 import {serializeUpdateTasks} from "./sync/serialize-update-tasks"
 import {WasmMidiDrain} from "./midi-drain"
 import {describeEngineTrap, drainResourceRequests, instantiateWasmEngine} from "./boot"
+import {ScriptLoadMeter} from "./script-load-meter"
 // TYPE-ONLY: the module computes its peak decay and RMS window from the `sampleRate` global when it is
 // EVALUATED, which only holds after `initialize` has set it. It is pulled in dynamically down there.
 import type {PeakBroadcaster} from "../../core-processors/src/PeakBroadcaster"
@@ -63,11 +65,15 @@ type EngineState = {
     readonly analyser: AudioAnalyser
     readonly peaks: PeakBroadcaster
     readonly broadcasts: ReadonlyArray<Terminable>
+    readonly scriptLoadMeter: Nullable<ScriptLoadMeter>
     totalFrames: int
     running: boolean
 }
 
 let state: Option<EngineState> = Option.None
+
+// first-call JIT and Processor construction are excluded from the worst-block statistics
+const ScriptLoadWarmupSeconds = 0.1
 
 const renderQuantum = (engineState: EngineState, out: Float32Array[]): void => {
     const {engine, memory, stems, midi, analyser, peaks, broadcaster} = engineState
@@ -76,6 +82,7 @@ const renderQuantum = (engineState: EngineState, out: Float32Array[]): void => {
         // A wasm trap is an anonymous RuntimeError; the panic handler left the real message in its buffer.
         throw describeEngineTrap(engine, memory, rendered.error)
     }
+    engineState.scriptLoadMeter?.endQuantum()
     takeReportMessage(engine, memory).ifSome(message => {throw new Error(`engine: ${message}`)})
     midi.drain(engine, memory)
     if (stems > 0) {
@@ -133,7 +140,11 @@ Communicator.executor<OfflineEngineProtocol>(
                     }
                     ready() {dispatcher.dispatchAndForget(this.ready)}
                 })
-            const engine = instantiateWasmEngine(modules, memory, config.sampleRate, engineToClient)
+            const scriptLoadMeter = config.profileScripts === true
+                ? new ScriptLoadMeter(() => performance.now(), config.sampleRate, RenderQuantum,
+                    Math.ceil(ScriptLoadWarmupSeconds * config.sampleRate / RenderQuantum))
+                : null
+            const engine = instantiateWasmEngine(modules, memory, config.sampleRate, engineToClient, scriptLoadMeter)
             // The metronome is OFF unless the export configuration asks for it: a mixdown must never pick up a
             // click by accident. The LIVE engine takes these off the "engine-preferences" channel, which an
             // offline render has no host for, so they are settled once here (TS ExportMetronomeConfiguration).
@@ -266,7 +277,7 @@ Communicator.executor<OfflineEngineProtocol>(
             })
             enginePort.start()
             state = Option.wrap({
-                engine, memory, stateSender, pending, midi, broadcaster, analyser, peaks, broadcasts,
+                engine, memory, stateSender, pending, midi, broadcaster, analyser, peaks, broadcasts, scriptLoadMeter,
                 sampleRate: config.sampleRate,
                 // `stemPairs` already counts the metronome stem, so the channel count and the staging read
                 // below stay in step with what `set_stem_export` allocated.
@@ -357,6 +368,9 @@ Communicator.executor<OfflineEngineProtocol>(
                 }
                 return total
             }, numberOfChannels)
+        },
+        async scriptLoad(): Promise<Nullable<ScriptLoadReport>> {
+            return state.unwrap("state.scriptLoad").scriptLoadMeter?.report() ?? null
         },
         stop() { state.unwrap("state.stop").running = false }
     }

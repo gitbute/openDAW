@@ -6,9 +6,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"No tests to run\"",
-    "dev": "NODE_ENV=development HOST=0.0.0.0 PORT=1234 node server.js",
-    "start": "NODE_ENV=production HOST=0.0.0.0 PORT=443 node server.js",
-    "yjs-server": "HOST=0.0.0.0 PORT=443 y-websocket"
+    "dev": "node ../../../scripts/run-with-env.mjs NODE_ENV=development HOST=0.0.0.0 PORT=1234 node server.js",
+    "start": "node ../../../scripts/run-with-env.mjs NODE_ENV=production HOST=0.0.0.0 PORT=443 node server.js",
+    "yjs-server": "node ../../../scripts/run-with-env.mjs HOST=0.0.0.0 PORT=443 y-websocket"
   },
   "keywords": [],
   "author": "",

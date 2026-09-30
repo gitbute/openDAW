@@ -358,16 +358,27 @@ interface Console {
 
 declare const console: Console
 
-declare class Error {
+interface Error {
     readonly name: string
     readonly message: string
     readonly stack?: string
-    constructor(message?: string)
 }
 
-declare class RangeError extends Error {}
+interface ErrorConstructor<E extends Error = Error> {
+    new(message?: string): E
+    (message?: string): E
+    readonly prototype: E
+}
 
-declare class TypeError extends Error {}
+declare var Error: ErrorConstructor
+
+interface RangeError extends Error {}
+
+declare var RangeError: ErrorConstructor<RangeError>
+
+interface TypeError extends Error {}
+
+declare var TypeError: ErrorConstructor<TypeError>
 
 declare class Date {
     constructor()

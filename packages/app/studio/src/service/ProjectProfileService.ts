@@ -2,6 +2,7 @@ import {
     DefaultObservableValue,
     Errors,
     MutableObservableOption,
+    Notifier,
     Observer,
     Option,
     RuntimeNotifier,
@@ -33,6 +34,7 @@ import {BoxIO} from "@opendaw/studio-boxes"
 
 export class ProjectProfileService {
     readonly #profile: MutableObservableOption<ProjectProfile>
+    readonly #saved: Notifier<ProjectProfile>
 
     readonly #env: ProjectEnv
     readonly #sampleService: SampleService
@@ -53,6 +55,7 @@ export class ProjectProfileService {
         this.#soundfontService = soundfontService
         this.#soundfontManager = soundfontManager
         this.#profile = new MutableObservableOption<ProjectProfile>()
+        this.#saved = new Notifier<ProjectProfile>()
     }
 
     getValue(): Option<ProjectProfile> {return this.#profile}
@@ -64,6 +67,7 @@ export class ProjectProfileService {
         observer(this.#profile)
         return this.#profile.subscribe(observer)
     }
+    subscribeSaved(observer: Observer<ProjectProfile>): Terminable {return this.#saved.subscribe(observer)}
 
     async save(): Promise<void> {
         return this.#profile.ifSome(async profile => {
@@ -78,7 +82,9 @@ export class ProjectProfileService {
                     message: "Could not save project (storage temporarily unavailable). Please try again.",
                     icon: "Warning"
                 })
+                return
             }
+            this.#saved.notify(profile)
         })
     }
 
@@ -108,6 +114,7 @@ export class ProjectProfileService {
                 return
             }
             optProfile.ifSome(profile => this.#profile.wrap(profile))
+            this.#saved.notify(optProfile.unwrapOrElse(profile))
         })
     }
 

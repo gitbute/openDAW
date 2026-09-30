@@ -232,10 +232,10 @@ Without the `// @no-pass` line this example would emit each note twice: once for
 
 | Property | Type     | Description                                           |
 |----------|----------|-------------------------------------------------------|
-| `from`   | `number` | Start position in ppqn (inclusive)                     |
+| `from`   | `number` | Start position in ppqn (inclusive, 960 per quarter)    |
 | `to`     | `number` | End position in ppqn (exclusive)                      |
 | `bpm`    | `number` | Current project tempo in BPM                          |
-| `flags`  | `number` | Bitmask: 1 = transporting, 2 = discontinuous (jumped) |
+| `flags`  | `number` | Bitmask: 1 = transporting, 2 = discontinuous (jumped), 4 = playing, 8 = bpmChanged |
 
 ### Event types
 
@@ -247,7 +247,7 @@ The `events` parameter is a unified iterator containing both note-ons and note-o
 |------------|-----------|---------|---------------------------------------|
 | `gate`     | `boolean` | `true`  | Identifies this as a note-on          |
 | `id`       | `number`  | —       | Unique identifier for this note       |
-| `position` | `number`  | ppqn    | Start position (480 ppqn per quarter) |
+| `position` | `number`  | ppqn    | Start position (960 ppqn per quarter) |
 | `duration` | `number`  | ppqn    | Note length                           |
 | `pitch`    | `number`  | 0–127   | MIDI note number                      |
 | `velocity` | `number`  | 0.0–1.0 | Note velocity                         |
@@ -268,7 +268,7 @@ Your generator yields note-on objects only: `{ position, duration, pitch, veloci
 
 | Property   | Type     | Range     | Description                           |
 |------------|----------|-----------|---------------------------------------|
-| `position` | `number` | ppqn      | Start position (480 ppqn per quarter) |
+| `position` | `number` | ppqn      | Start position (960 ppqn per quarter) |
 | `duration` | `number` | ppqn      | Note length                           |
 | `pitch`    | `number` | 0–127     | MIDI note number                      |
 | `velocity` | `number` | 0.0–1.0   | Note velocity                         |

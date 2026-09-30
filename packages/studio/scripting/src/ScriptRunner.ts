@@ -29,14 +29,14 @@ export namespace ScriptGlobals {
 export class ScriptRunner {
     readonly #api: Api
 
-    constructor(protocol: ScriptHostProtocol) {this.#api = new ApiImpl(protocol)}
+    constructor(protocol: ScriptHostProtocol, api: Api = new ApiImpl(protocol)) {this.#api = api}
 
     get api(): Api {return this.#api}
 
-    async run(jsCode: string, context: ScriptExecutionContext): Promise<void> {
+    async run(jsCode: string, context: ScriptExecutionContext): Promise<unknown> {
         Object.assign(globalThis, ScriptGlobals.create(this.#api, context))
         // Runs as a function body, not a module, so a script may `return` early
-        const AsyncFunction = (async () => {}).constructor as new (body: string) => () => Promise<void>
-        await new AsyncFunction(jsCode.replace(/^\s*export\s*\{\s*\};?/m, ""))()
+        const AsyncFunction = (async () => {}).constructor as new (body: string) => () => Promise<unknown>
+        return new AsyncFunction(jsCode.replace(/^\s*export\s*\{\s*\};?/m, ""))()
     }
 }

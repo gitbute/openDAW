@@ -227,7 +227,7 @@ export class BoxAdapters implements Terminable {
         }
         if (typeof checkType === "function") {
             return Object.hasOwn(checkType, "prototype")
-                ? adapter instanceof checkType ? adapter as T : panic(`${adapter} is not instance of ${checkType}`)
+                ? adapter instanceof checkType ? adapter as T : panic(`${adapter} is not instance of ${checkType.name}`)
                 : (checkType as AssertType<T>)(adapter) ? adapter as T : panic(`${adapter} did not pass custom type guard`)
         }
         return panic("Unknown checkType method")

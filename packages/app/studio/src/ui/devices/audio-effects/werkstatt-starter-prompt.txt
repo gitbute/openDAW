@@ -23,13 +23,17 @@ block (timing and transport):
 - block.s1    — last sample index to process (exclusive)
 - block.index — block counter (increments each audio callback)
 - block.bpm   — current project tempo in beats per minute
-- block.p0    — start position in ppqn (pulses per quarter note, 480 ppqn)
-- block.p1    — end position in ppqn
+- block.p0    — start position on the timeline in ppqn (inclusive)
+- block.p1    — end position on the timeline in ppqn (exclusive)
 - block.flags — bitmask of transport state:
     1 = transporting (transport is active)
     2 = discontinuous (position jumped, e.g. seek or loop restart)
     4 = playing (playback is active)
     8 = bpmChanged (tempo changed this block)
+
+ppqn = pulses per quarter note, the same unit as the whole project timeline:
+960 pulses = 1 quarter note (NOT 480), 240 = 1 sixteenth, 480 = 1 eighth, 3840 = 1 bar in 4/4.
+Beats elapsed: block.p0 / 960. Seconds per pulse: 60 / (block.bpm * 960).
 
 You MUST only read/write indices from s0 to s1 (exclusive). Do NOT assume the arrays
 start at index 0 or that the full length is available.
@@ -95,6 +99,20 @@ Examples:
 - NEVER allocate memory inside process(). No `new`, no array literals, no object
   literals, no string concatenation, no closures. Any allocation in the audio hot path
   causes GC pauses and audio glitches. Pre-allocate all buffers and state as class fields.
+
+## Real-time budget
+process() runs on the live audio thread and must finish each 128-frame block in well under
+its duration (~2.7 ms at 48 kHz), shared with every other device in the project. The agent's
+offline render is never late, so an expensive script sounds perfect there and still stutters
+live. listen reports each script device's estimated load (scriptLoad) and warns above ~50%.
+- Per-sample work runs for 2 channels x 48000 samples per second. Avoid Math.exp/Math.pow/
+  Math.sin/Math.tanh per sample; use a cheap rational tanh, x * (27 + x*x) / (27 + 9*x*x).
+- Compute filter coefficients once per block, or in paramChanged when a value changes;
+  never recompute biquad coefficients per sample. Smooth parameters with a one-pole step.
+- LFOs: phase accumulator advanced per sample; evaluate the waveform once per block or use a
+  small precomputed table instead of Math.sin per sample.
+- Keep delay lines as preallocated Float32Array ring buffers; no per-sample array work.
+- After writing or changing a script, check scriptLoad in listen and optimise when warned.
 
 ## Template
 

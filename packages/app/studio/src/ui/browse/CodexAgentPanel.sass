@@ -1,0 +1,778 @@
+@use "@/colors"
+@use "@/mixins"
+
+$gutter: 10px
+$radius: 5px
+$mono: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace
+
+@keyframes codex-spin
+  to
+    transform: rotate(360deg)
+
+@keyframes codex-blink
+  50%
+    opacity: 0
+
+component
+  min-width: 0
+  min-height: 0
+  display: flex
+  flex-direction: column
+  overflow: hidden
+  font-size: 11px
+  line-height: 1.45
+  color: var(--color-gray)
+  @include colors.panel-background
+
+  .hidden
+    display: none !important
+
+  button
+    font: inherit
+    color: inherit
+
+  .icon-button, .link-button
+    appearance: none
+    border: none
+    background: none
+    padding: 0
+    cursor: pointer
+    color: var(--color-shadow)
+    display: flex
+    align-items: center
+    justify-content: center
+
+    &:hover
+      color: var(--color-bright)
+
+  .icon-button
+    flex: 0 0 auto
+    width: 18px
+    height: 18px
+    border-radius: 3px
+    font-size: 12px
+
+    &:hover
+      background-color: rgba(white, 0.06)
+
+  .link-button
+    text-decoration: underline
+    text-underline-offset: 2px
+
+
+  > header.bar
+    flex: 0 0 auto
+    height: 30px
+    display: flex
+    align-items: center
+    gap: 6px
+    padding: 0 6px 0 $gutter
+    border-bottom: 1px solid rgba(black, 0.3)
+    min-width: 0
+
+    > .status
+      flex: 1 1 auto
+      min-width: 0
+      display: flex
+      align-items: center
+      gap: 6px
+      color: var(--color-dark)
+
+      > .dot
+        flex: 0 0 auto
+        width: 7px
+        height: 7px
+        border-radius: 50%
+        background-color: var(--color-red)
+        box-shadow: 0 0 6px -1px var(--color-red)
+
+      > .status-text
+        overflow: hidden
+        text-overflow: ellipsis
+        white-space: nowrap
+
+      &.ready
+        color: var(--color-bright)
+
+        > .dot
+          background-color: var(--color-green)
+          box-shadow: 0 0 6px -1px var(--color-green)
+
+      &.connecting, &.login
+        > .dot
+          background-color: var(--color-orange)
+          box-shadow: 0 0 6px -1px var(--color-orange)
+          animation: codex-blink 1.2s ease-in-out infinite
+
+      &.signed-out > .dot
+        background-color: var(--color-orange)
+        box-shadow: none
+
+    > .model-button
+      flex: 0 1 auto
+      min-width: 0
+      max-width: 60%
+
+      .model-chip
+        min-width: 0
+        max-width: 100%
+        display: flex
+        align-items: center
+        gap: 4px
+        height: 20px
+        padding: 0 6px 0 8px
+        border-radius: 10px
+        background-color: rgba(black, 0.25)
+        box-shadow: inset 0 0 0 0.5px rgba(white, 0.08)
+
+        > .model-label
+          min-width: 0
+          overflow: hidden
+          text-overflow: ellipsis
+          white-space: nowrap
+
+        > svg
+          font-size: 9px
+
+      &:hover .model-chip, &.active .model-chip
+        box-shadow: inset 0 0 0 0.5px rgba(white, 0.25)
+
+    > .menu-button
+      width: 22px
+      height: 22px
+      border-radius: 4px
+      font-size: 14px
+
+      &:hover, &.active
+        background-color: rgba(white, 0.06)
+
+
+  > .transcript-container
+    flex: 1 1 0
+    min-height: 0
+    position: relative
+    display: flex
+    flex-direction: column
+    overflow: hidden
+
+  .transcript
+    flex: 1 1 0
+    min-height: 0
+    overflow: hidden auto
+    display: flex
+    flex-direction: column
+    gap: 10px
+    padding: $gutter $gutter 16px $gutter
+    overflow-wrap: anywhere
+
+  &.empty-conversation .transcript
+    display: none
+
+  .message.user
+    display: flex
+    justify-content: flex-end
+
+    > .bubble
+      max-width: 88%
+      padding: 6px 10px
+      border-radius: 10px 10px 2px 10px
+      background-color: rgba(white, 0.07)
+      box-shadow: inset 0 0 0 0.5px rgba(white, 0.06)
+      color: var(--color-bright)
+      font-size: 12px
+      white-space: pre-wrap
+      user-select: text
+
+  .message.user:not(:first-child)
+    margin-top: 6px
+
+  .message.assistant
+    @include mixins.markdown
+    font-size: 12px
+    line-height: 1.5
+    color: var(--color-gray)
+    user-select: text
+
+    *
+      user-select: text
+
+    > :first-child
+      margin-top: 0
+
+    > :last-child
+      margin-bottom: 0
+
+    p, ul, ol, pre, blockquote, table
+      margin: 0 0 0.6em 0
+
+    h1, h2, h3, h4
+      font-size: 1em
+      margin: 0.9em 0 0.4em 0
+
+    ul, ol
+      padding-inline-start: 1.3em
+
+    li
+      margin: 0.2em 0
+      line-height: 1.5
+
+    code
+      font-family: $mono
+      font-size: 0.92em
+      padding: 1px 4px
+      border-radius: 3px
+      cursor: copy
+
+    pre
+      max-width: 100%
+      overflow-x: auto
+      padding: 8px 10px
+      border-radius: $radius
+      background-color: rgba(black, 0.35)
+      box-shadow: inset 0 0 0 0.5px rgba(white, 0.06)
+
+      > code
+        display: block
+        width: max-content
+        min-width: 100%
+        padding: 0
+        background: none
+        color: var(--color-cream)
+        white-space: pre
+        line-height: 1.45
+        overflow-wrap: normal
+
+    table
+      display: block
+      overflow-x: auto
+
+    &.streaming > :last-child::after
+      content: "▍"
+      margin-left: 2px
+      color: var(--color-blue)
+      animation: codex-blink 1s steps(1) infinite
+
+  .notice
+    display: flex
+    align-items: center
+    gap: 8px
+    color: var(--color-shadow)
+    font-size: 10px
+    text-align: center
+
+    &::before, &::after
+      content: ""
+      flex: 1 1 0
+      height: 1px
+      background-color: rgba(white, 0.08)
+
+
+  .glyph
+    flex: 0 0 auto
+    position: relative
+    width: 12px
+    height: 12px
+    display: flex
+    align-items: center
+    justify-content: center
+    font-size: 10px
+    line-height: 1
+
+    &.success::before
+      content: "✓"
+      color: var(--color-green)
+
+    &.failed::before
+      content: "✕"
+      color: var(--color-red)
+
+    &.warning::before
+      content: "!"
+      font-weight: bold
+      color: var(--color-orange)
+
+    &.thought::before
+      content: ""
+      width: 4px
+      height: 4px
+      border-radius: 50%
+      background-color: var(--color-shadow)
+
+    &.running::before
+      content: ""
+      width: 8px
+      height: 8px
+      border-radius: 50%
+      border: 1.5px solid rgba(white, 0.15)
+      border-top-color: var(--color-blue)
+      animation: codex-spin 0.8s linear infinite
+
+  .chevron
+    flex: 0 0 auto
+    font-size: 8px
+    color: var(--color-shadow)
+    transition: transform 0.12s ease
+
+  .steps
+    border-radius: $radius
+    background-color: rgba(black, 0.14)
+    box-shadow: inset 0 0 0 0.5px rgba(white, 0.05)
+    min-width: 0
+
+    > .steps-header
+      appearance: none
+      border: none
+      background: none
+      width: 100%
+      min-width: 0
+      height: 26px
+      padding: 0 8px
+      display: flex
+      align-items: center
+      gap: 6px
+      cursor: pointer
+      text-align: left
+      color: var(--color-dark)
+
+      &:hover
+        color: var(--color-bright)
+
+      > .steps-label
+        flex: 1 1 auto
+        min-width: 0
+        overflow: hidden
+        text-overflow: ellipsis
+        white-space: nowrap
+
+      > .steps-count, > .steps-failed
+        flex: 0 0 auto
+        font-size: 10px
+        white-space: nowrap
+
+      > .steps-count
+        color: var(--color-shadow)
+
+      > .steps-failed
+        color: var(--color-red)
+
+    &.running > .steps-header > .steps-label
+      color: var(--color-bright)
+
+    > .steps-rows
+      display: flex
+      flex-direction: column
+      padding: 0 6px 6px 6px
+      border-top: 1px solid rgba(black, 0.2)
+
+    > .strip
+      display: none
+
+    > .steps-more
+      appearance: none
+      border: none
+      border-top: 1px solid rgba(black, 0.2)
+      background: none
+      width: 100%
+      padding: 4px 8px
+      cursor: pointer
+      font-size: 10px
+      text-align: left
+      color: var(--color-shadow)
+
+      &:hover
+        color: var(--color-bright)
+
+    &.collapsed
+      > .steps-more
+        display: none
+
+      > .steps-header > .chevron
+        transform: rotate(-90deg)
+
+      > .steps-rows
+        display: none
+
+      > .strip:not(.hidden)
+        display: flex
+        padding: 0 8px 8px 8px
+
+  .step
+    min-width: 0
+
+    > .step-line
+      display: flex
+      align-items: center
+      gap: 6px
+      min-height: 22px
+      padding: 0 2px 0 2px
+      border-radius: 3px
+      color: var(--color-dark)
+
+      > .step-label
+        flex: 1 1 auto
+        min-width: 0
+        overflow: hidden
+        text-overflow: ellipsis
+        white-space: nowrap
+
+      > .chevron
+        visibility: hidden
+        transform: rotate(-90deg)
+
+    &.expandable > .step-line
+      cursor: pointer
+
+      &:hover
+        background-color: rgba(white, 0.04)
+        color: var(--color-bright)
+
+        > .chevron
+          visibility: visible
+
+    &.open > .step-line > .chevron
+      visibility: visible
+      transform: none
+
+    &.failed > .step-line
+      color: var(--color-red)
+
+    &.reasoning > .step-line
+      color: var(--color-shadow)
+      font-style: italic
+
+    > .thumbs
+      padding: 2px 0 4px 20px
+
+    > .step-details
+      margin: 2px 0 6px 20px
+      display: flex
+      flex-direction: column
+      gap: 4px
+      min-width: 0
+
+    > .reasoning-body
+      @include mixins.markdown
+      display: block
+      color: var(--color-shadow)
+      font-size: 11px
+
+      p, ul, ol
+        margin: 0 0 0.4em 0
+
+      li
+        margin: 0.1em 0
+
+  .step-details
+    pre
+      margin: 0
+      max-height: 220px
+      overflow: auto
+      padding: 6px 8px
+      border-radius: 4px
+      background-color: rgba(black, 0.3)
+      font-family: $mono
+      font-size: 10px
+      line-height: 1.45
+      white-space: pre
+      color: var(--color-dark)
+      user-select: text
+
+    pre.args
+      color: var(--color-shadow)
+      white-space: pre-wrap
+      overflow-wrap: anywhere
+
+    pre.result
+      white-space: pre-wrap
+      overflow-wrap: anywhere
+
+    .code-block
+      > summary
+        cursor: pointer
+        color: var(--color-shadow)
+        font-size: 10px
+        padding: 1px 0 3px 0
+        list-style-position: inside
+
+        &:hover
+          color: var(--color-bright)
+
+      > pre.code
+        color: var(--color-cream)
+
+  .step.failed pre.result
+    color: var(--color-red)
+    background-color: rgba(black, 0.3)
+
+  .thumbs
+    display: flex
+    flex-wrap: wrap
+    gap: 6px
+
+    > img
+      width: 72px
+      height: 44px
+      border-radius: 3px
+      object-fit: cover
+      box-shadow: 0 0 0 0.5px rgba(white, 0.15)
+      cursor: zoom-in
+      transition: box-shadow 0.12s ease
+
+      &:hover
+        box-shadow: 0 0 0 1px var(--color-blue)
+
+
+  .empty-state, .gate
+    display: flex
+    flex-direction: column
+    align-items: center
+    text-align: center
+    gap: 6px
+    padding: 24px 16px
+
+  .empty-state
+    flex: 1 1 auto
+    justify-content: center
+
+    > .empty-icon
+      font-size: 28px
+      color: var(--color-shadow)
+      margin-bottom: 4px
+
+  .gate-title
+    color: var(--color-bright)
+    font-size: 12px
+
+  .gate-text
+    color: var(--color-shadow)
+    max-width: 280px
+
+  .suggestions
+    margin-top: 8px
+    display: flex
+    flex-direction: column
+    align-items: stretch
+    gap: 4px
+    width: 100%
+    max-width: 280px
+
+    > .suggestion
+      appearance: none
+      border: none
+      padding: 6px 10px
+      border-radius: $radius
+      background-color: rgba(white, 0.04)
+      box-shadow: inset 0 0 0 0.5px rgba(white, 0.06)
+      color: var(--color-dark)
+      text-align: left
+      cursor: pointer
+
+      &:hover
+        color: var(--color-bright)
+        background-color: rgba(white, 0.07)
+
+  .gate
+    flex: 1 1 auto
+    justify-content: center
+
+    > .gate-icon
+      font-size: 26px
+      color: var(--color-shadow)
+      margin-bottom: 4px
+
+    > .gate-command
+      margin-top: 4px
+      display: flex
+      align-items: center
+      gap: 4px
+      max-width: 100%
+      padding: 4px 4px 4px 8px
+      border-radius: 4px
+      background-color: rgba(black, 0.35)
+
+      > code
+        min-width: 0
+        text-align: left
+        overflow-wrap: anywhere
+        font-family: $mono
+        font-size: 10px
+        color: var(--color-cream)
+        user-select: all
+
+    > .gate-actions
+      margin-top: 8px
+      display: flex
+      align-items: center
+      gap: 12px
+      font-size: 12px
+
+    &.compact
+      flex: 0 0 auto
+      margin: 0 $gutter 8px $gutter
+      padding: 10px 12px
+      border-radius: $radius
+      background-color: rgba(black, 0.2)
+      box-shadow: inset 0 0 0 0.5px rgba(white, 0.06)
+
+      > .gate-icon
+        display: none
+
+
+  .error-banner
+    position: absolute
+    z-index: 2
+    top: 6px
+    left: 6px
+    right: 6px
+    display: flex
+    align-items: flex-start
+    gap: 6px
+    padding: 6px 6px 6px 8px
+    border-radius: $radius
+    background-color: hsl(354, 45%, 16%)
+    box-shadow: inset 0 0 0 0.5px rgba(white, 0.08), 0 4px 12px rgba(black, 0.4)
+    color: var(--color-bright)
+
+    > svg
+      flex: 0 0 auto
+      margin-top: 2px
+      color: var(--color-red)
+
+    > .error-text
+      flex: 1 1 auto
+      min-width: 0
+      max-height: 4.4em
+      overflow: auto
+      overflow-wrap: anywhere
+      user-select: text
+
+  .latest-button
+    position: absolute
+    z-index: 1
+    left: 50%
+    bottom: 8px
+    transform: translateX(-50%)
+    padding: 3px 10px
+    border: none
+    border-radius: 12px
+    color: var(--color-bright)
+    background-color: rgba(black, 0.7)
+    box-shadow: inset 0 0 0 0.5px rgba(white, 0.15), 0 2px 6px rgba(black, 0.4)
+    cursor: pointer
+
+
+  > .composer
+    flex: 0 0 auto
+    padding: 8px $gutter 6px $gutter
+    border-top: 1px solid rgba(black, 0.3)
+    display: flex
+    flex-direction: column
+    gap: 4px
+
+    > .queued
+      display: flex
+      align-items: center
+      gap: 6px
+      padding: 3px 4px 3px 8px
+      border-radius: 6px
+      font-size: 11px
+      background-color: rgba(black, 0.18)
+      box-shadow: inset 0 0 0 0.5px rgba(white, 0.08)
+
+      > .queued-label
+        flex: 0 0 auto
+        color: var(--color-blue)
+
+      > .queued-text
+        flex: 1 1 auto
+        min-width: 0
+        overflow: hidden
+        text-overflow: ellipsis
+        white-space: nowrap
+        color: var(--color-gray)
+
+      > .queued-cancel
+        flex: 0 0 auto
+        border: none
+        background: none
+        color: var(--color-shadow)
+        cursor: pointer
+        font-size: 13px
+        line-height: 1
+        padding: 0 4px
+
+        &:hover
+          color: var(--color-bright)
+
+    > .input-box
+      display: flex
+      align-items: flex-end
+      gap: 6px
+      padding: 5px 5px 5px 9px
+      border-radius: 7px
+      background-color: rgba(black, 0.25)
+      box-shadow: inset 0 0 0 0.5px rgba(white, 0.08)
+
+      &:focus-within
+        box-shadow: inset 0 0 0 1px rgba(white, 0.18)
+
+      > textarea
+        flex: 1 1 auto
+        min-width: 0
+        height: 20px
+        max-height: 160px
+        margin: 0
+        padding: 2px 0
+        resize: none
+        appearance: none
+        border: none
+        outline: none
+        background: none
+        color: var(--color-bright)
+        font: inherit
+        font-size: 12px
+        line-height: 16px
+        overflow-y: auto
+
+        &::placeholder
+          color: var(--color-shadow)
+
+        &:disabled
+          cursor: not-allowed
+
+      > .send-button
+        flex: 0 0 auto
+        width: 22px
+        height: 22px
+        display: flex
+        align-items: center
+        justify-content: center
+        padding: 0
+        border: none
+        border-radius: 50%
+        background-color: var(--color-blue)
+        color: var(--color-panel-background)
+        font-size: 12px
+        cursor: pointer
+
+        &:disabled
+          background-color: rgba(white, 0.08)
+          color: var(--color-shadow)
+          cursor: default
+
+        &.stop
+          background-color: var(--color-bright)
+          color: var(--color-panel-background)
+          font-size: 10px
+
+    > .composer-hint
+      min-height: 14px
+      padding: 0 2px
+      font-size: 10px
+      color: var(--color-shadow)
+      overflow: hidden
+      text-overflow: ellipsis
+      white-space: nowrap
+
+      &.working
+        color: var(--color-blue)

@@ -1,5 +1,5 @@
 import {afterEach, describe, expect, it, vi} from "vitest"
-import {asEnumValue, getOrProvide, isProvider, requireProperty} from "./lang"
+import {asEnumValue, asInstanceOf, assertInstanceOf, getOrProvide, isProvider, requireProperty} from "./lang"
 
 // Simulates a script-blocking extension that swaps the global Function constructor (live 1143)
 const stubGlobalFunction = () => {
@@ -107,5 +107,17 @@ describe("lang", () => {
         expect(debug.mock.calls.at(-1)?.[0]).toContain("Promise.resolve")
         expect(debug.mock.calls.at(-1)?.[0]).not.toContain("Function.resolve")
         debug.mockRestore()
+    })
+
+    it("asInstanceOf and assertInstanceOf name the class instead of dumping its source", () => {
+        class Expected {
+            method() {return "a long body that must not end up in the error message"}
+        }
+        class Actual {toString() {return "Actual 1234"}}
+        expect(() => asInstanceOf(new Actual(), Expected)).toThrow("Actual 1234 is not instance of Expected")
+        expect(() => asInstanceOf(new Actual(), Expected)).not.toThrow(/long body/)
+        expect(() => assertInstanceOf(new Actual(), Expected)).toThrow("Actual 1234 is not instance of Expected")
+        const expected = new Expected()
+        expect(asInstanceOf(expected, Expected)).toBe(expected)
     })
 })

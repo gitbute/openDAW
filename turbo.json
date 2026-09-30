@@ -62,6 +62,15 @@
       ],
       "outputs": []
     },
+    "@opendaw/studio-scripting#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        "src/api.declaration.d.ts"
+      ]
+    },
     "@opendaw/studio-forge-boxes#build": {
       "dependsOn": [
         "^build"

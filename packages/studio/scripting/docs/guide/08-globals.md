@@ -13,7 +13,7 @@ Scripts have no imports. These names are available everywhere:
 | `openDAW`             | The {@link Api}, entry point of every script                                  |
 | `sampleRate`          | Sample rate of the studio in Hz                                                                 |
 | `baseFrequency`       | Tuning reference of the studio in Hz                                                            |
-| `PPQN`                | `Bar`, `Quarter`, `SemiQuaver`, `fromSignature()`, `secondsToPulses()`, `pulsesToSeconds()`, `toString()` |
+| `PPQN`                | `Bar` (3840), `Quarter` (960), `SemiQuaver` (240), `fromSignature()`, `fromBars()`, `at()`, `secondsToPulses()`, `pulsesToSeconds()`, `toString()` |
 | `AudioData`           | `AudioData.create(sampleRate, numberOfFrames, numberOfChannels)` for {@link Api | addSample} |
 | `WavFile`             | `WavFile.encodeFloats(audioData)` for {@link Api | saveFile}, `WavFile.decodeFloats(buffer)`     |
 | `midiToHz`            | `midiToHz(note, baseFrequency?)`                                                                |

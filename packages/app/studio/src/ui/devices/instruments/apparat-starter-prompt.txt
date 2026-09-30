@@ -52,9 +52,13 @@ block (timing and transport):
 - block.s1    — last sample index to process (exclusive)
 - block.index — block counter
 - block.bpm   — current project tempo in BPM
-- block.p0    — start position in ppqn (480 ppqn per quarter note)
-- block.p1    — end position in ppqn
+- block.p0    — start position on the timeline in ppqn (inclusive)
+- block.p1    — end position on the timeline in ppqn (exclusive)
 - block.flags — bitmask: 1=transporting, 2=discontinuous, 4=playing, 8=bpmChanged
+
+ppqn = pulses per quarter note, the same unit as the whole project timeline:
+960 pulses = 1 quarter note (NOT 480), 240 = 1 sixteenth, 480 = 1 eighth, 3840 = 1 bar in 4/4.
+Beats elapsed: block.p0 / 960. Seconds per pulse: 60 / (block.bpm * 960).
 
 The host interleaves noteOn/noteOff calls with process() calls at exact sample
 positions. Your process() may be called multiple times per block:
@@ -133,6 +137,23 @@ Advance your read position by playbackRate per output sample.
 - The code runs in an AudioWorklet thread. Only AudioWorklet-safe APIs are available
   (Math, typed arrays, basic JS). No setTimeout, no DOM.
 - You can define and use helper classes alongside the Processor class.
+
+## Real-time budget
+process() runs on the live audio thread and must finish each 128-frame block in well under
+its duration (~2.7 ms at 48 kHz), shared with every other device in the project. The agent's
+offline render is never late, so an expensive script sounds perfect there and still stutters
+live. listen reports each script device's estimated load (scriptLoad) and warns above ~50%.
+- Per-sample work is multiplied by voices x channels x 48000. Budget roughly a few dozen
+  cheap operations per voice per sample; avoid stacks of Math.sin/Math.exp/Math.pow/Math.tanh.
+- Oscillators: phase accumulators with PolyBLEP (saw/square), or precomputed wavetables
+  (Float32Array, built in the constructor, with mip levels per octave against aliasing).
+  Never sum many Math.sin partials per sample for additive tones; bake them into a table.
+- Saturation: cheap rational tanh approximation, x * (27 + x*x) / (27 + 9*x*x), clamped.
+- Envelopes/LFOs: linear or one-pole steps; compute LFOs and filter coefficients once per
+  block (or in paramChanged / noteOn), never per sample with Math.exp/Math.sin/Math.cos.
+- Keep an active-voice list (swap-remove finished voices); never scan all slots per sample.
+- Cap polyphony (e.g. 8-16 voices) and unison (2-3); steal the oldest voice when full.
+- After writing or changing a script, check scriptLoad in listen and optimise when warned.
 
 ## Template
 

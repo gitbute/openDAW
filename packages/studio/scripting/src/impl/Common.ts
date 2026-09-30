@@ -1,5 +1,5 @@
 import {Box, PointerField} from "@opendaw/lib-box"
-import {asInstanceOf, Class, isAbsent, isDefined, isNotNull, Nullable, Optional, panic, UUID} from "@opendaw/lib-std"
+import {asInstanceOf, Class, isAbsent, isDefined, isNotNull, Nullable, Option, Optional, panic, UUID} from "@opendaw/lib-std"
 import {Context} from "./Context"
 import {AnyPrimitiveField, Fields, FieldSpec} from "./Fields"
 import {Guard} from "./Guard"
@@ -86,9 +86,27 @@ export namespace Accessors {
 
 export namespace Parameters {
     export const resolve = (target: object, path: string): AnyPrimitiveField =>
-        Fields.resolve(target, path)
+        throughFacades(target, path.split("."))
             .unwrapOrElse(() => panic(new RangeError(`'${path}' is not a parameter of ${describe(target)}. ` +
-                `Available: ${Fields.paths(target).join(", ")}`)))
+                `Available: ${availablePaths(target).join(", ")}`)))
+
+    // walks getters (e.g. a script device's parameters) into nested facades that bind their own fields
+    const throughFacades = (target: object, segments: ReadonlyArray<string>): Option<AnyPrimitiveField> => {
+        const direct = Fields.resolve(target, segments.join("."))
+        if (direct.nonEmpty() || segments.length < 2) {return direct}
+        const [head, ...rest] = segments
+        const next: unknown = Reflect.get(target, head)
+        return typeof next === "object" && isNotNull(next) ? throughFacades(next, rest) : Option.None
+    }
+
+    const availablePaths = (target: object): ReadonlyArray<string> => {
+        const parameters: unknown = Reflect.get(target, "parameters")
+        const nested = Array.isArray(parameters)
+            ? parameters.flatMap((parameter: object, index: number) =>
+                Fields.paths(parameter).map(path => `parameters.${index}.${path}`))
+            : []
+        return [...Fields.paths(target), ...nested]
+    }
 
     export const pathOf = (target: object, field: AnyPrimitiveField): Nullable<string> =>
         Fields.paths(target).find(path => Fields.resolve(target, path).contains(field)) ?? null

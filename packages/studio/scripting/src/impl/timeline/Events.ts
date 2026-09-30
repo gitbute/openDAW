@@ -6,6 +6,8 @@ import {NoteEvent, NoteEventProps, ValueEvent, ValueEventProps} from "../../Api"
 import {Context} from "../Context"
 import {Facade, Props} from "../Common"
 import {Guard} from "../Guard"
+import {AnyPrimitiveField} from "../Fields"
+import {ParameterMapping, ParameterMappings} from "../ParameterMappings"
 
 export class NoteEventImpl extends Facade<NoteEventBox> implements NoteEvent {
     static wrap(context: Context, box: NoteEventBox): NoteEventImpl {
@@ -44,6 +46,22 @@ export class ValueEventImpl extends Facade<ValueEventBox> implements ValueEvent 
     }
 
     get index(): int {return this.box.index.getValue()}
+
+    get nativeValue(): number {
+        const [, mapping] = this.#mapping()
+        return ParameterMappings.fromNormalized(mapping, this.box.value.getValue(), "event.nativeValue")
+    }
+    set nativeValue(value: number) {
+        const [field, mapping] = this.#mapping()
+        const normalized = ParameterMappings.toNormalized(field, mapping, value, "event.nativeValue")
+        this.context.edit(() => this.box.value.setValue(normalized))
+    }
+
+    #mapping(): [AnyPrimitiveField, ParameterMapping] {
+        const field = ParameterMappings.trackFieldOfEvent(this.box)
+            .unwrap("event.nativeValue: the event does not belong to an automation track")
+        return [field, ParameterMappings.resolve(this.context, field)]
+    }
 
     get interpolation(): Interpolation {return InterpolationFieldAdapter.read(this.box.interpolation)}
     set interpolation(value: Interpolation) {
@@ -119,6 +137,9 @@ export class ValueEvents {
     add(props?: ValueEventProps): ValueEventImpl {
         return this.#context.edit(() => {
             const position = Guard.integer(props?.position ?? 0, "event.position")
+            if (isDefined(props?.value) && isDefined(props?.nativeValue)) {
+                return panic(new TypeError("event: give either value (normalized) or nativeValue, not both"))
+            }
             const sharing = this.list().filter(event => event.position === position)
             if (sharing.length >= 2) {
                 return panic(new RangeError(`event.position: at most two events can share position ${position}`))

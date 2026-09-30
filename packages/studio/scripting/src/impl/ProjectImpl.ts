@@ -6,7 +6,10 @@ import {asInstanceOf, clamp, float, isDefined, isNull, Nullable, panic, tryCatch
 import {
     AnyAudioUnit,
     AnyModulator,
+    AudioUnitKind,
     AudioUnitProps,
+    AudioUnitsByKind,
+    Automatable,
     AuxAudioUnit,
     BusAudioUnitProps,
     DeepPartial,
@@ -20,6 +23,8 @@ import {
     MixdownOptions,
     Modulators,
     OutputAudioUnit,
+    ParameterInfo,
+    ParameterPath,
     Project,
     ProjectMeta,
     SignatureTrack,
@@ -38,6 +43,9 @@ import {SignatureTrackImpl} from "./timeline/SignatureTrackImpl"
 import {ModulatorImpls} from "./Modulators"
 import {Regions} from "./timeline/Regions"
 import {ScriptHostProtocol} from "../ScriptHostProtocol"
+import {ParameterInfoImpl} from "./ParameterMappings"
+
+const AudioUnitKinds: ReadonlyArray<AudioUnitKind> = ["instrument", "auxiliary", "group", "output"]
 
 class TimeSignatureImpl implements TimeSignature {
     readonly #context: Context
@@ -177,9 +185,29 @@ export class ProjectImpl implements Project {
         return this.audioUnits.filter((unit): unit is GroupAudioUnitImpl => unit instanceof GroupAudioUnitImpl)
     }
 
-    findAudioUnit(label: string): Nullable<AnyAudioUnit> {
+    findAudioUnit(label: string): Nullable<AnyAudioUnit>
+    findAudioUnit<K extends AudioUnitKind>(label: string, kind: K): Nullable<AudioUnitsByKind[K]>
+    findAudioUnit(label: string, kind?: AudioUnitKind): Nullable<AnyAudioUnit> {
         const name = Guard.string(label, "label")
-        return this.audioUnits.find(unit => unit.label === name) ?? null
+        const expected = isDefined(kind) ? Guard.oneOf(kind, AudioUnitKinds, "kind") : null
+        const unit = this.audioUnits.find(unit => unit.label === name) ?? null
+        return isNull(unit) || isNull(expected) || unit.kind === expected ? unit : null
+    }
+
+    findInstrumentUnit<K extends keyof Instruments = keyof Instruments>(label: string, key?: K): Nullable<InstrumentAudioUnit<K>> {
+        const unit = this.findAudioUnit(label, "instrument")
+        if (isNull(unit)) {return null}
+        if (!isDefined(key)) {return unit as InstrumentAudioUnit<K>}
+        return unit.hasInstrument(key) ? unit : null
+    }
+
+    findAuxUnit(label: string): Nullable<AuxAudioUnit> {return this.findAudioUnit(label, "auxiliary")}
+
+    findGroupUnit(label: string): Nullable<GroupAudioUnit> {return this.findAudioUnit(label, "group")}
+
+    parameter<T extends Automatable>(target: T, parameter: ParameterPath<T>): ParameterInfo {
+        const path = Guard.string(parameter, "parameter")
+        return new ParameterInfoImpl(this.#context, target, path, AudioUnitImpls.automationField(target, path))
     }
 
     addInstrumentUnit<K extends keyof Instruments>(key: K, props?: AudioUnitProps, instrument?: DeepPartial<Instruments[K]>): InstrumentAudioUnit<K> {

@@ -4,7 +4,7 @@ import {applyUpdateTasks, BoxGraph, UpdateTask} from "@opendaw/lib-box"
 import {BoxIO} from "@opendaw/studio-boxes"
 import {Arrays, Option, UUID} from "@opendaw/lib-std"
 import {Api, MixdownOptions, Project, Sample} from "../Api"
-import {ScriptHostProtocol} from "../ScriptHostProtocol"
+import {ScriptHostProtocol, ScriptPreset} from "../ScriptHostProtocol"
 import {ApiImpl} from "../impl/ApiImpl"
 import {ProjectImpl} from "../impl/ProjectImpl"
 
@@ -15,6 +15,8 @@ export class FakeHost implements ScriptHostProtocol {
     readonly applied: Array<ReadonlyArray<UpdateTask<BoxIO.TypeMap>>> = []
     readonly rendered: Array<{ buffer: ArrayBufferLike, options: MixdownOptions }> = []
     readonly saved: Array<{ byteLength: number, fileName: string, mimeType: string }> = []
+    readonly presets: Map<string, ScriptPreset> = new Map()
+    readonly voices: Map<string, Uint8Array> = new Map()
     current: { graph: BoxGraph<BoxIO.TypeMap>, name: string } | null = null
 
     async hasProject(): Promise<boolean> {return this.current !== null}
@@ -55,6 +57,16 @@ export class FakeHost implements ScriptHostProtocol {
     }
     async saveFile(buffer: ArrayBuffer, fileName: string, mimeType: string): Promise<void> {
         this.saved.push({byteLength: buffer.byteLength, fileName, mimeType})
+    }
+    async fetchPreset(uuid: string): Promise<ScriptPreset> {
+        const preset = this.presets.get(uuid)
+        if (preset === undefined) {throw new Error(`Unknown preset ${uuid}`)}
+        return preset
+    }
+    async fetchTubularVoice(cartridge: string, voice: number | string): Promise<Uint8Array> {
+        const data = this.voices.get(`${cartridge}/${voice}`)
+        if (data === undefined) {throw new Error(`Unknown voice ${cartridge}/${voice}`)}
+        return data
     }
 }
 

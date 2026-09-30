@@ -1,10 +1,13 @@
 import {AudioData} from "@opendaw/lib-dsp"
 import {ProjectSkeleton} from "@opendaw/studio-adapters"
-import {isDefined, isNull, panic} from "@opendaw/lib-std"
-import {Api, Project, Sample} from "../Api"
+import {int, isDefined, isNull, panic} from "@opendaw/lib-std"
+import {AnyAudioUnit, AnyDevice, Api, Project, Sample, Tubular} from "../Api"
 import {ScriptHostProtocol} from "../ScriptHostProtocol"
 import {ProjectImpl} from "./ProjectImpl"
 import {Guard} from "./Guard"
+import {Facade} from "./Common"
+import {Presets} from "./Presets"
+import {TubularImpl} from "./devices/Instruments"
 
 export class ApiImpl implements Api {
     readonly #protocol: ScriptHostProtocol
@@ -46,6 +49,21 @@ export class ApiImpl implements Api {
         if (/[\\/]/.test(name)) {return panic(new RangeError("saveFile: fileName must not contain path separators"))}
         const type = isDefined(mimeType) ? Guard.string(mimeType, "mimeType") : "application/octet-stream"
         return this.#protocol.saveFile(buffer, name, type)
+    }
+
+    async applyPreset(target: AnyAudioUnit | AnyDevice, preset: string): Promise<AnyDevice> {
+        if (!(target instanceof Facade)) {return panic(new TypeError("applyPreset: expected a unit or a device"))}
+        const loaded = await this.#protocol.fetchPreset(Guard.string(preset, "preset"))
+        return Presets.apply(target, loaded)
+    }
+
+    async loadTubularVoice(target: Tubular, cartridge: string, voice: int | string): Promise<void> {
+        if (!(target instanceof TubularImpl)) {return panic(new TypeError("loadTubularVoice: expected a Tubular instrument"))}
+        const name = Guard.string(cartridge, "cartridge")
+        if (typeof voice !== "string" && !Number.isInteger(voice)) {
+            return panic(new TypeError("loadTubularVoice: voice must be an index or a name"))
+        }
+        Presets.loadTubularVoice(target, await this.#protocol.fetchTubularVoice(name, voice))
     }
 }
 

@@ -56,6 +56,23 @@ the slopes shape the region.
 {@link Soundfont} takes a `SoundfontFile` and a `presetIndex`, the file itself is chosen
 in the studio. {@link ConvolverEffect} takes any sample as its `impulse`.
 
+## Presets and DX7 cartridges
+
+`openDAW.applyPreset(target, presetUuid)` loads a stock or user preset. An instrument preset replaces the
+instrument of a unit (its effects and timeline stay), an effect preset replaces the given effect in place or is
+appended when the target is a unit. It resolves with the device now holding the preset. Like every other edit it
+becomes part of the script's undo step.
+
+`openDAW.loadTubularVoice(tubular, cartridge, voice)` loads a voice of a bundled DX7 cartridge into a
+{@link Tubular} by index or name.
+
+```ts
+const project = await openDAW.getProject()
+const keys = project.addInstrumentUnit("Tubular", {label: "Keys"})
+await openDAW.loadTubularVoice(keys.instrument, "Tubular Classics", "Rhodes")
+project.openInStudio()
+```
+
 ## Mixdown and saving files
 
 `project.mixdown()` renders the project the script holds, including edits that were not yet applied with

@@ -11,9 +11,10 @@
 // call passes that handle. Buffers are byte offsets into the ONE shared memory; we re-derive `memory.buffer`
 // views EVERY call, since the SharedArrayBuffer can grow / detach (talc), never caching a typed-array view.
 
-import {clamp, isDefined, UUID, ValueMapping} from "@opendaw/lib-std"
+import {clamp, isDefined, Nullable, UUID, ValueMapping} from "@opendaw/lib-std"
 import {SimpleLimiter} from "@opendaw/lib-dsp"
 import {copyEvents, runSpielwerk, SpielwerkRuntime} from "./script-spielwerk"
+import {ScriptLoadMeter} from "./script-load-meter"
 
 const RENDER_QUANTUM = 128
 // ~1 second of render calls (128-frame quanta at 48k) before a scriptless device is reported — long enough to
@@ -111,31 +112,46 @@ export class ScriptBridges {
     // uuid + state pointer: a composite's replicas of one unit-level device share the box uuid but are separate
     // instances, each with its own Processor
     readonly #byInstance = new Map<string, number>()
+    readonly #meter: Nullable<ScriptLoadMeter>
     #nextHandle = 1
 
     constructor(memory: WebAssembly.Memory, engine: ScriptEngine, sampleRate: number,
-                onMessage: (uuid: string, message: string) => void = () => {}) {
+                onMessage: (uuid: string, message: string) => void = () => {},
+                meter: Nullable<ScriptLoadMeter> = null) {
         this.#memory = memory
         this.#engine = engine
         this.#sampleRate = sampleRate
         this.#onMessage = onMessage
+        this.#meter = meter
     }
 
     /// The `host_script_*` (+ no engine `host_self_uuid`) closures to bind into each scriptable device's `env`.
     imports(): Record<string, (...args: number[]) => number | void> {
         return {
             host_script_create: (uuidPtr, kind, statePtr) => this.#create(uuidPtr, kind, statePtr),
-            host_script_audio: (handle, srcL, srcR, outL, outR, s0, s1, index, p0, p1, bpm, flags) =>
-                this.#audio(handle, srcL, srcR, outL, outR, s0, s1, index, p0, p1, bpm, flags),
-            host_script_note_on: (handle, pitch, velocity, cent, id) => this.#noteOn(handle, pitch, velocity, cent, id),
-            host_script_note_off: (handle, id) => this.#noteOff(handle, id),
-            host_script_reset: (handle) => this.#reset(handle),
-            host_script_param: (handle, index, kind, value, modulation) =>
-                this.#param(handle, index, kind, value, modulation),
+            host_script_audio: this.#metered((handle, srcL, srcR, outL, outR, s0, s1, index, p0, p1, bpm, flags) =>
+                this.#audio(handle, srcL, srcR, outL, outR, s0, s1, index, p0, p1, bpm, flags)),
+            host_script_note_on: this.#metered((handle, pitch, velocity, cent, id) => this.#noteOn(handle, pitch, velocity, cent, id)),
+            host_script_note_off: this.#metered((handle, id) => this.#noteOff(handle, id)),
+            host_script_reset: this.#metered((handle) => this.#reset(handle)),
+            host_script_param: this.#metered((handle, index, kind, value, modulation) =>
+                this.#param(handle, index, kind, value, modulation)),
             host_script_sample: (handle, index, sampleHandle, present) => this.#sample(handle, index, sampleHandle, present),
-            host_script_notes: (handle, inPtr, inCount, outPtr, outMax, from, to, bpm, flags, s0, s1) =>
-                this.#notes(handle, inPtr, inCount, outPtr, outMax, from, to, bpm, flags, s0, s1),
+            host_script_notes: this.#metered((handle, inPtr, inCount, outPtr, outMax, from, to, bpm, flags, s0, s1) =>
+                this.#notes(handle, inPtr, inCount, outPtr, outMax, from, to, bpm, flags, s0, s1)),
             host_script_release: (handle) => this.#release(handle)
+        }
+    }
+
+    #metered(call: (handle: number, ...args: number[]) => number | void): (handle: number, ...args: number[]) => number | void {
+        const meter = this.#meter
+        if (!isDefined(meter)) {return call}
+        return (handle: number, ...args: number[]): number | void => {
+            const start = meter.now()
+            const result = call(handle, ...args)
+            const bridge = this.#bridges.get(handle)
+            if (isDefined(bridge)) {meter.add(bridge.uuid, meter.now() - start)}
+            return result
         }
     }
 

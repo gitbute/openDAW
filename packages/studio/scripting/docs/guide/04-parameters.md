@@ -43,6 +43,29 @@ synth.addValueTrack(synth.sends[0], "amount")
 
 Only primitive properties (numbers and booleans) form paths. References like `sample` or `sideChain` do not.
 
+## Units, ranges and normalized values
+
+Properties hold native values (Hz, dB, seconds, ...). Automation points store normalized values (0.0 to 1.0)
+mapped over the parameter's range with its own curve (exponential for frequencies, a decibel curve for gains).
+`project.parameter(target, path)` returns a {@link ParameterInfo} with the unit, the range and the exact
+conversion the studio uses, so there is no need to guess a mapping:
+
+```ts
+const eq = bus.addAudioEffect("Revamp")
+const frequency = project.parameter(eq, "highPass.frequency")
+frequency.unit                  // "Hz"
+frequency.min, frequency.max    // 20, 20000
+frequency.toNormalized(440)     // normalized value for 440 Hz
+frequency.fromNormalized(0.5)   // 632.45 (Hz)
+frequency.format(440)           // "440 Hz"
+
+const volume = project.parameter(synth, "volume")
+volume.toNormalized(-6)         // normalized value for -6 dB
+```
+
+Booleans (`mute`, `enabled`, ...) map to 0 and 1. Script device parameters (`// @param`) use their declared range:
+`project.parameter(werkstatt.parameter("tone"), "value")`.
+
 ## Discriminated unions
 
 Collections hold unions, narrow them by their discriminator:

@@ -61,7 +61,7 @@ export const MarkerTrackBody = ({lifecycle, service}: Construct) => {
             if (adapter === null) {
                 if (dblclck) {
                     const rect = canvas.getBoundingClientRect()
-                    const position = snapping.xToUnitFloor(startEvent.clientX - rect.left)
+                    const position = Math.max(snapping.xToUnitFloor(startEvent.clientX - rect.left), 0)
                     const lowerEqual = markerTrackAdapter.events.lowerEqual(position)
                     if (lowerEqual?.position === position) {return Option.None}
                     const label = isDefined(lowerEqual) ? Markers.nextName(lowerEqual.label) : Markers.DefaultNames[0]
@@ -79,7 +79,7 @@ export const MarkerTrackBody = ({lifecycle, service}: Construct) => {
             return Option.wrap({
                 update: (event: Dragging.Event) => {
                     const rect = canvas.getBoundingClientRect()
-                    const position = snapping.xToUnitFloor(event.clientX - rect.left)
+                    const position = Math.max(snapping.xToUnitFloor(event.clientX - rect.left), 0)
                     editing.modify(() => {
                         const atPosition = events.lowerEqual(position)
                         if (atPosition !== null && atPosition.position === position && atPosition !== adapter) {

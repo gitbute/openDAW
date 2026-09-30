@@ -109,7 +109,7 @@ export interface Send {
     readonly audioUnit: AnyAudioUnit
     /** The bus receiving the signal */
     readonly target: AuxAudioUnit | GroupAudioUnit
-    /** Send amount in dB (-inf to 0) */
+    /** Send amount in dB (-inf to 0). Automatable: `unit.addValueTrack(send, "amount")` */
     amount: number
     /** Pan position (-1.0 = left, 0.0 = center, 1.0 = right) */
     pan: bipolar
@@ -514,15 +514,22 @@ export interface GateEffect extends AudioEffect, SideChainable {
 }
 
 /**
- * Brickwall limiter with automatic makeup gain
+ * Loudness maximizer: a peak limiter whose output ceiling is fixed at 0 dBFS (there is no ceiling/output parameter).
+ * Makeup gain is automatic and equals -threshold, so lowering the threshold drives the signal harder into the
+ * limiter and makes it louder, it never lowers the output level. Only with lookahead is it a brickwall: the sample
+ * peak is clamped to 0 dBFS, yet it is not oversampled, so true peaks still exceed 0 dBTP (about +1 dB, more on
+ * bright or heavily driven material). Without lookahead the 5 ms attack lets transients overshoot by up to the
+ * makeup (threshold -6: sample peaks above 0 dBFS, true peaks around +2 to +3 dBTP). The default "Master Maximizer"
+ * on the output unit has lookahead off. For true-peak headroom enable lookahead and lower the unit's volume (applied
+ * after its effects), e.g. -1.5 dB for a -1 dBTP target.
  * @group Audio Effects
  */
 export interface MaximizerEffect extends AudioEffect {
     /** Always "Maximizer" */
     readonly key: "Maximizer"
-    /** Look ahead (default true) */
+    /** Delay the signal 5 ms so gain reduction lands before transients, plus a hard clamp at 0 dBFS; off on the default master (default true) */
     lookahead: boolean
-    /** Threshold in dB (-24 to 0, default 0) */
+    /** Drive in dB: peaks above it are reduced, then everything is raised by -threshold toward 0 dBFS (-24 to 0, default 0) */
     threshold: float
 }
 
@@ -1672,6 +1679,43 @@ export type Automatable =
     | AnyModulator
     | Modulation
 
+/**
+ * Range, unit and value conversion of one automatable parameter, obtained with {@link Project.parameter}
+ * or {@link ValueTrack.parameterInfo}. Automation points store normalized values (0.0 to 1.0); use this to
+ * convert from and to the parameter's native unit (Hz, dB, seconds, ...) with the exact curve the studio uses.
+ * Booleans map to 0 and 1.
+ * @group Automation
+ * @example
+ * ```ts
+ * const cutoff = project.parameter(synth.instrument, "cutoff")
+ * cutoff.unit                 // "Hz"
+ * cutoff.toNormalized(440)    // 0.4485...
+ * cutoff.fromNormalized(0.5)  // 632.45...
+ * ```
+ */
+export interface ParameterInfo {
+    /** The object owning the parameter */
+    readonly target: Automatable
+    /** Parameter path, e.g. `"cutoff"` or `"lfo.rate"` */
+    readonly path: string
+    /** Unit of native values, e.g. "Hz", "dB", "s", "ct" ("" = unitless) */
+    readonly unit: string
+    /** Native value at normalized 0.0 (may be -Infinity for gains) */
+    readonly min: number
+    /** Native value at normalized 1.0 */
+    readonly max: number
+    /** Current native value */
+    readonly value: number
+    /** Current normalized value (0.0 to 1.0) */
+    readonly normalized: unitValue
+    /** Convert a native value (e.g. 440 Hz, -6 dB) to the normalized automation value. Out of range values clamp */
+    toNormalized(value: number | boolean): unitValue
+    /** Convert a normalized automation value (0.0 to 1.0) to the native value */
+    fromNormalized(normalized: unitValue): number
+    /** Format a native value as the studio displays it, e.g. "440 Hz" */
+    format(value: number | boolean): string
+}
+
 // ---------------------------------------------------------------------------------------------------------
 // Audio units
 // ---------------------------------------------------------------------------------------------------------
@@ -1683,7 +1727,9 @@ export type Automatable =
 export type AudioUnitKind = "instrument" | "auxiliary" | "group" | "output"
 
 /**
- * A channel in the mixer: devices, tracks, volume, pan and routing
+ * A channel in the mixer: devices, tracks, volume, pan and routing. Instrument, aux and group units also have
+ * sends (`sends`, `addSend`, see {@link Sendable}); the output unit has none. Narrow {@link AnyAudioUnit} by `kind`
+ * or look units up typed with {@link Project.findInstrumentUnit}, {@link Project.findAuxUnit} and {@link Project.findGroupUnit}
  * @group Audio Units
  */
 export interface AudioUnit extends MIDIEffectHost, AudioEffectHost {
@@ -1693,15 +1739,29 @@ export interface AudioUnit extends MIDIEffectHost, AudioEffectHost {
     readonly kind: AudioUnitKind
     /** Custom label */
     label: string
-    /** Output routing (null = unplugged). Defaults to the primary output */
+    /**
+     * Output routing (null = unplugged). Defaults to the primary output. Always null on the output unit itself, which
+     * feeds the audio hardware and cannot be rerouted (assigning throws)
+     */
     output: Nullable<OutputAudioUnit | GroupAudioUnit | AuxAudioUnit>
-    /** Volume in dB (-96 to 6, default 0) */
+    /**
+     * Fader volume in dB (-96 to 6, default 0). Automatable on every unit kind (instrument, aux, group, output),
+     * so bus and return levels need no gain effect
+     * @example
+     * ```ts
+     * const lane = reverb.addValueTrack(reverb, "volume")
+     * lane.addRegion({duration: PPQN.Bar * 8}).addEvents([
+     *     {position: 0, nativeValue: -24},
+     *     {position: PPQN.Bar * 8, nativeValue: -6}
+     * ])
+     * ```
+     */
     volume: float
-    /** Pan (-1.0 = left, 0.0 = center, 1.0 = right) */
+    /** Pan (-1.0 = left, 0.0 = center, 1.0 = right). Automatable: `unit.addValueTrack(unit, "panning")` */
     panning: bipolar
-    /** Mute */
+    /** Mute. Automatable: `unit.addValueTrack(unit, "mute")` with points `nativeValue: 1` (muted) or `0` */
     mute: boolean
-    /** Solo */
+    /** Solo. Automatable */
     solo: boolean
     /** Position in the project (instruments first, then aux, groups, output) */
     readonly index: int
@@ -1718,16 +1778,19 @@ export interface AudioUnit extends MIDIEffectHost, AudioEffectHost {
     /** Add an audio track (only meaningful for audio instruments like Tape) */
     addAudioTrack(props?: Partial<Pick<Track, "enabled">>, index?: int): AudioTrack
     /**
-     * Add an automation track for a parameter
+     * Add an automation track for a parameter. Points take either `nativeValue` (the parameter's own unit,
+     * e.g. Hz or dB) or `value` (normalized 0.0 to 1.0)
      * @param target - Any automatable object (this unit, a device, a send, ...)
      * @param parameter - Parameter path, e.g. `"cutoff"` or `"lfo.rate"`
      * @example
      * ```ts
      * const lane = synth.addValueTrack(synth.instrument, "cutoff")
      * lane.addRegion({duration: PPQN.Bar * 4}).addEvents([
-     *     {position: 0, value: 0.2},
-     *     {position: PPQN.Bar * 4, value: 0.9}
+     *     {position: 0, nativeValue: 200},
+     *     {position: PPQN.Bar * 4, nativeValue: 8000}
      * ])
+     * synth.addValueTrack(synth, "volume")           // fader
+     * synth.addValueTrack(synth.sends[0], "amount")  // send level
      * ```
      */
     addValueTrack<T extends Automatable>(target: T, parameter: ParameterPath<T>, props?: Partial<Pick<Track, "enabled">>, index?: int): ValueTrack
@@ -1747,13 +1810,24 @@ export interface InstrumentAudioUnit<K extends keyof Instruments = keyof Instrum
     /** The instrument */
     readonly instrument: Instruments[K]
     /**
-     * Replace the instrument with another type (keeps tracks and effects)
+     * Replace the instrument with another type (keeps tracks and effects). Returns the new instrument, typed by `key`.
+     * Keep working with the return value: the static type of `unit.instrument` does not change
      * @example
      * ```ts
      * const nano = synth.setInstrument("Nano", {release: 0.5})
+     * const apparat = unit.setInstrument("Apparat")
+     * apparat.code = "..."
      * ```
      */
     setInstrument<N extends keyof Instruments>(key: N, props?: DeepPartial<Instruments[N]>): Instruments[N]
+    /**
+     * Whether the unit plays the given instrument type. Narrows `instrument` when true
+     * @example
+     * ```ts
+     * if (unit.hasInstrument("Vaporisateur")) {unit.instrument.cutoff = 1200}
+     * ```
+     */
+    hasInstrument<N extends keyof Instruments>(key: N): this is InstrumentAudioUnit<N>
 }
 
 /**
@@ -1799,6 +1873,21 @@ export interface OutputAudioUnit extends BusAudioUnit {
  * @group Audio Units
  */
 export type AnyAudioUnit = InstrumentAudioUnit | AuxAudioUnit | GroupAudioUnit | OutputAudioUnit
+
+/**
+ * Unit types by {@link AudioUnitKind}, used by {@link Project.findAudioUnit}
+ * @group Audio Units
+ */
+export interface AudioUnitsByKind {
+    /** {@link InstrumentAudioUnit} */
+    "instrument": InstrumentAudioUnit
+    /** {@link AuxAudioUnit} */
+    "auxiliary": AuxAudioUnit
+    /** {@link GroupAudioUnit} */
+    "group": GroupAudioUnit
+    /** {@link OutputAudioUnit} */
+    "output": OutputAudioUnit
+}
 
 /**
  * Settings accepted when creating a unit
@@ -2044,6 +2133,11 @@ export interface ValueEvent {
     position: ppqn
     /** Normalized parameter value (0.0 to 1.0) */
     value: unitValue
+    /**
+     * The same value in the automated parameter's native unit (Hz, dB, seconds, ...), converted with the
+     * parameter's own curve. See {@link ParameterInfo}. Booleans read as 0 or 1
+     */
+    nativeValue: number
     /** Interpolation towards the next event */
     interpolation: Interpolation
     /** Remove the event */
@@ -2051,10 +2145,16 @@ export interface ValueEvent {
 }
 
 /**
- * Settings accepted by {@link ValueEventOwner.addEvent}
+ * Settings accepted by {@link ValueEventOwner.addEvent}. Give either `value` (normalized 0.0 to 1.0)
+ * or `nativeValue` (the parameter's unit, e.g. Hz or dB), not both
  * @group Automation
+ * @example
+ * ```ts
+ * region.addEvents([{position: 0, nativeValue: 80}, {position: PPQN.Bar * 4, nativeValue: 2000}])  // Hz
+ * region.addEvent({position: 0, value: 0.5})  // normalized
+ * ```
  */
-export type ValueEventProps = Partial<Pick<ValueEvent, "position" | "value" | "interpolation">>
+export type ValueEventProps = Partial<Pick<ValueEvent, "position" | "value" | "nativeValue" | "interpolation">>
 
 /**
  * Common surface of automation regions and clips
@@ -2063,9 +2163,20 @@ export type ValueEventProps = Partial<Pick<ValueEvent, "position" | "value" | "i
 export interface ValueEventOwner {
     /** All events sorted by position */
     readonly events: ReadonlyArray<ValueEvent>
-    /** Add an automation point (defaults: position 0, value 0, linear). Two points at the same position form a step */
+    /**
+     * Add an automation point (defaults: position 0, value 0, linear). Two points at the same position form a step.
+     * Pass `nativeValue` to give the value in the parameter's unit instead of normalized
+     */
     addEvent(props?: ValueEventProps): ValueEvent
-    /** Add many points at once */
+    /**
+     * Add many points at once
+     * @example
+     * ```ts
+     * const eq = bus.addAudioEffect("Revamp")
+     * const sweep = bus.addValueTrack(eq, "highPass.frequency").addRegion({duration: PPQN.Bar * 8})
+     * sweep.addEvents([{position: 0, nativeValue: 20}, {position: PPQN.Bar * 8, nativeValue: 1200}])  // Hz
+     * ```
+     */
     addEvents(events: ReadonlyArray<ValueEventProps>): ReadonlyArray<ValueEvent>
     /** Remove all points */
     clearEvents(): void
@@ -2119,6 +2230,8 @@ export interface ValueTrack extends Track {
     readonly target: Automatable
     /** The automated parameter path */
     readonly parameter: string
+    /** Unit, range and conversions of the automated parameter */
+    readonly parameterInfo: ParameterInfo
     /** All regions sorted by position */
     readonly regions: ReadonlyArray<ValueRegion>
     /** All clips sorted by slot index */
@@ -2258,11 +2371,17 @@ export type AnyClip = NoteClip | AudioClip | ValueClip
 /**
  * Arrangement marker
  * @group Timeline
+ * @example
+ * ```ts
+ * project.addMarker({position: 0, label: "Intro"})
+ * project.addMarker({position: PPQN.Bar * 16, label: "Drop"})  // bar 17
+ * project.markers.map(marker => ({bar: marker.position / PPQN.Bar + 1, label: marker.label}))
+ * ```
  */
 export interface Marker {
     /** Unique id */
     readonly uuid: string
-    /** Position in PPQN */
+    /** Absolute position in PPQN (0 = start of bar 1, never negative: smaller values clamp to 0) */
     position: ppqn
     /** Label */
     label: string
@@ -2359,8 +2478,14 @@ export interface SignatureTrack {
 }
 
 /**
- * Transport loop range
+ * Transport loop range (the cycle region), available as {@link Project.loop}
  * @group Essentials
+ * @example
+ * ```ts
+ * project.loop.from = PPQN.Bar * 4
+ * project.loop.to = PPQN.Bar * 8
+ * project.loop.enabled = true
+ * ```
  */
 export interface LoopArea {
     /** Loop enabled */
@@ -2598,7 +2723,7 @@ export interface Project {
     baseFrequency: float
     /** Project length in PPQN */
     duration: ppqn
-    /** Loop range */
+    /** Transport loop range. Set its fields: `project.loop.from = 0; project.loop.to = PPQN.Bar * 8; project.loop.enabled = true` */
     readonly loop: LoopArea
     /** Project metadata */
     readonly meta: ProjectMeta
@@ -2614,8 +2739,60 @@ export interface Project {
     readonly auxUnits: ReadonlyArray<AuxAudioUnit>
     /** Group (bus) units */
     readonly groupUnits: ReadonlyArray<GroupAudioUnit>
-    /** Find a unit by its label */
+    /**
+     * Find a unit by its label. Pass `kind` to get the precise unit type (null if the unit has another kind)
+     * @example
+     * ```ts
+     * const bus = project.findAudioUnit("Drums Bus", "group")
+     * if (bus !== null) {bus.addAudioEffect("Compressor")}
+     * const any = project.findAudioUnit("Lead")
+     * if (any?.kind === "instrument") {any.setInstrument("Nano")}
+     * ```
+     */
     findAudioUnit(label: string): Nullable<AnyAudioUnit>
+    findAudioUnit<K extends AudioUnitKind>(label: string, kind: K): Nullable<AudioUnitsByKind[K]>
+    /**
+     * Find an instrument unit by its label (null if absent or not an instrument unit). Pass the instrument `key` to
+     * type `instrument` precisely (null if the unit plays another instrument)
+     * @example
+     * ```ts
+     * const lead = project.findInstrumentUnit("Lead", "Vaporisateur")
+     * if (lead !== null) {lead.instrument.cutoff = 1800}
+     * const bass = project.findInstrumentUnit("Bass")
+     * bass?.addSend(project.auxUnits[0], {amount: -12})
+     * ```
+     */
+    findInstrumentUnit<K extends keyof Instruments = keyof Instruments>(label: string, key?: K): Nullable<InstrumentAudioUnit<K>>
+    /**
+     * Find an auxiliary (return) unit by its label (null if absent or not an aux unit)
+     * @example
+     * ```ts
+     * const reverb = project.findAuxUnit("Reverb") ?? project.addAuxUnit({label: "Reverb"})
+     * reverb.volume = -6
+     * ```
+     */
+    findAuxUnit(label: string): Nullable<AuxAudioUnit>
+    /**
+     * Find a group (bus) unit by its label (null if absent or not a group unit)
+     * @example
+     * ```ts
+     * const drums = project.findGroupUnit("Drums")
+     * if (drums !== null) {drums.addValueTrack(drums, "volume")}
+     * ```
+     */
+    findGroupUnit(label: string): Nullable<GroupAudioUnit>
+    /**
+     * Unit, range and native/normalized conversion of a parameter, for writing automation in native units
+     * @param target - Any automatable object (a unit, device, send, ...)
+     * @param parameter - Parameter path, e.g. `"cutoff"` or `"highPass.frequency"`
+     * @example
+     * ```ts
+     * const frequency = project.parameter(eq, "highPass.frequency")
+     * frequency.unit                 // "Hz"
+     * frequency.toNormalized(1000)   // normalized automation value for 1 kHz
+     * ```
+     */
+    parameter<T extends Automatable>(target: T, parameter: ParameterPath<T>): ParameterInfo
     /**
      * Add an instrument unit. It comes with one default track matching the instrument.
      * @param key - Instrument type
@@ -2725,4 +2902,29 @@ export interface Api {
      * ```
      */
     saveFile(data: ArrayBuffer | ArrayBufferView, fileName: string, mimeType?: string): Promise<void>
+    /**
+     * Load a stock or user preset. Instrument presets replace the instrument (effects and timeline stay),
+     * rack presets replace the whole unit, effect presets replace the given effect or are appended to a unit's chain,
+     * chain presets are appended to a unit's chain. Returns the device holding the preset (the first one for chains)
+     * @param target - An instrument unit, an instrument (also inside a composite layer), an effect or a unit (effect presets only)
+     * @param preset - Preset uuid
+     * @example
+     * ```ts
+     * const unit = project.addInstrumentUnit("Vaporisateur", {label: "Pad"})
+     * const synth = await openDAW.applyPreset(unit, "5a1c0c52-3f0e-4c8e-9b4e-2f6c8d0a7e11")
+     * ```
+     */
+    applyPreset(target: AnyAudioUnit | AnyDevice, preset: string): Promise<AnyDevice>
+    /**
+     * Load a voice of a bundled DX7 cartridge into a Tubular (operators, algorithm, LFO, pitch envelope and label)
+     * @param target - The Tubular instrument
+     * @param cartridge - Cartridge name or file name, e.g. "Tubular Classics"
+     * @param voice - Voice index (0 to 31) or voice name, e.g. "Rhodes"
+     * @example
+     * ```ts
+     * const keys = project.addInstrumentUnit("Tubular", {label: "Keys"})
+     * await openDAW.loadTubularVoice(keys.instrument, "Tubular Classics", "Rhodes")
+     * ```
+     */
+    loadTubularVoice(target: Tubular, cartridge: string, voice: int | string): Promise<void>
 }

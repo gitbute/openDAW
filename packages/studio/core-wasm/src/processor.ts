@@ -8,7 +8,7 @@
 // honest no-ops for now — the transport state simply never reports them active.
 import "./worklet-scope" // MUST be first: shims `self`/`location` for inlined worker glue
 import {Exec, int, Nullable, panic, SyncStream, Terminable, Terminator, tryCatch, UUID} from "@opendaw/lib-std"
-import {AudioAnalyser, AudioData, ppqn, RenderQuantum} from "@opendaw/lib-dsp"
+import {AudioAnalyser, AudioData, GonioCapture, LoudnessMeter, ppqn, RenderQuantum, StereoAnalyser} from "@opendaw/lib-dsp"
 import {Communicator, Messenger} from "@opendaw/lib-runtime"
 import {Address} from "@opendaw/lib-box"
 import {LiveStreamBroadcaster} from "@opendaw/lib-fusion"
@@ -29,7 +29,6 @@ import {
 import type {SoundFont2} from "soundfont2"
 import {HRClock} from "../../core-processors/src/HRClock"
 import {PeakBroadcaster} from "../../core-processors/src/PeakBroadcaster"
-import {GonioCapture, LoudnessMeter, StereoAnalyser} from "./analysis-dsp"
 import {EngineExports, takeReportMessage} from "./engine-exports"
 import {WasmMidiDrain} from "./midi-drain"
 import {RecordingStartEdge} from "./recording-start-edge"

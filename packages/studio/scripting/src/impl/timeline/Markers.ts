@@ -4,20 +4,26 @@ import {asInstanceOf, int, UUID} from "@opendaw/lib-std"
 import {Marker, MarkerProps} from "../../Api"
 import {Context} from "../Context"
 import {Facade, Props} from "../Common"
+import {Guard} from "../Guard"
 
 export class MarkerImpl extends Facade<MarkerBox> implements Marker {
     static wrap(context: Context, box: MarkerBox): MarkerImpl {
         return context.facade(box, () => new MarkerImpl(context, box))
     }
 
-    declare position: ppqn
     declare label: string
     declare hue: int
     declare plays: int
 
     private constructor(context: Context, box: MarkerBox) {
         super(context, box)
-        this.bind({position: box.position, label: box.label, hue: box.hue, plays: box.plays})
+        this.bind({label: box.label, hue: box.hue, plays: box.plays})
+    }
+
+    get position(): ppqn {return this.box.position.getValue()}
+    set position(value: ppqn) {
+        const position = Guard.int32("non-negative", value, "position")
+        this.context.edit(() => this.box.position.setValue(position))
     }
 }
 

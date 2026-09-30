@@ -1,7 +1,18 @@
 import {AudioData} from "@opendaw/lib-dsp"
 import {UpdateTask} from "@opendaw/lib-box"
 import {BoxIO} from "@opendaw/studio-boxes"
+import {int} from "@opendaw/lib-std"
 import {MixdownOptions, Sample} from "./Api"
+
+export type ScriptPresetCategory =
+    "instrument" | "audio-effect" | "midi-effect" | "audio-unit" | "audio-effect-chain" | "midi-effect-chain"
+
+export type ScriptPreset = {
+    readonly uuid: string
+    readonly name: string
+    readonly category: ScriptPresetCategory
+    readonly buffer: ArrayBuffer
+}
 
 export interface ScriptHostProtocol {
     openProject(buffer: ArrayBufferLike, name?: string): void
@@ -15,4 +26,6 @@ export interface ScriptHostProtocol {
     listSamples(): Promise<ReadonlyArray<Sample>>
     renderMixdown(buffer: ArrayBufferLike, options: MixdownOptions): Promise<AudioData>
     saveFile(buffer: ArrayBuffer, fileName: string, mimeType: string): Promise<void>
+    fetchPreset(uuid: string): Promise<ScriptPreset>
+    fetchTubularVoice(cartridge: string, voice: int | string): Promise<Uint8Array>
 }

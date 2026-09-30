@@ -1,4 +1,5 @@
 import {
+    Arrays,
     DefaultObservableValue,
     Errors,
     int,
@@ -12,7 +13,7 @@ import {
     TimeSpan,
     UUID
 } from "@opendaw/lib-std"
-import {AudioData, ppqn} from "@opendaw/lib-dsp"
+import {AudioData, ppqn, RenderQuantum} from "@opendaw/lib-dsp"
 import {ApparatDeviceBox, SpielwerkDeviceBox, WerkstattDeviceBox} from "@opendaw/studio-boxes"
 import {Communicator, Messenger, Promises, Wait} from "@opendaw/lib-runtime"
 import {AnimationFrame} from "@opendaw/lib-dom"
@@ -26,8 +27,10 @@ import {
     NoteSignal,
     OfflineEngineInitializeConfig,
     OfflineEngineProtocol,
-    OfflineEngineRenderConfig
-, ScriptCompiler} from "@opendaw/studio-adapters"
+    OfflineEngineRenderConfig,
+    ScriptCompiler,
+    ScriptLoadReport
+} from "@opendaw/studio-adapters"
 import {Project} from "./project"
 import {AudioWorklets} from "./AudioWorklets"
 import {MIDIReceiver} from "./midi"
@@ -50,7 +53,9 @@ export class OfflineEngineRenderer {
     static async create(source: Project,
                         optExportConfiguration: Option<ExportConfiguration>,
                         sampleRate: int = 48_000,
-                        abortSignal?: AbortSignal
+                        abortSignal?: AbortSignal,
+                        onDeviceMessage?: (uuid: string, message: string) => void,
+                        profileScripts: boolean = false
     ): Promise<OfflineEngineRenderer> {
         const numStems = ExportConfiguration.countStems(optExportConfiguration)
         if (numStems === 0) {return panic("Nothing to export")}
@@ -74,6 +79,9 @@ export class OfflineEngineRenderer {
                 }
                 step(samples: number): Promise<Float32Array[]> {
                     return dispatcher.dispatchAndReturn(this.step, samples)
+                }
+                scriptLoad(): Promise<Nullable<ScriptLoadReport>> {
+                    return dispatcher.dispatchAndReturn(this.scriptLoad)
                 }
                 stop(): void { dispatcher.dispatchAndForget(this.stop) }
             }
@@ -122,6 +130,7 @@ export class OfflineEngineRenderer {
             recordingStarted: (): void => {},
             deviceMessage: (uuid: string, message: string): void => {
                 console.warn(`OFFLINE-ENGINE device(${uuid}): ${message}`)
+                onDeviceMessage?.(uuid, message)
             }
         })
 
@@ -195,7 +204,8 @@ export class OfflineEngineRenderer {
                 controlFlagsBuffer,
                 project: source.toArrayBuffer(),
                 exportConfiguration: optExportConfiguration.unwrapOrUndefined(),
-                variant: engine.attachment
+                variant: engine.attachment,
+                profileScripts
             })
         }
         const {promise: abortPromise, reject: rejectOnAbort} = Promise.withResolvers<never>()
@@ -219,7 +229,8 @@ export class OfflineEngineRenderer {
             reader,
             engineStateIO,
             sampleRate,
-            numberOfChannels
+            numberOfChannels,
+            profileScripts
         )
     }
 
@@ -260,8 +271,10 @@ export class OfflineEngineRenderer {
     readonly #engineStateIO: ReturnType<typeof EngineStateSchema>
     readonly #sampleRate: int
     readonly #numberOfChannels: int
+    readonly #profileScripts: boolean
 
     #totalFrames: int = 0
+    #scriptLoad: Option<ScriptLoadReport> = Option.None
 
     private constructor(
         worker: Worker,
@@ -271,7 +284,8 @@ export class OfflineEngineRenderer {
         reader: SyncStream.Reader,
         engineStateIO: ReturnType<typeof EngineStateSchema>,
         sampleRate: int,
-        numberOfChannels: int
+        numberOfChannels: int,
+        profileScripts: boolean
     ) {
         this.#worker = worker
         this.#protocol = protocol
@@ -281,11 +295,14 @@ export class OfflineEngineRenderer {
         this.#engineStateIO = engineStateIO
         this.#sampleRate = sampleRate
         this.#numberOfChannels = numberOfChannels
+        this.#profileScripts = profileScripts
     }
 
     get sampleRate(): int {return this.#sampleRate}
     get numberOfChannels(): int {return this.#numberOfChannels}
     get totalFrames(): int {return this.#totalFrames}
+    // present after `renderFrames` when created with `profileScripts`
+    get scriptLoad(): Option<ScriptLoadReport> {return this.#scriptLoad}
 
     async play(): Promise<void> {
         this.#engineCommands.play()
@@ -316,6 +333,30 @@ export class OfflineEngineRenderer {
         const channels = await this.#protocol.step(samples)
         this.#totalFrames += samples
         return channels
+    }
+
+    // Renders exactly `numberOfFrames` from `startPosition` (no silence detection, no implicit tail), then terminates.
+    async renderFrames(startPosition: ppqn, numberOfFrames: int, abortSignal?: AbortSignal): Promise<ReadonlyArray<Float32Array>> {
+        const isAborted = (): boolean => isDefined(abortSignal) && abortSignal.aborted
+        const rendering = async (): Promise<ReadonlyArray<Float32Array>> => {
+            await this.waitForLoading()
+            if (isAborted()) {return Promise.reject(Errors.AbortError)}
+            this.setPosition(startPosition)
+            await this.play()
+            const output = Arrays.create(() => new Float32Array(numberOfFrames), this.#numberOfChannels)
+            const chunkFrames = RenderQuantum * 375
+            for (let offset = 0; offset < numberOfFrames; offset += chunkFrames) {
+                if (isAborted()) {return Promise.reject(Errors.AbortError)}
+                const channels = await this.step(Math.min(chunkFrames, numberOfFrames - offset))
+                channels.forEach((channel, index) => output[index].set(channel, offset))
+            }
+            if (this.#profileScripts) {this.#scriptLoad = Option.wrap(await this.#protocol.scriptLoad())}
+            return output
+        }
+        const result = await Promises.tryCatch(rendering())
+        this.terminate()
+        if (result.status === "rejected") {return Promise.reject(result.error)}
+        return result.value
     }
 
     async render(config: OfflineEngineRenderConfig,

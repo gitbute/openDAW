@@ -9,7 +9,7 @@
   "scripts": {
     "lint": "eslint \"**/*.ts\"",
     "format": "prettier --write \"../boxes/src/**/*.ts\" --ignore-path /dev/null",
-    "clear": "rm -rf ../boxes/src/*",
+    "clear": "node -e \"require('node:fs').rmSync('../boxes/src', {recursive: true, force: true}); require('node:fs').mkdirSync('../boxes/src', {recursive: true})\"",
     "build": "npm run clear && npx tsx src/forge.ts && npm run format",
     "test": "echo \"No tests to run\""
   },

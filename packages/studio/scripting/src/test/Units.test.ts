@@ -73,6 +73,18 @@ describe("Audio units", () => {
         expect(() => group.output = group).toThrow(RangeError)
     })
 
+    it("reads output as null on the output unit (it targets the hardware, not a bus)", () => {
+        const {project} = createFixture()
+        const synth = project.addInstrumentUnit("Vaporisateur", {label: "Lead"})
+        const group = project.addGroupUnit({label: "Synths"})
+        synth.output = group
+        expect(project.output.output).toBeNull()
+        expect(project.audioUnits.map(unit => [unit.label, unit.output?.label ?? null]))
+            .toEqual([["Lead", "Synths"], ["Synths", project.output.label], [project.output.label, null]])
+        expect(() => project.output.output = group).toThrow(/output unit feeds the audio hardware/)
+        expect(() => project.output.output = null).toThrow(TypeError)
+    })
+
     it("manages sends", () => {
         const {project} = createFixture()
         const synth = project.addInstrumentUnit("Vaporisateur")

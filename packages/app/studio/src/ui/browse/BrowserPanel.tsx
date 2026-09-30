@@ -6,6 +6,7 @@ import {RadioGroup} from "@/ui/components/RadioGroup.tsx"
 import {SampleBrowser} from "@/ui/browse/SampleBrowser.tsx"
 import {PresetBrowser} from "@/ui/browse/PresetBrowser.tsx"
 import {BrowseScope} from "@/ui/browse/BrowseScope"
+import {CodexAgentPanel} from "@/ui/browse/CodexAgentPanel"
 import {Html} from "@opendaw/lib-dom"
 import {SoundfontBrowser} from "@/ui/browse/SoundfontBrowser"
 import {TourAnchors} from "@/ui/tour/TourAnchors"
@@ -38,6 +39,8 @@ export const BrowserPanel = ({lifecycle, service}: Construct) => {
                                              service={service}
                                              background
                                              fontSize="0.75em"/>
+                case BrowseScope.Agent:
+                    return <CodexAgentPanel lifecycle={contentLifecycle} service={service}/>
                 default:
                     return <span>Unknown</span>
             }
@@ -47,7 +50,8 @@ export const BrowserPanel = ({lifecycle, service}: Construct) => {
         <RadioGroup lifecycle={lifecycle} elements={[
             {value: BrowseScope.Presets, element: <span>Presets</span>},
             {value: BrowseScope.Samples, element: <span>Samples</span>},
-            {value: BrowseScope.Soundfonts, element: <span>Soundfonts</span>}
+            {value: BrowseScope.Soundfonts, element: <span>Soundfonts</span>},
+            ...(import.meta.env.DEV ? [{value: BrowseScope.Agent, element: <span>Agent</span>}] : [])
         ]} model={scope} style={{fontSize: "11px", columnGap: "8px", padding: "0.5em 0.75em"}}/>
     )
     TourAnchors.register(lifecycle, tabs, "presets", "samples", "soundfonts")

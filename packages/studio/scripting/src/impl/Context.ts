@@ -10,6 +10,7 @@ export class Context {
     readonly #samples: Map<string, Sample>
     readonly #tasks: Array<UpdateTask<BoxIO.TypeMap>>
     readonly #pending: Array<UpdateTask<BoxIO.TypeMap>>
+    #memos: WeakMap<object, unknown>
     #origin: Nullable<Int8Array>
 
     constructor(skeleton: ProjectSkeleton) {
@@ -18,6 +19,7 @@ export class Context {
         this.#samples = new Map<string, Sample>()
         this.#tasks = []
         this.#pending = []
+        this.#memos = new WeakMap<object, unknown>()
         this.#origin = null
     }
 
@@ -73,6 +75,7 @@ export class Context {
         if (boxGraph.inTransaction()) {return procedure()}
         boxGraph.beginTransaction()
         const result = tryCatch(procedure)
+        this.#memos = new WeakMap<object, unknown>()
         if (result.status === "failure") {
             boxGraph.abortTransaction()
             throw result.error
@@ -87,6 +90,14 @@ export class Context {
         const created = factory(box)
         this.#facades.set(box, created)
         return created
+    }
+
+    // Cached until the current or next edit completes.
+    memo<T>(key: object, factory: Provider<T>): T {
+        if (this.#memos.has(key)) {return this.#memos.get(key) as T}
+        const value = factory()
+        this.#memos.set(key, value)
+        return value
     }
 
     optFacade(box: Box): Optional<object> {return this.#facades.get(box)}

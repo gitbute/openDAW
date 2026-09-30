@@ -5,7 +5,7 @@
   "type": "module",
   "license": "AGPL-3.0-or-later",
   "scripts": {
-    "dev": "CI=true vite --clearScreen false --host",
+    "dev": "node ../../../scripts/run-with-env.mjs CI=true vite --clearScreen false --host",
     "build": "tsc && vite build",
     "preview": "vite preview --host",
     "lint": "eslint \"src/**/*.ts\"",
@@ -22,6 +22,7 @@
     "@opendaw/lib-std": "^0.0.86",
     "@opendaw/studio-adapters": "^0.3.5",
     "@opendaw/studio-boxes": "^0.0.111",
+    "@opendaw/studio-codex": "^0.0.0",
     "@opendaw/studio-core": "^0.2.7",
     "@opendaw/studio-core-wasm": "^0.0.18",
     "@opendaw/studio-enums": "^0.1.4",

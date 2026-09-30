@@ -109,7 +109,8 @@ describe("Schema parity", () => {
         expect(assertMirrored(region.addEvent())).toEqual([])
         const clip = unit.noteTracks[0].addClip()
         expect(assertMirrored(clip)).toEqual([])
-        expect(assertMirrored(project.addMarker())).toEqual([])
+        // position has its own accessor clamping to non-negative
+        expect(assertMirrored(project.addMarker())).toEqual(["position"])
         expect(assertMirrored(project.groove)).toEqual([])
         const value = unit.addValueTrack(unit, "volume")
         expect(assertMirrored(value)).toEqual(["type"])

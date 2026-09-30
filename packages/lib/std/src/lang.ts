@@ -88,10 +88,10 @@ export const asDefined = <T>(value: Maybe<T>, fail: ValueOrProvider<string> = "a
     value === null || value === undefined ? panic(getOrProvide(fail)) : value
 export const isInstanceOf = <T>(obj: unknown, clazz: Class<T>): obj is T => obj instanceof clazz
 export const asInstanceOf = <T>(obj: unknown, clazz: Class<T>): T =>
-    obj instanceof clazz ? obj as T : panic(`${obj} is not instance of ${clazz}`)
+    obj instanceof clazz ? obj as T : panic(`${obj} is not instance of ${clazz.name}`)
 export const assertInstanceOf: <T>(obj: unknown, clazz: Class<T>) =>
     asserts obj is T = <T>(obj: unknown, clazz: Class<T>): asserts obj is T => {
-    if (!(obj instanceof clazz)) {panic(`${obj} is not instance of ${clazz}`)}
+    if (!(obj instanceof clazz)) {panic(`${obj} is not instance of ${clazz.name}`)}
 }
 export const isSameClass = (a: object, b: object): boolean => a.constructor === b.constructor
 export const tryProvide = <T>(provider: Provider<T>): T => {
