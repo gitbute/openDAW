@@ -56,7 +56,17 @@ Local work branches: `wip/v2-integration` (full history), `wip/v2-base`; `agent/
 | 3 | low | 27 | 2 | loop assignment, @param by label; images still unusable in code cells |
 | 4 | medium | 32 | 0 | used audition, images reached the model; user: "fine, not slap-in-your-face" |
 
+| 5 (follow-up in run 4 project, directive "make it SLAP" prompt) | medium | 34 | 0 | Waveshaper ×8, Fold ×2, Crusher, FrequencySplit, Composite, 7 compressors; −6.4 LUFS / −1.3 dBTP, script load 4% |
+
 User verdict across runs: steadily better, sound still clean/flat ("bass sounds like mids"), not aggressive enough.
+Run 5 (explicitly told to use distortion/multiband/movement): finally aggressive, but "more like chaos" — aggression without
+enough musical coherence. Next lever: balance density/variation with groove and a clear focal voice, not more processing.
+
+Bugs found by run 5:
+- Waveshaper `equation` was typed `string` ("preset name or custom equation") and unvalidated; the agent set "tanh(x)", the
+  Waveshaper display crashed ("Unhandled tanh(x)"). Fixed: API union type + `Guard.oneOf`, display falls back to hardclip.
+  Upstream's own Devices test used "tanh(x)" as valid → worth reporting upstream.
+- Neural Amp's model selector is not exposed through the scripting API/tools, so the agent cannot use it.
 
 ## Open issues (next)
 

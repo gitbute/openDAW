@@ -40,7 +40,8 @@ export const Display = ({lifecycle, editing, adapter}: Construct) => {
                     const {devicePixelRatio, context, actualWidth, actualHeight} = painter
                     const range = 1.5
                     const inputGainValue = dbToGain(inputGain.getControlledValue())
-                    const equation = (adapter.box.equation.getValue()) as Waveshaper.Equation
+                    const stored = adapter.box.equation.getValue()
+                    const equation = Waveshaper.Equations.find(candidate => candidate === stored) ?? "hardclip"
                     const toX = (value: number) => ((value + range) / (2.0 * range)) * actualWidth
                     const toY = (value: number) => ((range - value) / (2.0 * range)) * actualHeight
                     context.save()

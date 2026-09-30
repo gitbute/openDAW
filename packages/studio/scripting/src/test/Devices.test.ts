@@ -127,9 +127,9 @@ describe("Devices", () => {
         revamp.lowPass.order = 3
         expect(revamp.lowPass.order).toBe(3)
         expect(() => revamp.lowPass.order = 4 as any).toThrow(RangeError)
-        const waveshaper = unit.addAudioEffect("Waveshaper", {equation: "tanh(x)"})
-        expect(waveshaper.equation).toBe("tanh(x)")
-        expect(() => waveshaper.equation = 3 as any).toThrow(TypeError)
+        const waveshaper = unit.addAudioEffect("Waveshaper", {equation: "tanh"})
+        expect(waveshaper.equation).toBe("tanh")
+        expect(() => waveshaper.equation = 3 as any).toThrow(RangeError)
         const reverb = unit.addAudioEffect("Reverb")
         expect(reverb.preDelay).toBeCloseTo(0.001)
         const tidal = unit.addAudioEffect("Tidal")

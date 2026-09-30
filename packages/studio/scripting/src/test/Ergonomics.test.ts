@@ -205,3 +205,15 @@ describe("Marker positions", () => {
         expect(() => marker.position = Number.NaN).toThrow(TypeError)
     })
 })
+
+describe("Waveshaper equation", () => {
+    it("accepts only the engine's transfer function names", () => {
+        const {project} = createFixture()
+        const shaper = project.addInstrumentUnit("Vaporisateur").addAudioEffect("Waveshaper")
+        shaper.equation = "tanh"
+        expect(shaper.equation).toBe("tanh")
+        // @ts-expect-error not a valid transfer function name
+        expect(() => {shaper.equation = "tanh(x)"}).toThrow(/tanh/)
+        expect(shaper.equation).toBe("tanh")
+    })
+})
