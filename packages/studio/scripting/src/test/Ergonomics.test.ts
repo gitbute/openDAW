@@ -168,6 +168,14 @@ describe("Channel strip automation", () => {
         expect(unit.valueTrack(unit.instrument, "parameters.1.value")).toBe(lane)
         expect(() => unit.addValueTrack(unit.instrument, "parameters.5.value")).toThrow(/Available: .*parameters\.1\.value/)
     })
+    it("automates a script parameter by its declared name through the parameter facade", () => {
+        const {project} = createFixture()
+        const unit = project.addInstrumentUnit("Apparat")
+        unit.instrument.code = "// @param drive 0.5\n// @param motion 0.2\nclass Processor { process() {} }"
+        const lane = unit.addValueTrack(unit.instrument.parameter("motion"), "value")
+        lane.addRegion({duration: PPQN.Bar}).addEvents([{position: 0, value: 0.1}, {position: PPQN.Bar, value: 0.8}])
+        expect(unit.valueTrack(unit.instrument, "parameters.1.value")).toBe(lane)
+    })
 })
 
 describe("Marker positions", () => {

@@ -1,3 +1,4 @@
+import {CodeCellImageHint} from "@/agent/CodeCellImages"
 import {Attempt, Attempts, int, isDefined, Option, Optional, Provider} from "@opendaw/lib-std"
 import {LoopableRegion, MidiKeys, PPQN, ppqn} from "@opendaw/lib-dsp"
 import {AgentTool, AgentToolResult, CodexJson, JsonObject, JsonValue} from "@opendaw/studio-codex"
@@ -176,7 +177,7 @@ export const createInspectNotesTool = (project: Provider<Project>, renderPianoRo
         "tenths, - = sustained, . = rest); identical consecutive bars are merged. format 'list' prints one note per " +
         "line: bar.beat.tick pitch(name) length-in-ticks velocity (960 ticks per quarter). " +
         "bars is 1-based and inclusive; without it all bars with note regions are shown (max 32). " +
-        "image=true attaches a piano-roll picture when available.",
+        "image=true attaches a piano-roll picture when available. " + CodeCellImageHint,
     inputSchema: {
         type: "object",
         properties: {

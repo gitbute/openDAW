@@ -15,7 +15,11 @@ import {createAuditionTool} from "@/agent/audition/AuditionTool"
 import {StudioScriptHost} from "@/script/StudioScriptHost"
 
 export namespace AgentToolboxes {
-    export const developerInstructions = AGENT_DEVELOPER_INSTRUCTIONS
+    export const developerInstructions = (): string =>
+        `${AGENT_DEVELOPER_INSTRUCTIONS}
+
+DEVICE PALETTE (all available; device_reference({device}) for parameters)
+${CatalogToolbox.devices().palette()}`
 
     let runner: Optional<AgentScriptRunner> = undefined
 

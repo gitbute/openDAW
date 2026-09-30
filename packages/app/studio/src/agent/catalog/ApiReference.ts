@@ -79,8 +79,11 @@ export class ApiReference {
     lookup(topic: string): Option<string> {
         const query = topic.trim()
         if (query.length === 0) {return Option.wrap(this.overview())}
-        return this.#chapter(query).map(chapter => `Guide chapter ${chapter.order}: ${chapter.title}\n\n${chapter.body}`)
-            .match({none: () => this.#symbol(query), some: text => Option.wrap(text)})
+        const chapter = (): Option<string> =>
+            this.#chapter(query).map(found => `Guide chapter ${found.order}: ${found.title}\n\n${found.body}`)
+        const explicitChapter = /^(guide|chapter)\b|^\d+$/i.test(query)
+        const first = explicitChapter ? chapter() : this.#symbol(query)
+        return first.match({none: () => explicitChapter ? this.#symbol(query) : chapter(), some: text => Option.wrap(text)})
             .map(text => ApiReference.cap(text))
     }
 

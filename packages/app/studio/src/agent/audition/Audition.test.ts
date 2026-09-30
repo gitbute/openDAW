@@ -97,7 +97,7 @@ describe("audition schema and arguments", () => {
         const tool = createTool([])
         expect(() => validateCodexToolboxes([{namespace: "daw", description: "test", tools: [tool]}])).not.toThrow()
         expect(tool.concurrent).toBe(true)
-        expect(tool.description).toContain("image(imageUrl)")
+        expect(tool.description).toContain("image(line)")
     })
     it("fills defaults: the base sound alone, 2 bars of quarters at 120 bpm", () => {
         const parsed = AuditionSpec.parseArguments({sound: {device: "Nano"}}).result()

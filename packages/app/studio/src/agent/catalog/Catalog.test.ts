@@ -219,6 +219,13 @@ describe("AssetCatalog", () => {
 })
 
 describe("DeviceCatalog", () => {
+    it("summarises the whole palette compactly for the instructions", () => {
+        const palette = devices.palette()
+        expect(palette).toMatch(/audio-effect:[\s\S]*Fold:/)
+        expect(palette).toMatch(/Waveshaper/)
+        expect(palette).toMatch(/midi-effect:[\s\S]*Arpeggio/)
+        expect(palette.length).toBeLessThan(6000)
+    })
     it("lists devices by category", () => {
         const listing = devices.listing()
         expect(listing).toMatch(/instrument: .*Vaporisateur.*Tubular/)

@@ -1,3 +1,4 @@
+import {CodeCellImageHint} from "@/agent/CodeCellImages"
 import {int, isDefined, Nullable, Option, Optional, Provider, tryCatch} from "@opendaw/lib-std"
 import {AudioMetrics, dbToGain} from "@opendaw/lib-dsp"
 import {Promises} from "@opendaw/lib-runtime"
@@ -50,7 +51,7 @@ export namespace AuditionTool {
         "integrated LUFS and the gain that matches it to the quietest one, peaks, crest, spectrum regions, centroid, onsets,",
         "silence, NaN, and script errors (Apparat/Werkstatt silence themselves after a throw or NaN output).",
         "Safe to run in parallel with other tools and subagents.",
-        "Images (views ['spectrogram'], one per variation) arrive as inputImage items; from a code cell pass each imageUrl to image(imageUrl)."
+        "Images (views ['spectrogram'], one per variation). " + CodeCellImageHint
     ].join(" ")
 
     export const round = (value: number, digits: int = 1): Nullable<number> => {

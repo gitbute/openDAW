@@ -23,6 +23,7 @@ import {
     MutableObservableOption,
     Nullable,
     Optional,
+    Provider,
     Terminable
 } from "@opendaw/lib-std"
 import {Promises} from "@opendaw/lib-runtime"
@@ -97,7 +98,7 @@ export type CodexAgentControllerOptions = {
     readonly createSession?: CodexAgentSessionFactory
     readonly appServerUrl?: () => string
     readonly createToolboxes?: (project: Project) => ReadonlyArray<AgentToolbox>
-    readonly developerInstructions?: string
+    readonly developerInstructions?: Provider<string>
     readonly preferences?: CodexModelPreferences
 }
 
@@ -217,7 +218,7 @@ export class CodexAgentController {
         }
         const createToolboxes = options.createToolboxes ?? (() => [])
         this.#createSession = options.createSession ?? ((project, traceSink) =>
-            createSession(this.#appServerUrl(), createToolboxes(project), traceSink, options.developerInstructions))
+            createSession(this.#appServerUrl(), createToolboxes(project), traceSink, options.developerInstructions?.()))
         this.#modelSelectionSubscription = this.selectedModel.subscribe(() => this.#updateEffortSelection())
         this.#effortSelectionSubscription = this.models.subscribe(() => this.#reconcileModelSelection())
         this.#queueSubscription = this.turnRunning.subscribe(() => this.#flushQueue())

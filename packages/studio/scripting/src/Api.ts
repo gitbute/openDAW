@@ -971,7 +971,10 @@ export interface ScriptDevice {
     readonly parameters: ReadonlyArray<ScriptParameter>
     /** Declared sample slots */
     readonly samples: ReadonlyArray<ScriptSample>
-    /** Find a parameter by its declared name */
+    /**
+     * Find a parameter by its declared name. Automate it by name with
+     * `unit.addValueTrack(device.parameter("cutoff"), "value")`
+     */
     parameter(label: string): ScriptParameter
     /** Find a sample slot by its declared name */
     sample(label: string): ScriptSample
@@ -1791,6 +1794,7 @@ export interface AudioUnit extends MIDIEffectHost, AudioEffectHost {
      * ])
      * synth.addValueTrack(synth, "volume")           // fader
      * synth.addValueTrack(synth.sends[0], "amount")  // send level
+     * lead.addValueTrack(lead.instrument.parameter("vowel"), "value") // a script device @param by name
      * ```
      */
     addValueTrack<T extends Automatable>(target: T, parameter: ParameterPath<T>, props?: Partial<Pick<Track, "enabled">>, index?: int): ValueTrack

@@ -69,6 +69,17 @@ export class DeviceCatalog {
         return ["Devices by category (device_reference({device}) for a card):", ...lines].join("\n")
     }
 
+    palette(): string {
+        const shorten = (text: string): string => {
+            const sentence = text.split(/(?<=\.)\s/)[0].replace(/\s+/g, " ").trim()
+            return sentence.length > 90 ? `${sentence.slice(0, 87)}...` : sentence
+        }
+        return Registries.map(([category]) => [`${category}:`, ...this.#entries
+            .filter(entry => entry.category === category)
+            .map(({key, summary}) => summary.length > 0 ? `  ${key}: ${shorten(summary)}` : `  ${key}`)].join("\n"))
+            .join("\n")
+    }
+
     card(entry: DeviceEntry): string {
         const cached = this.#cards.get(entry.key)
         if (isDefined(cached)) {return cached}

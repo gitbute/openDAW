@@ -52,6 +52,14 @@ Called when a parameter knob changes value.
 - value — the mapped value (number). For unipolar: 0.0–1.0. For linear/exp: min–max.
   For int: integer in min–max. For bool: 0 or 1.
 
+
+Value precedence: right after a Processor is created, the host calls paramChanged once for every
+@param with the parameter's current value (initially its declared default). Class field values are
+only placeholders until then. To change a value later, set it on the device from a script,
+e.g. device.parameter("cutoff").value = 0.3; editing the default in the @param line does not
+reset a parameter that already exists. Automate a parameter by name:
+unit.addValueTrack(device.parameter("cutoff"), "value").
+
 ## Declaring parameters
 Parameters are declared as comments at the top of the file:
 
