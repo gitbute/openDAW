@@ -62,6 +62,18 @@ User verdict across runs: steadily better, sound still clean/flat ("bass sounds 
 Run 5 (explicitly told to use distortion/multiband/movement): finally aggressive, but "more like chaos" — aggression without
 enough musical coherence. Next lever: balance density/variation with groove and a clear focal voice, not more processing.
 
+| 6 (fresh, melodic full-on "Vibe Tribe / Eskimo / Phanatic", coherence-first prompt) | medium | 28 | 0 | Apparat ×5, Vaporisateur ×2, Revamp ×10, Werkstatt ×2; audition ×2; −12.5 LUFS; NO MIDI effects |
+
+Run 6 verdict (user): bassline OK; leads/melodies "chaos, not psytrancy at all ... children's carousel MIDI notes", "garbage
+arrangements" — no chopped/gated trance-style lead writing, never used Arpeggio/Spielwerk although available.
+=> MELODIC WRITING IS THE WEAKEST SKILL. Sound design, routing, mixing and tooling are now mostly fine.
+Levers (general, no genre recipes):
+- research step should also cover how parts are WRITTEN (rhythm of leads, phrase structure, gating/chops, call/response),
+  not only tempo and sound design;
+- prompt: consider MIDI effects (Arpeggio, Spielwerk, Velocity, Pitch, Zeitgeist) as writing tools, not only hand-placed notes;
+- self-check melody: inspect_notes grid + piano roll against the researched writing idioms before moving on;
+- future: reference MIDI import/analysis (user drops a MIDI or audio reference; agent analyses rhythm, intervals, density).
+
 Bugs found by run 5:
 - Waveshaper `equation` was typed `string` ("preset name or custom equation") and unvalidated; the agent set "tanh(x)", the
   Waveshaper display crashed ("Unhandled tanh(x)"). Fixed: API union type + `Guard.oneOf`, display falls back to hardclip.
