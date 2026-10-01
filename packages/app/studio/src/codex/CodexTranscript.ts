@@ -14,6 +14,11 @@ const jsonBlock = (value: JsonValue): string => {
     return `\`\`\`json\n${json}\n\`\`\``
 }
 
+const userText = (entry: Extract<CodexConversationEntry, {type: "user"}>): Array<string> => {
+    const count = entry.images?.length ?? 0
+    return count === 0 ? [entry.text] : [`[${count} image${count === 1 ? "" : "s"}]`, entry.text]
+}
+
 const itemIdentifiers = (itemId: string, turnId: string): Array<string> => [
     `Item ID: ${itemId}`,
     `Turn ID: ${turnId}`
@@ -35,7 +40,7 @@ export const serializeCodexConversation = (
     for (const entry of entries) {
         switch (entry.type) {
             case "user":
-                lines.push("## You", "", entry.text, "")
+                lines.push("## You", "", ...userText(entry), "")
                 break
             case "notice":
                 lines.push(`> ${entry.text}`, "")
@@ -98,7 +103,7 @@ export const serializeCodexConversationCompact = (
     for (const entry of entries) {
         switch (entry.type) {
             case "user":
-                lines.push("## You", "", entry.text, "")
+                lines.push("## You", "", ...userText(entry), "")
                 break
             case "notice":
                 lines.push(`> ${entry.text}`, "")

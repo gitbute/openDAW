@@ -26,6 +26,7 @@ import {Icon, IconCartridge} from "@/ui/components/Icon"
 import {MenuButton} from "@/ui/components/MenuButton"
 import {installScrollbars} from "@/ui/components/Scrollbars"
 import {Dialogs} from "@/ui/components/dialogs"
+import {CodexImageInput} from "@/codex/CodexImageInput"
 
 const className = Html.adoptStyleSheet(css, "CodexAgentPanel")
 
@@ -241,10 +242,20 @@ const createStepsView = (): View<StepsInput> => {
 const createMessageView = (entry: CodexMessageEntry): View<CodexMessageEntry> => {
     switch (entry.type) {
         case "user": {
-            const bubble: HTMLElement = <div className="bubble"/>
+            const thumbs: HTMLElement = <div className="thumbs hidden"/>
+            const text: HTMLElement = <div className="text"/>
+            let imageCount = -1
             return {
-                element: <div className="message user">{bubble}</div>,
-                update: next => {if (next.type === "user") {bubble.textContent = next.text}}
+                element: <div className="message user"><div className="bubble">{thumbs}{text}</div></div>,
+                update: next => {
+                    if (next.type !== "user") {return}
+                    text.textContent = next.text
+                    text.classList.toggle("hidden", next.text.length === 0)
+                    const images = next.images ?? []
+                    if (images.length === imageCount) {return}
+                    imageCount = images.length
+                    renderThumbnails(thumbs, images.map(url => ({url, title: "Pasted image"})))
+                }
             }
         }
         case "notice": {
@@ -438,6 +449,7 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
     const queued: HTMLElement = (
         <div className="queued hidden"><span className="queued-label">Queued</span>{queuedText}{queuedCancel}</div>
     )
+    const attachments: HTMLElement = <div className="attachments hidden"/>
     const element: HTMLElement = (
         <div className={className}>
             <header className="bar">{status}{modelButton}{menuButton}</header>
@@ -450,6 +462,7 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
             </div>
             <div className="composer">
                 {queued}
+                {attachments}
                 <div className="input-box">{textArea}{sendButton}</div>
                 {hint}
             </div>
@@ -469,18 +482,20 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
         textArea.style.height = `${Math.min(textArea.scrollHeight, 160)}px`
     }
     const canSend = () => panelState() === "ready" && isDefined(controller.selectedModel.unwrapOrNull())
+    let pendingImages: ReadonlyArray<string> = []
+    const hasInput = () => textArea.value.trim().length > 0 || pendingImages.length > 0
     const updateComposer = () => {
         const state = panelState()
         const running = turnRunning()
         sendSymbol.setValue(running ? IconSymbol.Stop : IconSymbol.ArrowUp)
         sendButton.classList.toggle("stop", running)
         sendButton.title = running ? "Stop" : "Send (Enter)"
-        sendButton.disabled = !running && (!canSend() || textArea.value.trim().length === 0)
+        sendButton.disabled = !running && (!canSend() || !hasInput())
         textArea.disabled = state !== "ready"
         textArea.placeholder = state === "ready" ? "Ask Codex to produce…"
             : state === "offline" ? "Codex is not connected" : state === "connecting" ? "Connecting…" : "Sign in to start"
         hint.textContent = running ? "Codex is working… Enter queues your message · Stop interrupts"
-            : state === "ready" ? "Enter to send · Shift+Enter for a new line" : ""
+            : state === "ready" ? "Enter to send · Shift+Enter for a new line · Ctrl+V pastes images" : ""
         hint.classList.toggle("working", running)
     }
     const updateGate = () => {
@@ -573,21 +588,45 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
     }
     const updateQueued = () => {
         const text = controller.queuedMessage.unwrapOrNull()
-        queuedText.textContent = text ?? ""
+        const count = controller.queuedImages.getValue().length
+        const images = count === 0 ? "" : `[${count} image${count === 1 ? "" : "s"}] `
+        queuedText.textContent = `${images}${text ?? ""}`
         queued.title = text ?? ""
         queued.classList.toggle("hidden", !isDefined(text))
+    }
+    const renderAttachments = () => {
+        attachments.replaceChildren(...pendingImages.map((url, index) => {
+            const image: HTMLImageElement = <img src={url} alt="Pasted image" title="Click to enlarge" draggable={false}/>
+            image.onclick = () => openImage(url, "Pasted image", image)
+            const remove: HTMLButtonElement = <button className="remove" type="button" title="Remove image">×</button>
+            remove.onclick = () => setPendingImages(pendingImages.toSpliced(index, 1))
+            return <div className="attachment">{image}{remove}</div>
+        }))
+        attachments.classList.toggle("hidden", pendingImages.length === 0)
+    }
+    const setPendingImages = (images: ReadonlyArray<string>) => {
+        pendingImages = images.slice(0, CodexImageInput.MaxImages)
+        renderAttachments()
+        updateComposer()
+    }
+    const attachImages = async (files: ReadonlyArray<File>) => {
+        const room = Math.max(0, CodexImageInput.MaxImages - pendingImages.length)
+        const results = await Promise.all(files.slice(0, room).map(file => Promises.tryCatch(CodexImageInput.encode(file))))
+        results.forEach(result => {if (result.status === "rejected") {console.warn("Could not attach image", result.error)}})
+        const urls = results.flatMap(result => result.status === "resolved" ? [result.value] : [])
+        if (urls.length > 0) {setPendingImages([...pendingImages, ...urls])}
     }
     const submit = async (fromKeyboard: boolean) => {
         if (turnRunning() && !fromKeyboard) {
             await controller.interrupt()
             return
         }
-        if (!canSend()) {return}
-        const text = textArea.value
-        if (text.trim().length === 0) {return}
-        const accepted = await controller.send(text)
+        if (!canSend() || !hasInput()) {return}
+        const text = textArea.value.trim().length === 0 ? "" : textArea.value
+        const accepted = await controller.send(text, pendingImages)
         if (accepted) {
             textArea.value = ""
+            setPendingImages([])
             autoGrow()
             scrollToLatest()
         }
@@ -609,8 +648,10 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
     gateSecondary.onclick = () => controller.cancelLogin()
     sendButton.onclick = () => void submit(false)
     queuedCancel.onclick = () => {
+        const images = controller.queuedImages.getValue()
         const text = controller.cancelQueued()
-        if (!isDefined(text) || textArea.value.trim().length > 0) {return}
+        if (!isDefined(text) || hasInput()) {return}
+        setPendingImages(images)
         textArea.value = text
         autoGrow()
         updateComposer()
@@ -629,6 +670,7 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
         }),
         controller.error.catchupAndSubscribe(updateError),
         controller.queuedMessage.catchupAndSubscribe(updateQueued),
+        controller.queuedImages.subscribe(updateQueued),
         controller.conversation.catchupAndSubscribe(updateTranscript),
         Events.subscribe(transcript, "scroll", () => {
             followState.onScroll(scrollMetrics())
@@ -637,6 +679,12 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
         Events.subscribe(textArea, "input", () => {
             autoGrow()
             updateComposer()
+        }),
+        Events.subscribe(textArea, "paste", (event: ClipboardEvent) => {
+            const files = CodexImageInput.filesOf(event.clipboardData)
+            if (files.length === 0 || (event.clipboardData?.getData("text/plain") ?? "").length > 0) {return}
+            event.preventDefault()
+            void attachImages(files)
         }),
         Events.subscribe(textArea, "keydown", (event: KeyboardEvent) => {
             if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {

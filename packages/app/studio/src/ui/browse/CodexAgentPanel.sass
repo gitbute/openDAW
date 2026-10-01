@@ -183,6 +183,12 @@ component
       white-space: pre-wrap
       user-select: text
 
+      > .thumbs
+        justify-content: flex-end
+
+        &:not(:last-child)
+          margin-bottom: 6px
+
   .message.user:not(:first-child)
     margin-top: 6px
 
@@ -703,6 +709,42 @@ component
 
         &:hover
           color: var(--color-bright)
+
+    > .attachments
+      display: flex
+      flex-wrap: wrap
+      gap: 6px
+
+      > .attachment
+        position: relative
+
+        > img
+          display: block
+          width: 56px
+          height: 56px
+          border-radius: 4px
+          object-fit: cover
+          box-shadow: 0 0 0 0.5px rgba(white, 0.15)
+          cursor: zoom-in
+
+        > .remove
+          position: absolute
+          top: -5px
+          right: -5px
+          width: 16px
+          height: 16px
+          padding: 0
+          border: none
+          border-radius: 50%
+          background-color: var(--color-panel-background)
+          box-shadow: 0 0 0 0.5px rgba(white, 0.25)
+          color: var(--color-gray)
+          font-size: 11px
+          line-height: 16px
+          cursor: pointer
+
+          &:hover
+            color: var(--color-bright)
 
     > .input-box
       display: flex

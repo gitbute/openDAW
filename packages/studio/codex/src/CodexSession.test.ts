@@ -547,6 +547,23 @@ describe("CodexSession", () => {
         }
     })
 
+    it("sends pasted images as image input after the text", async () => {
+        const transport = new FakeTransport()
+        installServer(transport)
+        const session = new CodexSession({rpc: new CodexRpcClient(transport), toolboxes: []})
+        try {
+            await session.connect()
+            await session.startThread()
+            await session.startTurn("Recreate this patch.", {images: [pngDataUrl]})
+            expect((requestWithMethod(transport, "turn/start").params as JsonObject).input).toEqual([
+                {type: "text", text: "Recreate this patch.", text_elements: []},
+                {type: "image", url: pngDataUrl}
+            ])
+        } finally {
+            await session.disconnect()
+        }
+    })
+
     it("rejects toolboxes with invalid schemas before owning the rpc client", () => {
         const transport = new FakeTransport()
         const rpc = new CodexRpcClient(transport)

@@ -720,6 +720,24 @@ describe("CodexAgentController", () => {
         controller.dispose()
     })
 
+    it("sends pasted images with the message, also image-only and queued", async () => {
+        const {controller, session} = controllerWithSession()
+        await controller.ensureConnected()
+        expect(await controller.send("Recreate this patch", ["data:image/png;base64,AAAA"])).toBe(true)
+        await tick()
+        expect(session.startedTurns[0].options?.images).toEqual(["data:image/png;base64,AAAA"])
+        expect(controller.conversation.getValue().at(0)).toMatchObject({type: "user", images: ["data:image/png;base64,AAAA"]})
+        expect(await controller.send("", ["data:image/png;base64,BBBB"])).toBe(true)
+        expect(controller.queuedMessage.unwrapOrNull()).toBe("")
+        expect(controller.queuedImages.getValue()).toEqual(["data:image/png;base64,BBBB"])
+        session.emit({type: "turnCompleted", threadId: "thread-1", turnId: "turn-1", status: "completed", error: null})
+        await tick()
+        expect(controller.queuedImages.getValue()).toEqual([])
+        expect(session.startedTurns.at(1)).toMatchObject({text: "", options: {images: ["data:image/png;base64,BBBB"]}})
+        expect(await controller.send("   ")).toBe(false)
+        controller.dispose()
+    })
+
     it("sends the queued message after Stop and drops it when cancelled", async () => {
         const {controller, session} = controllerWithSession()
         await controller.ensureConnected()

@@ -36,6 +36,7 @@ export type CodexConversationEntry =
         readonly type: "user"
         readonly id: string
         readonly text: string
+        readonly images?: ReadonlyArray<string>
     }
     | {
         readonly type: "assistant"
@@ -183,6 +184,7 @@ export class CodexAgentController {
     readonly debugEnabled = new DefaultObservableValue(false)
     readonly loginPending = new DefaultObservableValue(false)
     readonly queuedMessage = new MutableObservableOption<string>()
+    readonly queuedImages = new DefaultObservableValue<ReadonlyArray<string>>([])
 
     readonly #createSession: CodexAgentSessionFactory
     readonly #appServerUrl: () => string
@@ -267,6 +269,7 @@ export class CodexAgentController {
 
     async newConversation(): Promise<void> {
         this.queuedMessage.clear()
+        this.queuedImages.setValue([])
         if (this.turnRunning.getValue()) {await this.interrupt()}
         const session = this.#session
         const threadId = session?.threadId ?? this.#lastThreadId
@@ -351,10 +354,12 @@ export class CodexAgentController {
     }
 
     // While a turn runs the message is queued and sent once the turn ends.
-    async send(text: string): Promise<boolean> {
-        if (text.trim().length === 0) {return false}
+    async send(text: string, images: ReadonlyArray<string> = []): Promise<boolean> {
+        if (text.trim().length === 0 && images.length === 0) {return false}
         if (this.turnRunning.getValue()) {
-            this.queuedMessage.wrap(this.queuedMessage.mapOr(queued => `${queued}\n\n${text}`, text))
+            this.queuedMessage.wrap(this.queuedMessage.mapOr(queued =>
+                queued.length === 0 ? text : text.length === 0 ? queued : `${queued}\n\n${text}`, text))
+            if (images.length > 0) {this.queuedImages.setValue([...this.queuedImages.getValue(), ...images])}
             return true
         }
         const session = this.#session
@@ -370,10 +375,11 @@ export class CodexAgentController {
         const generation = this.#generation
         const effort = this.selectedEffort.unwrapOrNull()
         const userId = `user-${++this.#messageNumber}`
-        this.#appendConversation({type: "user", id: userId, text})
+        this.#appendConversation({type: "user", id: userId, text, ...(images.length > 0 ? {images} : {})})
         const serial = ++this.#turnSerial
         this.turnRunning.setValue(true)
-        const started = await Promises.tryCatch(this.#startTurn(generation, session, userId, text, model, effort))
+        const started = await Promises.tryCatch(
+            this.#startTurn(generation, session, userId, text, images, model, effort))
         if (started.status === "rejected" && this.#isCurrent(generation, session) && serial === this.#turnSerial) {
             this.turnRunning.setValue(false)
             this.activeTurnId.clear()
@@ -402,6 +408,7 @@ export class CodexAgentController {
     cancelQueued(): Optional<string> {
         const text = this.queuedMessage.unwrapOrUndefined()
         this.queuedMessage.clear()
+        this.queuedImages.setValue([])
         return text
     }
 
@@ -457,9 +464,13 @@ export class CodexAgentController {
         if (this.turnRunning.getValue()) {return}
         const text = this.queuedMessage.unwrapOrNull()
         if (!isDefined(text)) {return}
+        const images = this.queuedImages.getValue()
         this.queuedMessage.clear()
-        void this.send(text).then(accepted => {
-            if (!accepted && this.queuedMessage.isEmpty()) {this.queuedMessage.wrap(text)}
+        this.queuedImages.setValue([])
+        void this.send(text, images).then(accepted => {
+            if (accepted || !this.queuedMessage.isEmpty()) {return}
+            this.queuedMessage.wrap(text)
+            this.queuedImages.setValue(images)
         })
     }
 
@@ -477,11 +488,13 @@ export class CodexAgentController {
         return promise
     }
 
-    async #startTurn(generation: number, session: CodexAgentSession, userId: string, text: string, model: string,
-                     effort: Nullable<string>): Promise<void> {
+    async #startTurn(generation: number, session: CodexAgentSession, userId: string, text: string,
+                     images: ReadonlyArray<string>, model: string, effort: Nullable<string>): Promise<void> {
         if (!isDefined(session.threadId)) {await this.#openThread(generation, session, userId, model)}
         if (!this.#isCurrent(generation, session)) {return}
-        const options: CodexStartTurnOptions = {model, summary: "auto", ...(isDefined(effort) ? {effort} : {})}
+        const options: CodexStartTurnOptions = {
+            model, summary: "auto", ...(isDefined(effort) ? {effort} : {}), ...(images.length > 0 ? {images} : {})
+        }
         const turnId = await session.startTurn(text, options)
         if (this.#isCurrent(generation, session)) {this.activeTurnId.wrap(turnId)}
     }
@@ -797,6 +810,7 @@ export class CodexAgentController {
 
     #resetProjectState(): void {
         this.queuedMessage.clear()
+        this.queuedImages.setValue([])
         this.connectionState.setValue("disconnected")
         this.appServerUsable.setValue(false)
         this.account.setValue(emptyAccountState)

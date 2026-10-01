@@ -76,6 +76,8 @@ export namespace CodexConversationSnapshot {
         if (!isJsonObject(value) || !isString(value.text) && value.type !== "activity") {return false}
         switch (value.type) {
             case "user":
+                return isString(value.id)
+                    && (!isDefined(value.images) || Array.isArray(value.images) && value.images.every(isString))
             case "notice":
                 return isString(value.id)
             case "assistant":

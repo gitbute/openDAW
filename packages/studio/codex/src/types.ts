@@ -154,6 +154,7 @@ export type CodexStartTurnOptions = {
     readonly model?: string
     readonly effort?: string
     readonly summary?: string
+    readonly images?: ReadonlyArray<string>
 }
 
 export type CodexSessionEvent =

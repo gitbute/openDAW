@@ -322,7 +322,10 @@ export class CodexSession {
         const threadId = this.#requireThread()
         const result = await this.#rpc.request("turn/start", {
             threadId,
-            input: [{type: "text", text, text_elements: []}],
+            input: [
+                ...(text.length > 0 || !isDefined(options.images) ? [{type: "text", text, text_elements: []}] : []),
+                ...(options.images ?? []).map(url => ({type: "image", url}))
+            ],
             ...(isDefined(options.model) ? {model: options.model} : {}),
             ...(isDefined(options.effort) ? {effort: options.effort} : {}),
             ...(isDefined(options.summary) ? {summary: options.summary} : {})

@@ -31,6 +31,16 @@ describe("CodexConversationSnapshot", () => {
         expect(kept.at(-1)).toMatchObject({id: `user-${CodexConversationSnapshot.MaxEntries + 9}`})
     })
 
+    it("keeps pasted user images and rejects malformed image lists", () => {
+        const image = `data:image/png;base64,${"A".repeat(400)}`
+        const snapshot = CodexConversationSnapshot.create(null, [{type: "user", id: "user-1", text: "", images: [image]}])
+        expect(CodexConversationSnapshot.decode(CodexConversationSnapshot.encode(snapshot)).unwrap().entries)
+            .toEqual([{type: "user", id: "user-1", text: "", images: [image]}])
+        const decoded = CodexConversationSnapshot.decode(JSON.stringify({version: 1,
+            entries: [{type: "user", id: "u", text: "", images: [5]}]})).unwrap()
+        expect(decoded.entries).toEqual([])
+    })
+
     it("rejects foreign data and skips malformed entries", () => {
         expect(CodexConversationSnapshot.decode("nope").isEmpty()).toBe(true)
         expect(CodexConversationSnapshot.decode(JSON.stringify({version: 99, entries: []})).isEmpty()).toBe(true)
