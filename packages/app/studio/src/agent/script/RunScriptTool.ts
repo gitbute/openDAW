@@ -9,6 +9,7 @@ const Description = [
     "console.log output is captured. The code is type-checked first: type errors come back with line, column and a code excerpt and nothing runs.",
     "apply=true commits all edits as ONE undo step, only if the script completes without throwing",
     "and the project did not change meanwhile. apply=false is a dry run: nothing reaches the live project.",
+    "Samples from openDAW.addSample are discarded after the run unless the applied project uses them.",
     "No need to call openInStudio(); newProject() cannot be opened from here. Use api_reference for API docs."
 ].join(" ")
 

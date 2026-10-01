@@ -87,6 +87,7 @@ const createLive = () => {
         },
         target: () => Option.wrap({boxGraph, editing, loadScriptDevices: () => {}}),
         context: () => ({sampleRate: 48000, baseFrequency: 440}),
+        discardUnusedSamples: async () => {},
         terminate: () => {},
         ...overrides
     })
@@ -320,6 +321,28 @@ describe("AgentScriptRunner", () => {
             execute: () => Promise.reject(new Error("Script did not finish within 1s and was stopped"))
         })).run({code: "while (true) {}", apply: true})
         expect(result).toMatchObject({ok: false, stage: "runtime", error: {message: "Script did not finish within 1s and was stopped"}})
+    })
+
+    it("discards unused samples after every run, once the edits are applied", async () => {
+        const live = createLive()
+        const bpmAtDiscard: Array<number> = []
+        const runner = new AgentScriptRunner(live.environment({
+            compile: typecheck,
+            discardUnusedSamples: async () => {bpmAtDiscard.push(live.bpm())}
+        }))
+        await runner.run({code: "const bpm: number = 'fast'", apply: true})
+        await runner.run({code: "throw new Error('boom')", apply: true})
+        await runner.run({code: "const project = await openDAW.getProject()\nproject.bpm = 99", apply: false})
+        await runner.run({code: "const project = await openDAW.getProject()\nproject.bpm = 101", apply: true})
+        expect(bpmAtDiscard).toEqual([120, 120, 120, 101])
+    })
+
+    it("keeps the run result when discarding fails", async () => {
+        const live = createLive()
+        const result = await new AgentScriptRunner(live.environment({
+            discardUnusedSamples: () => Promise.reject(new Error("storage"))
+        })).run({code: "return 1", apply: false})
+        expect(result).toMatchObject({ok: true, returned: 1})
     })
 
     it("serialises concurrent runs", async () => {

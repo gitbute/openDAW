@@ -31,6 +31,7 @@ export interface AgentScriptEnvironment extends Terminable {
     execute(js: string, context: ScriptExecutionContext): Promise<AgentScriptOutcome>
     target(): Option<ScriptEdits.Target>
     context(): ScriptExecutionContext
+    discardUnusedSamples(): Promise<void>
 }
 
 const Initial: ScriptRunResult = {
@@ -67,6 +68,7 @@ export class AgentScriptRunner implements Terminable {
 
     run(request: ScriptRunRequest): Promise<ScriptRunResult> {
         const next = this.#queue.then(() => this.#run(request))
+            .finally(() => Promises.tryCatch(this.#environment.discardUnusedSamples()))
         this.#queue = next.then(() => undefined, () => undefined)
         return next
     }

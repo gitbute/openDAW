@@ -26,7 +26,8 @@ const awaitTypeScript = async (monaco: Monaco): Promise<void> => {
 export namespace AgentScriptStudio {
     // Type-checks on a hidden Monaco model and runs in a dedicated worker against the open project.
     export const createRunner = (service: StudioService, timeoutMillis: int = 120_000): AgentScriptRunner => {
-        const client = new AgentScriptWorkerClient(StudioScriptHost.createHeadless(service), agentScriptWorkerUrl, timeoutMillis)
+        const host = StudioScriptHost.createHeadless(service)
+        const client = new AgentScriptWorkerClient(host, agentScriptWorkerUrl, timeoutMillis)
         return new AgentScriptRunner({
             compile: async (code: string) => {
                 const {monaco} = await loadMonacoSetup()
@@ -42,6 +43,7 @@ export namespace AgentScriptStudio {
                 sampleRate: service.audioContext.sampleRate,
                 baseFrequency: service.optProject.map(project => project.rootBox.baseFrequency.getValue()).unwrapOrElse(440.0)
             }),
+            discardUnusedSamples: () => host.discardUnusedSamples(),
             terminate: () => client.terminate()
         })
     }
