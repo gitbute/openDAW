@@ -15,6 +15,7 @@ _Apparat_ is a scriptable instrument device. You write a `Processor` class in Ja
 Example uses:
 
 - Custom synthesizers (additive, subtractive, FM, wavetable)
+- Wavetable, supersaw and growl basses from the built-in DSP library (Dsp.*)
 - Sample playback with pitch tracking
 - Granular synthesis
 - Algorithmic sound generators
@@ -274,6 +275,8 @@ The host clears the output buffer before each block. You write to it with `=` or
 ## 8. Examples
 
 Select **Examples** in the code editor toolbar to load ready-made instruments (Simple Sine Synth, Grain Synthesizer).
+
+The examples starting with **DSP** (Growl Bass, Supersaw Lead, Reese Bass) are built from the DSP library: proven building blocks such as band-limited and wavetable oscillators (`Dsp.Osc`, `Dsp.WavetableOsc` with built-in tables or a Serum/Vital wavetable WAV dropped on a `// @sample` slot), filters (`Dsp.Svf`, `Dsp.Ladder`, `Dsp.Formant`, `Dsp.Comb`), oversampled distortion (`Dsp.Shaper`), envelopes, LFOs and a voice manager (`Dsp.Voices`). The library source sits at the top of the code, above the end marker; your own code follows it.
 
 ---
 

@@ -1,5 +1,5 @@
 import {Option} from "@opendaw/lib-std"
-import {DeviceManualUrls} from "@opendaw/studio-adapters"
+import {DeviceManualUrls, ScriptDsp} from "@opendaw/studio-adapters"
 import type {AgentToolbox} from "@opendaw/studio-codex"
 import declarations from "@opendaw/studio-scripting/api.declaration?raw"
 import guide01 from "@opendaw/studio-scripting/guide/01-getting-started.md?raw"
@@ -32,8 +32,8 @@ const GuideFiles: ReadonlyArray<[string, string]> = [
 ]
 
 const ScriptDocs: Readonly<Record<string, ScriptDeviceDocs>> = {
-    Apparat: {guide: apparatGuide, examples: ApparatExamples},
-    Werkstatt: {guide: werkstattGuide, examples: WerkstattExamples},
+    Apparat: {guide: `${apparatGuide.trim()}\n\n${ScriptDsp.reference("Apparat")}`, examples: ApparatExamples},
+    Werkstatt: {guide: `${werkstattGuide.trim()}\n\n${ScriptDsp.reference("Werkstatt")}`, examples: WerkstattExamples},
     Spielwerk: {guide: spielwerkGuide, examples: SpielwerkExamples}
 }
 
