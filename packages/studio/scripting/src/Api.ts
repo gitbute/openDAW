@@ -686,8 +686,8 @@ export interface TidalEffect extends AudioEffect {
     slope: bipolar
     /** Waveform symmetry (0.0 to 1.0, default 0.5) */
     symmetry: unitValue
-    /** Rate in cycles per bar (0 to 16, default 3) */
-    rate: float
+    /** Rate index (0-16, default 3): 1/1, 1/2, 1/3, 1/4, 3/16, 1/6, 1/8, 3/32, 1/12, 1/16, 3/64, 1/24, 1/32, 1/48, 1/64, 1/96, 1/128 */
+    rate: int
     /** Depth (0.0 to 1.0, default 0.75) */
     depth: unitValue
     /** Phase offset in degrees (-180 to 180, default 0) */

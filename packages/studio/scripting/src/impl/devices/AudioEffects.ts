@@ -386,7 +386,7 @@ export class TidalEffectImpl extends AudioEffectFacade<TidalDeviceBox> implement
     readonly key = "Tidal" as const
     declare slope: bipolar
     declare symmetry: unitValue
-    declare rate: float
+    declare rate: int
     declare depth: unitValue
     declare offset: float
     declare channelOffset: float

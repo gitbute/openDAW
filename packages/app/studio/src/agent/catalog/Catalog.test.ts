@@ -19,7 +19,7 @@ import type {TubularCartridge} from "@/ui/devices/instruments/TubularDeviceEdito
 import {DeclarationIndex, Declarations} from "./Declarations"
 import {ApiReference, GuideChapter} from "./ApiReference"
 import {AssetCatalog, AssetSources} from "./AssetCatalog"
-import {DeviceCatalog} from "./DeviceCatalog"
+import {DeviceCatalog, ManualSummary} from "./DeviceCatalog"
 import {CatalogTools} from "./CatalogTools"
 
 const Snippet = `type int = number;
@@ -69,7 +69,7 @@ const reference = new ApiReference(declarations, chapters)
 
 const devices = new DeviceCatalog(reference.declarations,
     {Apparat: {guide: apparatGuide, examples: [{name: "Simple Sine Synth", code: simpleSine}]}},
-    async key => key === "Compressor" ? Option.wrap("# Compressor\n\n![shot](c.webp)\n\nSquashes peaks.") : Option.None)
+    key => key === "Compressor" ? Option.wrap("# Compressor\n\n![shot](c.webp)\n\nSquashes peaks.") : Option.None)
 
 const cardOf = (device: string): string => devices.card(devices.find(device).unwrap(device))
 
@@ -224,7 +224,17 @@ describe("DeviceCatalog", () => {
         expect(palette).toMatch(/audio-effect:[\s\S]*Fold:/)
         expect(palette).toMatch(/Waveshaper/)
         expect(palette).toMatch(/midi-effect:[\s\S]*Arpeggio/)
-        expect(palette.length).toBeLessThan(6000)
+        expect(palette).toContain("Compressor: Squashes peaks.")
+        expect(palette.length).toBeLessThan(10000)
+    })
+
+    it("summarises a manual by its first sentence and example uses", () => {
+        const markdown = "# Tidal\n\nA tempo-synced tremolo effect with\ncustomizable waveshape. More text.\n\n---\n\n" +
+            "![screenshot](tidal.webp)\n\n## 0. Overview\n\nExample uses:\n\n- Classic tremolo effects\n" +
+            "- Rhythmic amplitude gating: short rates\n\n---\n\n- not a use"
+        expect(ManualSummary.of(markdown).unwrap()).toBe("A tempo-synced tremolo effect with customizable waveshape. " +
+            "Uses: Classic tremolo effects; Rhythmic amplitude gating.")
+        expect(ManualSummary.of("# Gate\n\nA **noise** gate.").unwrap()).toBe("A noise gate.")
     })
     it("lists devices by category", () => {
         const listing = devices.listing()
@@ -256,7 +266,7 @@ describe("DeviceCatalog", () => {
         expect(card).toContain("unit.addAudioEffect(\"Compressor\"")
         expect(card).toMatch(/- threshold: float -60\.\.0 dB, default -10/)
         expect(card).toContain("sideChain: Nullable<SideChainSource>")
-        const manual = (await devices.manual(entry)).unwrap()
+        const manual = devices.manual(entry).unwrap()
         expect(manual).toContain("Squashes peaks.")
         expect(manual).not.toContain("webp")
     })
@@ -270,6 +280,16 @@ describe("DeviceCatalog", () => {
         expect(card).toContain("code: string")
         expect(devices.example(entry, "simple sine").unwrap()).toContain(simpleSine.slice(0, 40))
         expect(devices.example(entry, "nope").isEmpty()).toBe(true)
+    })
+
+    it("appends the declarations of part types a device exposes", () => {
+        const card = cardOf("Cubed")
+        expect(card).toContain("part types:")
+        expect(card).toContain("interface CubedPattern")
+        expect(card).toContain("interface CubedStep")
+        expect(card).toContain("slide: boolean")
+        expect(cardOf("Playfield")).not.toContain("part types:\ninterface PlayfieldSlot")
+        expect(cardOf("Tidal")).toMatch(/- rate: int .*1\/4, 3\/16/)
     })
 
     it("renders parts of container devices", () => {
@@ -291,7 +311,7 @@ describe("CatalogTools", () => {
         expect(listed.ok).toBe(true)
         const unknown = await device.execute({device: "Nope"})
         expect(JSON.stringify(unknown.content)).toContain("Unknown device")
-        const manual = await device.execute({device: "Compressor", includeManual: true})
+        const manual = await device.execute({device: "Compressor"})
         expect(JSON.stringify(manual.content)).toContain("## Manual")
         const index = await api.execute({})
         expect(JSON.stringify(index.content)).toContain("Entry points")

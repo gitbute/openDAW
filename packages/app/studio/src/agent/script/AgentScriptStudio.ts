@@ -1,4 +1,5 @@
-import {int} from "@opendaw/lib-std"
+import {int, TimeSpan} from "@opendaw/lib-std"
+import {Promises, Wait} from "@opendaw/lib-runtime"
 import agentScriptWorkerUrl from "@opendaw/studio-scripting/AgentScriptWorker.js?worker&url"
 import type {StudioService} from "@/service/StudioService"
 import {dynamicImportWithRetry} from "@/ui/components/dynamicImportWithRetry"
@@ -11,6 +12,17 @@ const loadMonacoSetup = dynamicImportWithRetry(() => import("@/ui/pages/code-edi
 
 const ModelUri = "file:///agent/run_script.ts"
 
+type Monaco = Awaited<ReturnType<typeof loadMonacoSetup>>["monaco"]
+
+// Monaco registers its TypeScript worker lazily after the first typescript model exists.
+const awaitTypeScript = async (monaco: Monaco): Promise<void> => {
+    for (let attempt = 0; attempt < 50; attempt++) {
+        const worker = await Promises.tryCatch(monaco.languages.typescript.getTypeScriptWorker())
+        if (worker.status === "resolved") {return}
+        await Wait.timeSpan(TimeSpan.millis(100))
+    }
+}
+
 export namespace AgentScriptStudio {
     // Type-checks on a hidden Monaco model and runs in a dedicated worker against the open project.
     export const createRunner = (service: StudioService, timeoutMillis: int = 120_000): AgentScriptRunner => {
@@ -21,6 +33,7 @@ export namespace AgentScriptStudio {
                 const uri = monaco.Uri.parse(ModelUri)
                 const model = monaco.editor.getModel(uri) ?? monaco.editor.createModel(code, "typescript", uri)
                 model.setValue(code)
+                await awaitTypeScript(monaco)
                 return ScriptCompiler.compile(monaco, model)
             },
             execute: (js, context) => client.execute(js, context),

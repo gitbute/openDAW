@@ -1,5 +1,4 @@
 import {Option} from "@opendaw/lib-std"
-import {Promises} from "@opendaw/lib-runtime"
 import {DeviceManualUrls} from "@opendaw/studio-adapters"
 import type {AgentToolbox} from "@opendaw/studio-codex"
 import declarations from "@opendaw/studio-scripting/api.declaration?raw"
@@ -39,17 +38,17 @@ const ScriptDocs: Readonly<Record<string, ScriptDeviceDocs>> = {
 }
 
 const ManualUrls: Readonly<Record<string, string>> = {
-    ...DeviceManualUrls, Composite: DeviceManualUrls.AudioEffectComposite, StereoSplit: DeviceManualUrls.StereoComposite
+    ...DeviceManualUrls, Composite: DeviceManualUrls.AudioEffectComposite, StereoSplit: DeviceManualUrls.StereoComposite,
+    Cubed: "manuals/devices/instruments/cubed"
 }
 
-const loadManual: ManualLoader = async (key: string): Promise<Option<string>> => {
+const ManualFiles: Readonly<Record<string, string>> = import.meta.glob<string>(
+    "../../../../manual/public/devices/**/*.md", {query: "?raw", import: "default", eager: true})
+
+const loadManual: ManualLoader = (key: string): Option<string> => {
     const url = ManualUrls[key]
     if (typeof url !== "string") {return Option.None}
-    const base = import.meta.env.BASE_URL.endsWith("/") ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`
-    const response = await Promises.tryCatch(fetch(`${base}${url}.md`))
-    if (response.status === "rejected" || !response.value.ok) {return Option.None}
-    const text = await response.value.text()
-    return text.trimStart().startsWith("<") ? Option.None : Option.wrap(text)
+    return Option.wrap(ManualFiles[`../../../../manual/public/${url.replace(/^manuals\//, "")}.md`])
 }
 
 export namespace CatalogToolbox {

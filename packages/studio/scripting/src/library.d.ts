@@ -121,6 +121,11 @@ declare class Array<T> {
     constructor(length: number)
     constructor(...items: T[])
 
+    static from<T>(source: Iterable<T> | ArrayLike<T>): T[]
+    static from<T, U>(source: Iterable<T> | ArrayLike<T>, map: (value: T, index: number) => U): U[]
+    static isArray(value: unknown): value is any[]
+    static of<T>(...items: T[]): T[]
+
     at(index: number): T | undefined
     concat(...items: (T | ConcatArray<T>)[]): T[]
     copyWithin(target: number, start: number, end?: number): this

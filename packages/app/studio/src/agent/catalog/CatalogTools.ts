@@ -51,14 +51,14 @@ export namespace CatalogTools {
         name: "device_reference",
         description: "Compact card for a device type (instrument, audio or MIDI effect): how to create it in a script, " +
             "every automatable parameter path with type, range, unit, default and meaning. Apparat/Werkstatt/Spielwerk " +
-            "cards include the full programming guide and example names (pass `example` for code). No device: list all.",
+            "cards include the full programming guide and example names (pass `example` for code). The user manual " +
+            "(what the device is for, how it is used, typical sounds) is always appended. No device: list all.",
         inputSchema: {
             type: "object",
             additionalProperties: false,
             properties: {
                 device: {type: "string", description: "Device key, e.g. Vaporisateur, Tubular, Compressor, Apparat"},
-                example: {type: "string", description: "Script devices only: example name to return its code"},
-                includeManual: {type: "boolean", description: "Append the user manual (sound design background)"}
+                example: {type: "string", description: "Script devices only: example name to return its code"}
             }
         },
         execute: async (args: JsonObject): Promise<AgentToolResult> => {
@@ -76,12 +76,8 @@ export namespace CatalogTools {
                         })
                     }
                     const card = catalog.card(entry)
-                    if (args["includeManual"] !== true) {return AgentToolResult.text(card)}
-                    const manual = await Promises.tryCatch(catalog.manual(entry))
-                    const text = manual.status === "resolved"
-                        ? manual.value.mapOr(markdown => `${card}\n## Manual\n${markdown}`, `${card}\n(no manual available)`)
-                        : `${card}\n(manual could not be loaded)`
-                    return AgentToolResult.text(text)
+                    return AgentToolResult.text(catalog.manual(entry)
+                        .mapOr(markdown => `${card}\n## Manual\n${markdown}`, `${card}\n(no manual available)`))
                 }
             })
         }

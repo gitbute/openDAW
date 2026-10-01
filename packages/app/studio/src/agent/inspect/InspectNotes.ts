@@ -63,7 +63,9 @@ export const resolveNotes = (unit: AudioUnitBoxAdapter, range: NoteRange): Reado
 const onsetSymbol = (velocity: number): string =>
     velocity >= 0.95 ? "x" : String(Math.min(9, Math.max(1, Math.floor(velocity * 10))))
 
-const pitchLabel = (pitch: int): string => MidiKeys.toFullString(pitch).padEnd(4)
+const LabelWidth = 8
+
+const pitchLabel = (pitch: int): string => `${MidiKeys.toFullString(pitch)}/${pitch}`.padEnd(LabelWidth)
 
 const renderBar = (clock: BarClock, bar: int, notes: ReadonlyArray<ResolvedNote>): ReadonlyArray<string> => {
     const barStart = clock.barStart(bar)
@@ -91,12 +93,34 @@ const renderBar = (clock: BarClock, bar: int, notes: ReadonlyArray<ResolvedNote>
     return offGrid === 0 ? lines : [...lines, `(${offGrid} onsets off the 16th grid)`]
 }
 
-const renderGrid = (clock: BarClock, span: BarSpan, notes: ReadonlyArray<ResolvedNote>): ReadonlyArray<string> => {
+type UnitNotes = { readonly label: string, readonly notes: ReadonlyArray<ResolvedNote> }
+
+const MaxUnits = 6
+
+const renderParts = (clock: BarClock, bar: int, parts: ReadonlyArray<UnitNotes>): ReadonlyArray<string> => {
+    const sections = parts.map(part => ({label: part.label, rows: renderBar(clock, bar, part.notes)}))
+    if (sections.every(({rows}) => rows.length === 0)) {return []}
+    const barStart = clock.barStart(bar)
+    const steps = Math.max(1, Math.round(clock.barDuration(bar) / Step))
+    const onsets = Array.from({length: steps}, (_, step) => {
+        const start = barStart + step * Step
+        const hits = parts.flatMap((part, index) =>
+            part.notes.some(note => note.position >= start && note.position < start + Step) ? [index + 1] : [])
+        return hits.length === 0 ? "." : hits.length === 1 ? String(hits[0]) : "+"
+    })
+    return [
+        ...sections.flatMap(({label, rows}, index) =>
+            rows.length === 0 ? [`[${index + 1} ${label}] rest`] : [`[${index + 1} ${label}]`, ...rows]),
+        `${"all".padEnd(LabelWidth)}${onsets.join("")}`
+    ]
+}
+
+const renderGrid = (clock: BarClock, span: BarSpan, renderLines: (bar: int) => ReadonlyArray<string>): ReadonlyArray<string> => {
     const baseSignature = clock.signatureAtBar(span.from)
     const groups: Array<{ from: int, to: int, lines: ReadonlyArray<string>, key: string }> = []
     for (let bar = span.from; bar <= span.to; bar++) {
         const signature = clock.signatureAtBar(bar)
-        const lines = renderBar(clock, bar, notes)
+        const lines = renderLines(bar)
         const key = `${signature}\n${lines.join("\n")}`
         const last = groups.at(-1)
         if (isDefined(last) && last.key === key) {
@@ -122,36 +146,43 @@ const renderList = (clock: BarClock, notes: ReadonlyArray<ResolvedNote>): Readon
     return notes.length > ListLimit ? [...lines, `(${notes.length - ListLimit} more notes omitted)`] : lines
 }
 
-const defaultSpan = (clock: BarClock, unit: AudioUnitBoxAdapter): Option<BarSpan> => {
-    const regions = noteRegionsOf(unit)
+const defaultSpan = (clock: BarClock, units: ReadonlyArray<AudioUnitBoxAdapter>): Option<BarSpan> => {
+    const regions = units.flatMap(unit => noteRegionsOf(unit))
     if (regions.length === 0) {return Option.None}
     const from = clock.barOf(Math.min(...regions.map(region => region.position)))
     const to = clock.barOf(Math.max(...regions.map(region => region.complete)) - 1)
     return Option.wrap({from, to})
 }
 
-export const inspectNotes = async (project: Project, unitLabel: string, bars: Option<BarSpan>,
+export const inspectNotes = async (project: Project, unitLabels: ReadonlyArray<string>, bars: Option<BarSpan>,
                                    format: NotesFormat, image: boolean,
                                    renderPianoRoll?: PianoRollRenderer): Promise<AgentToolResult> => {
     const entries = InspectUnits.list(project)
-    const optEntry = InspectUnits.find(entries, unitLabel)
-    if (optEntry.isEmpty()) {
-        return AgentToolResult.failure(`Unknown unit '${unitLabel}'. Units: ${entries.map(entry => entry.label).join(", ")}`)
+    const found = unitLabels.map(unitLabel => ({unitLabel, entry: InspectUnits.find(entries, unitLabel)}))
+    const unknown = found.filter(({entry}) => entry.isEmpty()).map(({unitLabel}) => unitLabel)
+    if (unknown.length > 0) {
+        return AgentToolResult.failure(`Unknown unit '${unknown.join("', '")}'. Units: ${entries.map(entry => entry.label).join(", ")}`)
     }
-    const {adapter, label} = optEntry.unwrap()
+    const units = found.map(({entry}) => entry.unwrap())
+    const label = units.map(unit => unit.label).join(" + ")
     const clock = new BarClock(project.timelineBoxAdapter.signatureTrack)
-    const optContent = bars.nonEmpty() ? bars : defaultSpan(clock, adapter)
+    const optContent = bars.nonEmpty() ? bars : defaultSpan(clock, units.map(unit => unit.adapter))
     if (optContent.isEmpty()) {return AgentToolResult.text(`${label}: no note regions`)}
     const content = optContent.unwrap()
     const truncated = bars.isEmpty() && content.to - content.from + 1 > DefaultBarLimit
     const span: BarSpan = truncated ? {from: content.from, to: content.from + DefaultBarLimit - 1} : content
     const range: NoteRange = {from: clock.barStart(span.from), to: clock.barStart(span.to + 1)}
-    const notes = resolveNotes(adapter, range)
+    const parts: ReadonlyArray<UnitNotes> = units.map(unit => ({label: unit.label, notes: resolveNotes(unit.adapter, range)}))
+    const notes = parts.flatMap(part => part.notes)
     const legend = format === "grid"
-        ? "16th grid: x=full velocity, 1-9=velocity tenths, -=sustain, .=rest"
+        ? "rows: name/MIDI (C3 = 60); 16th grid: x=full velocity, 1-9=velocity tenths, -=sustain, .=rest"
+        + (parts.length > 1 ? "; all = which part starts a note on that 16th (+ = several)" : "")
         : "bar.beat.tick pitch(name) len vel; ticks: 960 per quarter"
     const header = `${label} · bars ${span.from + 1}-${span.to + 1} · ${clock.signatureAtBar(span.from)} · ${notes.length} notes · ${legend}`
-    const body = format === "grid" ? renderGrid(clock, span, notes) : renderList(clock, notes)
+    const body = format === "list"
+        ? parts.length === 1 ? renderList(clock, notes) : parts.flatMap(part => [`[${part.label}]`, ...renderList(clock, part.notes)])
+        : parts.length === 1 ? renderGrid(clock, span, bar => renderBar(clock, bar, notes))
+            : renderGrid(clock, span, bar => renderParts(clock, bar, parts))
     const footer = truncated
         ? [`(showing ${DefaultBarLimit} of ${content.to - content.from + 1} bars, pass bars to see more)`] : []
     const lines = [header, ...body, ...footer]
@@ -172,7 +203,9 @@ const parseBars = (value: Optional<JsonValue>): Attempt<Option<BarSpan>, string>
 
 export const createInspectNotesTool = (project: Provider<Project>, renderPianoRoll?: PianoRollRenderer): AgentTool => ({
     name: "inspect_notes",
-    description: "Note content of one audio unit, resolved on the timeline (regions, loops, muting). " +
+    description: "Note content of one audio unit (unit) or of several parts together (units, up to 6), resolved on " +
+        "the timeline (regions, loops, muting). With units every bar shows each part's rows plus an 'all' row marking " +
+        "which part starts a note on each 16th, to judge how parts relate (call and response, collisions, density). " +
         "format 'grid' (default) prints per bar a 16th-step row per pitch (x=full velocity, digits 1-9 = velocity " +
         "tenths, - = sustained, . = rest); identical consecutive bars are merged. format 'list' prints one note per " +
         "line: bar.beat.tick pitch(name) length-in-ticks velocity (960 ticks per quarter). " +
@@ -182,6 +215,7 @@ export const createInspectNotesTool = (project: Provider<Project>, renderPianoRo
         type: "object",
         properties: {
             unit: {type: "string", description: "Unit label as returned by inspect_project."},
+            units: {type: "array", items: {type: "string"}, description: "Several unit labels to view together."},
             bars: {
                 type: "object",
                 description: "Inclusive 1-based bar range.",
@@ -192,17 +226,21 @@ export const createInspectNotesTool = (project: Provider<Project>, renderPianoRo
             format: {type: "string", enum: ["grid", "list"]},
             image: {type: "boolean"}
         },
-        required: ["unit"],
         additionalProperties: false
     },
     execute: async (args: JsonObject): Promise<AgentToolResult> => {
-        const {unit, format, image} = args
-        if (typeof unit !== "string" || unit.trim().length === 0) {return AgentToolResult.failure("unit is required")}
+        const {unit, units, format, image} = args
+        const labels = [
+            ...(typeof unit === "string" && unit.trim().length > 0 ? [unit] : []),
+            ...(Array.isArray(units) ? units.filter((label): label is string => typeof label === "string" && label.trim().length > 0) : [])
+        ]
+        if (labels.length === 0) {return AgentToolResult.failure("unit or units is required")}
+        if (labels.length > MaxUnits) {return AgentToolResult.failure(`at most ${MaxUnits} units at once`)}
         if (isDefined(format) && format !== "grid" && format !== "list") {
             return AgentToolResult.failure("format must be 'grid' or 'list'")
         }
         const bars = parseBars(args.bars)
         if (bars.isFailure()) {return AgentToolResult.failure(bars.failureReason())}
-        return inspectNotes(project(), unit, bars.result(), format === "list" ? "list" : "grid", image === true, renderPianoRoll)
+        return inspectNotes(project(), labels, bars.result(), format === "list" ? "list" : "grid", image === true, renderPianoRoll)
     }
 })

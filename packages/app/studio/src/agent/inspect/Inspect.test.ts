@@ -176,8 +176,8 @@ describe("inspect_notes", () => {
         expect(lines[0]).toContain("Bass · bars 1-2 · 4/4 · 6 notes")
         expect(lines.slice(1)).toEqual([
             "bars 1-2:",
-            "G1  ........8.......",
-            "C1  x...5--........."
+            "G1/43   ........8.......",
+            "C1/36   x...5--........."
         ])
     })
 
@@ -190,10 +190,36 @@ describe("inspect_notes", () => {
         expect(grid.slice(1)).toEqual([
             "bar 4: rest",
             "bar 5:",
-            "F#1 ..x-............",
-            "C1  x...............",
+            "F#1/42  ..x-............",
+            "C1/36   x...............",
             "(1 onsets off the 16th grid)"
         ])
+    })
+
+    it("shows several parts together with a shared onset row", async () => {
+        const {project, createInspectNotesTool} = await setup()
+        const tool = createInspectNotesTool(() => project)
+        const lines = textOf(await tool.execute({units: ["Bass", "Drums"], bars: {from: 1, to: 5}})).split("\n")
+        expect(lines[0]).toContain("Bass + Drums · bars 1-5")
+        expect(lines[0]).toContain("all = which part starts a note")
+        expect(lines.slice(1)).toEqual([
+            "bars 1-2:",
+            "[1 Bass]",
+            "G1/43   ........8.......",
+            "C1/36   x...5--.........",
+            "[2 Drums] rest",
+            "all     1...1...1.......",
+            "bars 3-4: rest",
+            "bar 5:",
+            "[1 Bass] rest",
+            "[2 Drums]",
+            "F#1/42  ..x-............",
+            "C1/36   x...............",
+            "(1 onsets off the 16th grid)",
+            "all     2.2............."
+        ])
+        expect((await tool.execute({units: ["Bass", "Nope"]})).ok).toBe(false)
+        expect((await tool.execute({})).ok).toBe(false)
     })
 
     it("attaches a rendered piano roll and validates arguments", async () => {

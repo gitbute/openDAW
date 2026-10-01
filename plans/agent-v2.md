@@ -1,7 +1,7 @@
 # Agent v2: handoff notes
 
 Codex-driven "producer agent" for openDAW, rebuilt on upstream main (fork `gitbute/openDAW`, branch `agent/v2`).
-Local work branches: `wip/v2-integration` (full history), `wip/v2-base`; `agent/v2` is a single squashed commit.
+Work directly on `agent/v2` (normal commits, push to `origin`). The old v1 branch `codex/slice-1-control-api` is reference only.
 
 ## Architecture
 
@@ -79,6 +79,24 @@ Bugs found by run 5:
   Waveshaper display crashed ("Unhandled tanh(x)"). Fixed: API union type + `Guard.oneOf`, display falls back to hardclip.
   Upstream's own Devices test used "tanh(x)" as valid → worth reporting upstream.
 - Neural Amp's model selector is not exposed through the scripting API/tools, so the agent cannot use it.
+
+## Prompt change log (verify each, remove what shows no effect)
+
+| Date | Change | Verify by | Result |
+|---|---|---|---|
+| 2026-10-01 | Device palette from manual intros + example uses; device_reference always appends the manual | agent uses specialised devices (Tidal, Cubed, Arpeggio) | Tidal used; Cubed read but not used (manual was truncated) |
+| 2026-10-01 | WRITING PARTS section; no Apparat-first default | leads not hand-coded by default; parts checked together | Vaporisateur leads; multi-part inspect_notes used |
+| 2026-10-01 | Finishing bar (identity, phrases) | agent judges identity before finishing | no visible effect yet |
+| 2026-10-01 | Research as a real step (several searches, open sources, how parts are written) | more than one search, sources opened, findings cited | pending |
+| 2026-10-01 | Part brief per defining part before writing notes | brief visible in output; bass/lead follow the research | pending |
+| 2026-10-01 | Sample library for drums and one-shots | browse called for drums | low: no effect; medium and swarm runs: samples used |
+| 2026-10-01 | Producer base instead of Codex coding base (`thread/start` baseInstructions, 5.4k tokens of PR/plugin/skill text) | writing/sound changes by ear | user: "didn't change much" → reverted |
+
+Findings 2026-10-01 (melodic full-on test series): the bass writing is the gap. Explicit research swarm (user prompt) found
+"octave-jumping bass" and "chord-changing bass" for Vibe Tribe; the agent applied root changes but dosed octave jumps down
+("keep selective"). The idiom (jump notes forming a counter-melody, see user's FL screenshot) is described only vaguely
+in text; references (MIDI, screenshots) or note-level research output are the next levers. Subagents are only spawned
+when the user asks for them.
 
 ## Open issues (next)
 

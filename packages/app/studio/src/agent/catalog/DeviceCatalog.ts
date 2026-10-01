@@ -1,6 +1,6 @@
 import {Func, isDefined, Option} from "@opendaw/lib-std"
 import type {CodeEditorExample} from "@/ui/code-editor/CodeEditorState"
-import {DeclarationIndex, DeclarationMember, Declarations} from "./Declarations"
+import {Declaration, DeclarationIndex, DeclarationMember, Declarations} from "./Declarations"
 import {DeviceCategory, DeviceProbe, ProbedField} from "./DeviceProbe"
 
 export type ScriptDeviceDocs = {
@@ -15,7 +15,28 @@ export type DeviceEntry = {
     readonly summary: string
 }
 
-export type ManualLoader = Func<string, Promise<Option<string>>>
+export type ManualLoader = Func<string, Option<string>>
+
+export namespace ManualSummary {
+    const firstSentence = (text: string, limit: number): string => {
+        const sentence = text.replace(/\*\*|\[|\]\([^)]*\)/g, "").replace(/\s+/g, " ").trim().split(/(?<=\.)\s/)[0]
+        return sentence.length > limit ? `${sentence.slice(0, limit - 3)}...` : sentence
+    }
+
+    export const of = (markdown: string): Option<string> => {
+        const lines = markdown.split(/\r?\n/).map(line => line.trim())
+        const start = lines.findIndex(line => line.length > 0 && !/^(#|---|!\[)/.test(line))
+        if (start < 0) {return Option.None}
+        const end = lines.findIndex((line, index) => index > start && line.length === 0)
+        const intro = firstSentence(lines.slice(start, end < 0 ? undefined : end).join(" "), 160)
+        const usesAt = lines.findIndex(line => /^example uses:?$/i.test(line))
+        const listStart = lines.findIndex((line, index) => index > usesAt && line.length > 0)
+        const listEnd = lines.findIndex((line, index) => index > listStart && !line.startsWith("- "))
+        const uses = usesAt < 0 || listStart < 0 ? [] : lines.slice(listStart, listEnd < 0 ? undefined : listEnd)
+            .filter(line => line.startsWith("- ")).map(line => line.slice(2).split(":")[0].trim())
+        return Option.wrap(uses.length > 0 ? `${intro} Uses: ${uses.join("; ")}.` : intro)
+    }
+}
 
 const Registries: ReadonlyArray<[DeviceCategory, string]> = [
     ["instrument", "Instruments"], ["audio-effect", "AudioEffects"], ["midi-effect", "MIDIEffects"]
@@ -34,7 +55,7 @@ type PathGroup = {
 }
 
 export class DeviceCatalog {
-    static readonly MaxManual = 6_000
+    static readonly MaxManual = 14_000
 
     readonly #index: DeclarationIndex
     readonly #scripts: Readonly<Record<string, ScriptDeviceDocs>>
@@ -74,9 +95,14 @@ export class DeviceCatalog {
             const sentence = text.split(/(?<=\.)\s/)[0].replace(/\s+/g, " ").trim()
             return sentence.length > 90 ? `${sentence.slice(0, 87)}...` : sentence
         }
+        const describe = ({key, summary}: DeviceEntry): string =>
+            this.#manual(key).flatMap(ManualSummary.of).unwrapOrElse(() => shorten(summary))
         return Registries.map(([category]) => [`${category}:`, ...this.#entries
             .filter(entry => entry.category === category)
-            .map(({key, summary}) => summary.length > 0 ? `  ${key}: ${shorten(summary)}` : `  ${key}`)].join("\n"))
+            .map(entry => {
+                const description = describe(entry)
+                return description.length > 0 ? `  ${entry.key}: ${description}` : `  ${entry.key}`
+            })].join("\n"))
             .join("\n")
     }
 
@@ -97,9 +123,8 @@ export class DeviceCatalog {
         return Option.wrap(found).map(example => `// ${entry.key} example: ${example.name}\n${example.code}`)
     }
 
-    async manual(entry: DeviceEntry): Promise<Option<string>> {
-        const loaded = await this.#manual(entry.key)
-        return loaded.map(markdown => {
+    manual(entry: DeviceEntry): Option<string> {
+        return this.#manual(entry.key).map(markdown => {
             const text = markdown.replace(/^!\[.*\]\(.*\)\s*$/gm, "").replace(/^---\s*$/gm, "").replace(/\n{3,}/g, "\n\n").trim()
             return text.length > DeviceCatalog.MaxManual ? `${text.slice(0, DeviceCatalog.MaxManual)}\n… [manual truncated]` : text
         })
@@ -122,10 +147,13 @@ export class DeviceCatalog {
         }
         const others = this.#otherMembers(interfaceName, fields)
         if (others.length > 0) {lines.push("other members:", ...others)}
-        device.flatMap(created => this.#probe.parts(created)).ifSome(part => {
+        const probedPart = device.flatMap(created => this.#probe.parts(created))
+        probedPart.ifSome(part => {
             lines.push(`${part.name} parameters (${part.interfaceName}, via ${part.access}):`)
             lines.push(...this.#parameterLines(part.interfaceName, part.fields))
         })
+        const partTypes = this.#partTypes(interfaceName, probedPart.mapOr(part => [part.interfaceName], []))
+        if (partTypes.length > 0) {lines.push("part types:", ...partTypes.map(declaration => declaration.text))}
         const docs = this.#scripts[key]
         if (isDefined(docs)) {
             lines.push(`examples (device_reference({device: "${key}", example: name}) for code): ${docs.examples.map(example => example.name).join(", ")}`)
@@ -213,6 +241,25 @@ export class DeviceCatalog {
         const summary = Declarations.plainLinks(Declarations.summaryOf(member.doc))
         const stripped = field.range.length > 0 ? summary.replace(RedundantRange, "") : summary
         return stripped.replace(RedundantDefault, "").trim()
+    }
+
+    // Part types are named after their device: CubedPattern, CubedStep, PlayfieldSlot.
+    #partTypes(interfaceName: string, skip: ReadonlyArray<string>): ReadonlyArray<Declaration> {
+        const prefix = interfaceName.replace(/Effect$/, "")
+        const found: Array<Declaration> = []
+        const visit = (name: string, depth: number): void => this.#index.find(name).ifSome(declaration =>
+            declaration.members.forEach(member => {
+                for (const [type] of member.type.matchAll(/[A-Z][A-Za-z0-9]+/g)) {
+                    if (type === interfaceName || !type.startsWith(prefix) || skip.includes(type)
+                        || found.some(part => part.name === type)) {continue}
+                    this.#index.find(type).ifSome(part => {
+                        found.push(part)
+                        if (depth < 2) {visit(type, depth + 1)}
+                    })
+                }
+            }))
+        visit(interfaceName, 0)
+        return found
     }
 
     #otherMembers(interfaceName: string, fields: ReadonlyArray<ProbedField>): ReadonlyArray<string> {
