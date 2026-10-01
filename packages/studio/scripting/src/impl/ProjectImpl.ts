@@ -2,7 +2,7 @@ import {AudioUnitBox, GrooveShuffleBox, ProjectMetaBox} from "@opendaw/studio-bo
 import {AudioData, ppqn} from "@opendaw/lib-dsp"
 import {AudioUnitType, Colors, IconSymbol} from "@opendaw/studio-enums"
 import {ProjectSkeleton, Validator} from "@opendaw/studio-adapters"
-import {asInstanceOf, clamp, float, isDefined, isNull, Nullable, panic, tryCatch, UUID} from "@opendaw/lib-std"
+import {asInstanceOf, clamp, float, int, isDefined, isNull, Nullable, Optional, panic, tryCatch, UUID} from "@opendaw/lib-std"
 import {
     AnyAudioUnit,
     AnyModulator,
@@ -35,14 +35,14 @@ import {Context} from "./Context"
 import {Props} from "./Common"
 import {Fields} from "./Fields"
 import {Guard} from "./Guard"
-import {AudioUnitImpls, AuxAudioUnitImpl, GroupAudioUnitImpl, InstrumentAudioUnitImpl} from "./AudioUnits"
+import {AudioUnitFacade, AudioUnitImpls, AuxAudioUnitImpl, GroupAudioUnitImpl, InstrumentAudioUnitImpl} from "./AudioUnits"
 import {GrooveShuffleImpl} from "./GrooveShuffleImpl"
 import {MarkerImpl, Markers} from "./timeline/Markers"
 import {TempoTrackImpl} from "./timeline/TempoTrackImpl"
 import {SignatureTrackImpl} from "./timeline/SignatureTrackImpl"
 import {ModulatorImpls} from "./Modulators"
 import {Regions} from "./timeline/Regions"
-import {ScriptHostProtocol} from "../ScriptHostProtocol"
+import {MixdownRange, ScriptHostProtocol} from "../ScriptHostProtocol"
 import {ParameterInfoImpl} from "./ParameterMappings"
 
 const AudioUnitKinds: ReadonlyArray<AudioUnitKind> = ["instrument", "auxiliary", "group", "output"]
@@ -296,10 +296,39 @@ export class ProjectImpl implements Project {
     async mixdown(options?: MixdownOptions): Promise<AudioData> {
         this.validate()
         const sampleRate = isDefined(options?.sampleRate) ? Guard.int32({min: 8_000, max: 192_000}, options.sampleRate, "sampleRate") : 48_000
+        const units = isDefined(options?.units) ? this.#mixdownUnits(options.units) : undefined
+        const range = this.#mixdownRange(options)
         if (!this.audioUnits.some(unit => unit.tracks.some(track => track.regions.length > 0 || track.clips.length > 0))) {
             return panic(new RangeError("Project has no regions or clips to render"))
         }
-        return this.#protocol.renderMixdown(ProjectSkeleton.encode(this.#context.skeleton.boxGraph), {sampleRate})
+        return this.#protocol.renderMixdown(ProjectSkeleton.encode(this.#context.skeleton.boxGraph), {sampleRate, units, range})
+    }
+
+    #mixdownUnits(units: unknown): ReadonlyArray<string> {
+        if (!Array.isArray(units)) {return panic(new TypeError(`units: expected an array of audio units, got ${Guard.describe(units)}`))}
+        if (units.length === 0) {return panic(new RangeError("units: is empty, omit it to render the master"))}
+        const uuids = units.map((unit: unknown, index: int) => {
+            if (!(unit instanceof AudioUnitFacade) || unit.context !== this.#context) {
+                return panic(new TypeError(`units[${index}]: expected an audio unit of this project, got ${Guard.describe(unit)}`))
+            }
+            return UUID.toString(unit.box.address.uuid)
+        })
+        return Array.from(new Set(uuids))
+    }
+
+    #mixdownRange(options: Optional<MixdownOptions>): Optional<MixdownRange> {
+        const {from, to, tail} = options ?? {}
+        if (!isDefined(from) && !isDefined(to)) {
+            if (isDefined(tail)) {return panic(new RangeError("tail: needs from and to"))}
+            return undefined
+        }
+        if (!isDefined(from) || !isDefined(to)) {return panic(new RangeError("from and to: give both for a range render"))}
+        const start = Guard.finite(from, "from")
+        const end = Guard.finite(to, "to")
+        if (start < 0) {return panic(new RangeError(`from: must not be negative, got ${start}`))}
+        if (end <= start) {return panic(new RangeError(`to: must be after from (${start}), got ${end}`))}
+        const seconds = isDefined(tail) ? Guard.float32({min: 0.0, max: 30.0, scaling: "linear"}, tail, "tail") : 0.0
+        return {from: start, to: end, tail: seconds}
     }
 
     static clampBpm(value: number): number {return clamp(value, 30, 1000)}

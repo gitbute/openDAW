@@ -3,8 +3,8 @@ import {ProjectSkeleton} from "@opendaw/studio-adapters"
 import {applyUpdateTasks, BoxGraph, UpdateTask} from "@opendaw/lib-box"
 import {BoxIO} from "@opendaw/studio-boxes"
 import {Arrays, Option, UUID} from "@opendaw/lib-std"
-import {Api, MixdownOptions, Project, Sample} from "../Api"
-import {ScriptHostProtocol, ScriptPreset} from "../ScriptHostProtocol"
+import {Api, Project, Sample} from "../Api"
+import {MixdownRequest, ScriptHostProtocol, ScriptPreset} from "../ScriptHostProtocol"
 import {ApiImpl} from "../impl/ApiImpl"
 import {ProjectImpl} from "../impl/ProjectImpl"
 
@@ -13,7 +13,7 @@ export class FakeHost implements ScriptHostProtocol {
     readonly samples: Array<Sample> = []
     readonly dialogs: Array<{ headline: string, message: string }> = []
     readonly applied: Array<ReadonlyArray<UpdateTask<BoxIO.TypeMap>>> = []
-    readonly rendered: Array<{ buffer: ArrayBufferLike, options: MixdownOptions }> = []
+    readonly rendered: Array<{ buffer: ArrayBufferLike, options: MixdownRequest }> = []
     readonly saved: Array<{ byteLength: number, fileName: string, mimeType: string }> = []
     readonly presets: Map<string, ScriptPreset> = new Map()
     readonly voices: Map<string, Uint8Array> = new Map()
@@ -41,16 +41,16 @@ export class FakeHost implements ScriptHostProtocol {
         if (this.current === null) {throw new Error("No project")}
         return {buffer: ProjectSkeleton.encode(this.current.graph) as ArrayBuffer, name: this.current.name}
     }
-    async addSample(data: AudioData, name: string): Promise<Sample> {
+    async addSample(data: AudioData, name: string, bpm?: number): Promise<Sample> {
         const sample: Sample = {
             uuid: UUID.toString(UUID.generate()), name, duration: data.numberOfFrames / data.sampleRate,
-            bpm: 0, sample_rate: data.sampleRate
+            bpm: bpm ?? 0, sample_rate: data.sampleRate
         }
         this.samples.push(sample)
         return sample
     }
     async listSamples(): Promise<ReadonlyArray<Sample>> {return this.samples}
-    async renderMixdown(buffer: ArrayBufferLike, options: MixdownOptions): Promise<AudioData> {
+    async renderMixdown(buffer: ArrayBufferLike, options: MixdownRequest): Promise<AudioData> {
         this.rendered.push({buffer, options})
         const sampleRate = options.sampleRate ?? 48000
         return AudioData.create(sampleRate, sampleRate, 2)

@@ -235,7 +235,8 @@ export namespace Regions {
             const duration = Guard.float32("positive", props?.duration ?? AudioContents.defaultDuration(validated, playback, projectBpm), "duration")
             const timeBase = playback === "no-sync" ? TimeBase.Seconds : TimeBase.Musical
             assertNoOverlap(context, trackBox, position, duration, timeBase)
-            const playMode = AudioContents.createPlayMode(context, playback, duration, validated.duration, {
+            const span = isDefined(props?.loopDuration) ? Guard.float32("positive", props.loopDuration, "loopDuration") : duration
+            const playMode = AudioContents.createPlayMode(context, playback, span, validated.duration, {
                 transientPlayMode: props?.transientPlayMode, playbackRate: props?.playbackRate, transpose: props?.transpose
             })
             const collection = ValueEventCollectionBox.create(context.boxGraph, UUID.generate())

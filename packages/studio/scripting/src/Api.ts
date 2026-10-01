@@ -2342,7 +2342,9 @@ export interface AudioTrack extends Track {
     readonly clips: ReadonlyArray<AudioClip>
     /**
      * Add an audio region. Default playback is `"pitch"` when the sample has a tempo, otherwise `"no-sync"`.
-     * Default duration is the sample length. Throws if it overlaps an existing region
+     * Default duration is the sample length. With a tempo-following playback the whole sample spans `loopDuration`
+     * (default `duration`), so a chop is `{duration, loopDuration: sampleLength, loopOffset: chopStart}`.
+     * With `"no-sync"` the durations are in seconds. `waveformOffset` is always in seconds. Throws if it overlaps an existing region
      * @example
      * ```ts
      * const tape = project.addInstrumentUnit("Tape", {label: "Loop"})
@@ -2834,11 +2836,34 @@ export interface Project {
     /** Open the project in the studio (replaces the current project). Throws if the project is invalid */
     openInStudio(): void
     /**
-     * Render this project (including unapplied edits) to audio. Does not require {@link openInStudio}. Throws if the project is invalid
+     * Render this project (including unapplied edits) to stereo audio. Does not require {@link openInStudio}. Throws if the project is invalid.
+     * Without options it renders the master from the start until the project falls silent. With `units`, `from` and `to`
+     * it renders exactly these units for exactly that range: the basis of resampling (render, edit the frames,
+     * {@link Api.addSample}, play the sample back, repeat)
      * @example
      * ```ts
      * const audio = await project.mixdown()
      * await openDAW.saveFile(WavFile.encodeFloats(audio), `${project.name}.wav`, "audio/wav")
+     * ```
+     * @example Resampling: render one bar of a unit, reverse a copy, play chops from a Tape track and a Playfield
+     * ```ts
+     * const project = await openDAW.getProject()
+     * const bass = project.findAudioUnit("Bass")
+     * if (bass === null) {throw new Error("no unit 'Bass'")}
+     * const audio = await project.mixdown({units: [bass], from: 0, to: PPQN.Bar})
+     * const reversed = AudioData.create(audio.sampleRate, audio.numberOfFrames, audio.numberOfChannels)
+     * audio.frames.forEach((channel, index) => reversed.frames[index].set(channel.slice().reverse()))
+     * const growl = await openDAW.addSample(audio, "Bass Resample", project.bpm)
+     * const growlReversed = await openDAW.addSample(reversed, "Bass Resample Reversed", project.bpm)
+     * const track = project.addInstrumentUnit("Tape", {label: "Bass Chops"}).audioTracks[0]
+     * const step = PPQN.SemiQuaver
+     * // a chop: the whole sample spans loopDuration, the region plays `duration` of it starting at loopOffset
+     * track.addRegion(growl, {position: PPQN.Bar * 4, duration: step * 2, loopDuration: PPQN.Bar, loopOffset: step * 6})
+     * track.addRegion(growlReversed, {position: PPQN.Bar * 4 + step * 2, duration: step * 2, loopDuration: PPQN.Bar,
+     *     playback: "signalsmith", transpose: -12})
+     * const pads = project.addInstrumentUnit("Playfield", {label: "Bass Pads"})
+     * pads.instrument.addSample(growl, {note: 36, sampleStart: 0.5, sampleEnd: 0.625})
+     * bass.mute = true // a unit render ignores mute, so the source can still be resampled later
      * ```
      */
     mixdown(options?: MixdownOptions): Promise<AudioData>
@@ -2851,6 +2876,21 @@ export interface Project {
 export interface MixdownOptions {
     /** Render sample rate in Hz (default 48000) */
     sampleRate?: int
+    /**
+     * Render only these units, summed to one stereo signal, instead of the master. Each unit is tapped after its audio
+     * effects and before its fader: its volume, panning and mute do not apply, and solo is ignored for the whole render.
+     * A group or aux unit renders what reaches it. Sends still feed their aux units: add the aux unit to include its return
+     */
+    units?: ReadonlyArray<AnyAudioUnit>
+    /**
+     * Start of the range in PPQN. Give `from` and `to` together for an exact-length render without silence detection.
+     * Notes that start before `from` are not heard
+     */
+    from?: ppqn
+    /** End of the range in PPQN (after `from`, exclusive). A range render is limited to 600 seconds */
+    to?: ppqn
+    /** Seconds rendered past `to` so tails ring out, making the audio longer than the range (default 0, max 30, needs `from` and `to`) */
+    tail?: seconds
 }
 
 /**
@@ -2883,7 +2923,12 @@ export interface Api {
     /** Show an info dialog in the studio and wait until it is closed */
     showInfo(headline: string, message: string): Promise<void>
     /**
-     * Create a sample in the studio from raw audio data
+     * Create a sample in the studio from raw audio data. `frames` are plain Float32Arrays, so a script can slice, reverse,
+     * normalize or re-pitch audio (for example a {@link Project.mixdown} render) before adding it
+     * @param data - The audio
+     * @param name - Display name
+     * @param bpm - Tempo of the audio. Omitted: detected from the audio. 0: none, it plays in seconds.
+     * Pass `project.bpm` for audio rendered from the project, so regions keep it in time
      * @example
      * ```ts
      * const audio = AudioData.create(sampleRate, sampleRate, 1)
@@ -2891,7 +2936,7 @@ export interface Api {
      * const sample = await openDAW.addSample(audio, "Sine")
      * ```
      */
-    addSample(data: AudioData, name: string): Promise<Sample>
+    addSample(data: AudioData, name: string, bpm?: number): Promise<Sample>
     /** All samples available in the studio (stock and user samples) */
     listSamples(): Promise<ReadonlyArray<Sample>>
     /**

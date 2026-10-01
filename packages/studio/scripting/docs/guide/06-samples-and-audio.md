@@ -91,3 +91,33 @@ await openDAW.saveFile(WavFile.encodeFloats(audio), `${project.name}.wav`, "audi
 
 Because the render is plain `AudioData`, a script can inspect or process it before saving, or hand it back
 to the studio with `openDAW.addSample(audio, "Bounce")`.
+
+## Resampling
+
+`project.mixdown({units, from, to, tail})` renders only the given units (after their effects, before their
+faders, so mute and volume do not apply) for an exact range in PPQN, plus `tail` seconds. Process the frames
+(reverse, slice, normalize, re-pitch), add the result with `openDAW.addSample(audio, name, project.bpm)` and
+play it back: as chops on a Tape track, in Playfield slots, or in an Apparat or Werkstatt `// @sample` slot.
+Then render that and repeat.
+
+```ts
+const project = await openDAW.getProject()
+const bass = project.findAudioUnit("Bass")
+if (bass === null) {throw new Error("no unit 'Bass'")}
+const audio = await project.mixdown({units: [bass], from: 0, to: PPQN.Bar})
+const reversed = AudioData.create(audio.sampleRate, audio.numberOfFrames, audio.numberOfChannels)
+audio.frames.forEach((channel, index) => reversed.frames[index].set(channel.slice().reverse()))
+const growl = await openDAW.addSample(audio, "Bass Resample", project.bpm)
+const growlReversed = await openDAW.addSample(reversed, "Bass Resample Reversed", project.bpm)
+const track = project.addInstrumentUnit("Tape", {label: "Bass Chops"}).audioTracks[0]
+const step = PPQN.SemiQuaver
+track.addRegion(growl, {position: PPQN.Bar * 4, duration: step * 2, loopDuration: PPQN.Bar, loopOffset: step * 6})
+track.addRegion(growlReversed, {position: PPQN.Bar * 4 + step * 2, duration: step * 2, loopDuration: PPQN.Bar,
+    playback: "signalsmith", transpose: -12})
+const pads = project.addInstrumentUnit("Playfield", {label: "Bass Pads"})
+pads.instrument.addSample(growl, {note: 36, sampleStart: 0.5, sampleEnd: 0.625})
+bass.mute = true
+```
+
+A chop with a tempo-following playback spans the whole sample over `loopDuration` and plays `duration` of it
+from `loopOffset`. With `"no-sync"` use seconds instead: `{playback: "no-sync", duration: 0.25, waveformOffset: 0.5}`.

@@ -89,6 +89,6 @@ describe("openDAW.saveFile", () => {
         expect(host.saved).toHaveLength(1)
         expect(host.saved[0].fileName).toBe("Render.wav")
         expect(host.saved[0].mimeType).toBe("audio/wav")
-        expect(host.saved[0].byteLength).toBe(WavFile.encodeFloats(await host.renderMixdown(new ArrayBuffer(0), {})).byteLength)
+        expect(host.saved[0].byteLength).toBe(WavFile.encodeFloats(await host.renderMixdown(new ArrayBuffer(0), {sampleRate: 48000})).byteLength)
     })
 })

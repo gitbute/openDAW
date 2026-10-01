@@ -3,8 +3,8 @@ import {Promises} from "@opendaw/lib-runtime"
 import {AudioData} from "@opendaw/lib-dsp"
 import {UpdateTask} from "@opendaw/lib-box"
 import {BoxIO} from "@opendaw/studio-boxes"
-import {AnyAudioUnit, AnyDevice, Api, MixdownOptions, Project, Sample, Tubular} from "../Api"
-import {ScriptHostProtocol, ScriptPreset} from "../ScriptHostProtocol"
+import {AnyAudioUnit, AnyDevice, Api, Project, Sample, Tubular} from "../Api"
+import {MixdownRequest, ScriptHostProtocol, ScriptPreset} from "../ScriptHostProtocol"
 import {ScriptExecutionContext} from "../ScriptExecutionProtocol"
 import {ScriptRunner} from "../ScriptRunner"
 import {ApiImpl} from "../impl/ApiImpl"
@@ -38,10 +38,10 @@ class AgentScriptSession implements ScriptHostProtocol {
     hasProject(): Promise<boolean> {return this.#remote.hasProject()}
     fetchProject(): Promise<{ buffer: ArrayBuffer, name: string }> {return this.#remote.fetchProject()}
     async showInfo(headline: string, message: string): Promise<void> {this.#logs.push(`[showInfo] ${headline}: ${message}`)}
-    addSample(data: AudioData, name: string): Promise<Sample> {return this.#remote.addSample(data, name)}
+    addSample(data: AudioData, name: string, bpm?: number): Promise<Sample> {return this.#remote.addSample(data, name, bpm)}
     listSamples(): Promise<ReadonlyArray<Sample>> {return this.#remote.listSamples()}
-    renderMixdown(buffer: ArrayBufferLike, options: MixdownOptions): Promise<AudioData> {
-        return this.#remote.renderMixdown(buffer, options)
+    renderMixdown(buffer: ArrayBufferLike, request: MixdownRequest): Promise<AudioData> {
+        return this.#remote.renderMixdown(buffer, request)
     }
     saveFile(buffer: ArrayBuffer, fileName: string, mimeType: string): Promise<void> {
         return this.#remote.saveFile(buffer, fileName, mimeType)
@@ -79,7 +79,7 @@ class AgentApi implements Api {
         return this.#project
     }
     showInfo(headline: string, message: string): Promise<void> {return this.#api.showInfo(headline, message)}
-    addSample(data: AudioData, name: string): Promise<Sample> {return this.#api.addSample(data, name)}
+    addSample(data: AudioData, name: string, bpm?: number): Promise<Sample> {return this.#api.addSample(data, name, bpm)}
     listSamples(): Promise<ReadonlyArray<Sample>> {return this.#api.listSamples()}
     saveFile(data: ArrayBuffer | ArrayBufferView, fileName: string, mimeType?: string): Promise<void> {
         return this.#api.saveFile(data, fileName, mimeType)

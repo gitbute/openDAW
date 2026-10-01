@@ -1,8 +1,8 @@
-import {AudioData} from "@opendaw/lib-dsp"
+import {AudioData, ppqn, seconds} from "@opendaw/lib-dsp"
 import {UpdateTask} from "@opendaw/lib-box"
 import {BoxIO} from "@opendaw/studio-boxes"
 import {int} from "@opendaw/lib-std"
-import {MixdownOptions, Sample} from "./Api"
+import {Sample} from "./Api"
 
 export type ScriptPresetCategory =
     "instrument" | "audio-effect" | "midi-effect" | "audio-unit" | "audio-effect-chain" | "midi-effect-chain"
@@ -14,6 +14,15 @@ export type ScriptPreset = {
     readonly buffer: ArrayBuffer
 }
 
+export type MixdownRange = { readonly from: ppqn, readonly to: ppqn, readonly tail: seconds }
+
+// A validated Project.mixdown call: units travel as audio unit uuids
+export type MixdownRequest = {
+    readonly sampleRate: int
+    readonly units?: ReadonlyArray<string>
+    readonly range?: MixdownRange
+}
+
 export interface ScriptHostProtocol {
     openProject(buffer: ArrayBufferLike, name?: string): void
     // Replays a script's edits onto the open project as one undoable step. `checksum` is the graph the
@@ -22,9 +31,9 @@ export interface ScriptHostProtocol {
     hasProject(): Promise<boolean>
     fetchProject(): Promise<{ buffer: ArrayBuffer, name: string }>
     showInfo(headline: string, message: string): Promise<void>
-    addSample(data: AudioData, name: string): Promise<Sample>
+    addSample(data: AudioData, name: string, bpm?: number): Promise<Sample>
     listSamples(): Promise<ReadonlyArray<Sample>>
-    renderMixdown(buffer: ArrayBufferLike, options: MixdownOptions): Promise<AudioData>
+    renderMixdown(buffer: ArrayBufferLike, request: MixdownRequest): Promise<AudioData>
     saveFile(buffer: ArrayBuffer, fileName: string, mimeType: string): Promise<void>
     fetchPreset(uuid: string): Promise<ScriptPreset>
     fetchTubularVoice(cartridge: string, voice: int | string): Promise<Uint8Array>

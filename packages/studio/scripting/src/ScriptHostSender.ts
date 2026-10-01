@@ -3,8 +3,8 @@ import {AudioData} from "@opendaw/lib-dsp"
 import {UpdateTask} from "@opendaw/lib-box"
 import {BoxIO} from "@opendaw/studio-boxes"
 import {int} from "@opendaw/lib-std"
-import {ScriptHostProtocol, ScriptPreset} from "./ScriptHostProtocol"
-import {MixdownOptions, Sample} from "./Api"
+import {MixdownRequest, ScriptHostProtocol, ScriptPreset} from "./ScriptHostProtocol"
+import {Sample} from "./Api"
 
 export namespace ScriptHostSender {
     export const create = (messenger: Messenger): ScriptHostProtocol => Communicator.sender<ScriptHostProtocol>(messenger,
@@ -24,14 +24,14 @@ export namespace ScriptHostSender {
             showInfo(headline: string, message: string): Promise<void> {
                 return dispatcher.dispatchAndReturn(this.showInfo, headline, message)
             }
-            addSample(data: AudioData, name: string): Promise<Sample> {
-                return dispatcher.dispatchAndReturn(this.addSample, data, name)
+            addSample(data: AudioData, name: string, bpm?: number): Promise<Sample> {
+                return dispatcher.dispatchAndReturn(this.addSample, data, name, bpm)
             }
             listSamples(): Promise<ReadonlyArray<Sample>> {
                 return dispatcher.dispatchAndReturn(this.listSamples)
             }
-            renderMixdown(buffer: ArrayBufferLike, options: MixdownOptions): Promise<AudioData> {
-                return dispatcher.dispatchAndReturn(this.renderMixdown, buffer, options)
+            renderMixdown(buffer: ArrayBufferLike, request: MixdownRequest): Promise<AudioData> {
+                return dispatcher.dispatchAndReturn(this.renderMixdown, buffer, request)
             }
             saveFile(buffer: ArrayBuffer, fileName: string, mimeType: string): Promise<void> {
                 return dispatcher.dispatchAndReturn(this.saveFile, buffer, fileName, mimeType)

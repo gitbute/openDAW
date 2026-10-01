@@ -32,12 +32,16 @@ export class ApiImpl implements Api {
         return project
     }
 
-    async addSample(data: AudioData, name: string): Promise<Sample> {
+    async addSample(data: AudioData, name: string, bpm?: number): Promise<Sample> {
         if (typeof data !== "object" || isNull(data) || !Array.isArray(data.frames)) {
             return panic(new TypeError("addSample: expected AudioData"))
         }
         if (!(data.numberOfFrames > 0)) {return panic(new RangeError("addSample: audio data is empty"))}
-        return this.#protocol.addSample(data, Guard.string(name, "name"))
+        const tempo = isDefined(bpm) ? Guard.finite(bpm, "bpm") : undefined
+        if (isDefined(tempo) && tempo !== 0 && (tempo < 30 || tempo > 1000)) {
+            return panic(new RangeError(`addSample: bpm must be 0 (none) or within 30 to 1000, got ${tempo}`))
+        }
+        return this.#protocol.addSample(data, Guard.string(name, "name"), tempo)
     }
 
     listSamples(): Promise<ReadonlyArray<Sample>> {return this.#protocol.listSamples()}
