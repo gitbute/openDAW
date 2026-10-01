@@ -28,6 +28,21 @@ describe("Dsp global", () => {
         expect(DspLibraryImpl.include("svf")).toContain("Dsp.Svf = class Svf")
     })
 
+    it("links automatically when device code uses Dsp blocks, also from a collapsed example", () => {
+        const {project} = createFixture()
+        const unit = project.addInstrumentUnit("Apparat", {label: "Monster"})
+        const plain = "class Processor { process() {} }"
+        unit.instrument.code = plain
+        expect(unit.instrument.code).toBe(plain)
+        const collapsed = "// openDAW DSP library v1: core, svf (collapsed here, linked automatically when assigned to device.code)\n" +
+            "// built with Dsp.link, see Dsp.include\nclass Processor { constructor() { this.filter = new Dsp.Svf() } process() {} }"
+        unit.instrument.code = collapsed
+        expect(DspLibraryImpl.isLinked(unit.instrument.code)).toBe(true)
+        expect(unit.instrument.code).toContain("Dsp.Svf = class Svf")
+        expect(unit.instrument.code).not.toContain("(collapsed")
+        expect(unit.label).toBe("Monster")
+    })
+
     it("rejects unknown members with the available names", () => {
         expect(() => DspLibraryImpl.link("new Dsp.Reverb()")).toThrow(/Unknown Dsp.Reverb/)
     })

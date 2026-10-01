@@ -18,6 +18,8 @@ export type DeviceEntry = {
 
 export type ManualLoader = Func<string, Option<string>>
 
+const LabelLine = /^\/\/ @label[^\n]*\n/m
+
 export namespace ManualSummary {
     const firstSentence = (text: string, limit: number): string => {
         const sentence = text.replace(/\*\*|\[|\]\([^)]*\)/g, "").replace(/\s+/g, " ").trim().split(/(?<=\.)\s/)[0]
@@ -121,7 +123,8 @@ export class DeviceCatalog {
         const lower = name.trim().toLowerCase()
         const found = docs.examples.find(example => example.name.toLowerCase() === lower)
             ?? docs.examples.find(example => example.name.toLowerCase().includes(lower))
-        return Option.wrap(found).map(example => `// ${entry.key} example: ${example.name}\n${ScriptDsp.collapse(example.code)}`)
+        return Option.wrap(found).map(example =>
+            `// ${entry.key} example: ${example.name}\n${ScriptDsp.collapse(example.code).replace(LabelLine, "")}`)
     }
 
     manual(entry: DeviceEntry): Option<string> {

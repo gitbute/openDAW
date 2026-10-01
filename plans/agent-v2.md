@@ -69,6 +69,22 @@ Work directly on `agent/v2` (normal commits, push to `origin`). History of runs 
   (~2.8k tokens), examples: DSP Growl Bass, DSP Supersaw Lead, DSP Reese Bass. Source: `studio/adapters/src/script-dsp/`.
 - Benchmark for both: the dubstep/Skrillex prompt (sound-design bound).
 
+Skrillex runs (Sol low, `make a sick brostep drop, 8 bars, skrillex style`, fresh project, no prompt hint):
+- Run 1: found the library and the examples on its own, but the collapsed example (library shown as one comment line)
+  broke `Dsp.link` and, assigned directly, left `Dsp` undefined; the example's `// @label` renamed its units. It concluded
+  the examples were broken and fell back to a hand-written FM synth. Fixed: assigning device code links the library
+  automatically (collapsed placeholder included, comments ignored), examples in device_reference drop `@label`,
+  wavetables build every mip level at creation.
+- Run 2: used the DSP Growl Bass example twice with different knob settings, wrote its own Sub from Dsp blocks,
+  auditioned first. No resampling. Mix dark (highMid -24, high -36 dB). User: "chaotic and funny, better than before".
+- Finding: complete example instruments act as presets. At low effort the agent loads the 117-line, 13-knob growl and
+  turns knobs instead of designing a sound; the reference also says "use it instead of hand-written DSP".
+  Next experiment: hide the examples from device_reference (keep them in the editor and tests), word the library as
+  optional parts, same prompt again. Then: sound brief from research (how the defining sounds are made), a sound-design
+  subagent per signature sound, one generic prompt line on resampling.
+- CLAP feasibility (perception proxy): rank real growls vs. the agent's renders vs. contrast clips against text and a
+  reference clip with a CLAP model (transformers.js, CPU). Build into audition/listen only if it separates them.
+
 ## Next levers
 
 1. Eval harness: fixed prompt suite, identical runs, results side by side. Every prompt change gets an A/B, and anything
@@ -101,6 +117,8 @@ Work directly on `agent/v2` (normal commits, push to `origin`). History of runs 
 9. Scripts cannot read the audio of existing library samples (only their own renders), so stock samples cannot be resampled.
 10. DSP library gaps: wavetable warp modes, mip-level crossfade, through-zero FM, chorus/delay/reverb blocks, Werkstatt
     editor example.
+11. Script device worst-block spikes (Growl 504%, a plain Dsp sine Sub 126%) in a few blocks per render: warm-up/JIT
+    or a wavetable built when a parameter switches tables. Separate warm-up in the load meter, check table switching.
 
 Not bugs (keep in mind): a script @param value resets only when its default in the code changes (same as the editor);
 "Keep Sample?" is upstream's guard before deleting an orphaned user sample.

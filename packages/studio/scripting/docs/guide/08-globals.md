@@ -26,7 +26,7 @@ Scripts have no imports. These names are available everywhere:
 | `Mixing`              | Panning laws for StereoTool                                                                     |
 | `TransientPlayMode`   | `Once`, `Repeat`, `Pingpong` for time-stretched audio regions                                   |
 | `AudioSendRouting`    | `Pre`, `Post`                                                                                   |
-| `Dsp`                 | {@link DspLibrary}: `device.code = Dsp.link(code)` adds the DSP blocks Apparat/Werkstatt code uses (`Dsp.Svf`, `Dsp.WavetableOsc`, ...) |
+| `Dsp`                 | {@link DspLibrary}: DSP blocks for Apparat/Werkstatt code (`Dsp.Svf`, `Dsp.WavetableOsc`, ...), linked automatically when assigned to `device.code` |
 
 All interface names of the reference are available as types for annotations, e.g. `const effects:
 ReadonlyArray<AnyAudioEffect> = unit.audioEffects`.

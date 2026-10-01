@@ -965,7 +965,10 @@ export interface ScriptSample {
  * @group Script Devices
  */
 export interface ScriptDevice {
-    /** The script source. Setting it re-declares the parameters and samples from its `// @param` / `// @sample` lines */
+    /**
+     * The script source. Setting it re-declares the parameters and samples from its `// @param` / `// @sample` lines
+     * and links the DSP library automatically when the code uses `Dsp.Name` blocks (see {@link DspLibrary})
+     */
     code: string
     /** Declared parameters */
     readonly parameters: ReadonlyArray<ScriptParameter>
@@ -3017,6 +3020,7 @@ export type DspBlock = "core" | "smoother" | "adsr" | "lfo" | "dc" | "noise" | "
 export interface DspLibrary {
     /**
      * Returns the code with exactly the library blocks it references as `Dsp.Name` prepended (dependencies resolved).
+     * Assigning `device.code` does this automatically; call it to inspect or store linked code.
      * An already linked code is re-linked (its old library is replaced), so `Dsp.link(Dsp.strip(device.code) + edits)`
      * and `Dsp.link(device.code)` both work. Throws for an unknown `Dsp.Name`, listing the available names
      */

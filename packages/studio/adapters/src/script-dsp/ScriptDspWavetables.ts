@@ -62,7 +62,7 @@ const wavetable: ScriptDspBlock = {
     name: "wavetable",
     requires: ["fft"],
     exports: ["Wavetable", "WavetableOsc", "WavetableSlot"],
-    doc: String.raw`- Dsp.Wavetable [setup only]: frames of single cycles stored as harmonic spectra, rendered lazily into 17 half-octave mip levels (brick-wall band-limited, aliasing below -84 dB; max 512 harmonics, 76 KB per used frame). Build once in the constructor and share it between voices. Sources: Dsp.Wavetable.fromAudio(audio, frameSize = 2048) (Serum/Vital WAV loaded via // @sample: frames = length / 2048, max 256; a shorter sample is one cycle), Dsp.Wavetable.fromFunction(frames, (phase, x) => value, oversample = 4) (x = frame position 0..1), Dsp.Wavetable.fromSpectrum(frames, (x, cos, sin, frame) => {...}) (fill harmonic amplitudes, index = harmonic 1..1023), or Dsp.Tables. Tables are peak-normalised. .frames, prepare() renders every level up front.
+    doc: String.raw`- Dsp.Wavetable [setup only]: frames of single cycles stored as harmonic spectra, rendered into 17 half-octave mip levels when the table is created (never inside process) (brick-wall band-limited, aliasing below -84 dB; max 512 harmonics, 76 KB per frame). Build once in the constructor and share it between voices. Sources: Dsp.Wavetable.fromAudio(audio, frameSize = 2048) (Serum/Vital WAV loaded via // @sample: frames = length / 2048, max 256; a shorter sample is one cycle), Dsp.Wavetable.fromFunction(frames, (phase, x) => value, oversample = 4) (x = frame position 0..1), Dsp.Wavetable.fromSpectrum(frames, (x, cos, sin, frame) => {...}) (fill harmonic amplitudes, index = harmonic 1..1023), or Dsp.Tables. Tables are peak-normalised. .frames.
 - new Dsp.WavetableOsc(table) [about 20 ns]: mip-mapped, 4-point Hermite interpolated, frame morph. setFrequency(hz) (picks the mip level, cheap enough per sample), .position 0..1 morphs between adjacent frames (smooth it, e.g. Dsp.Smoother), next() returns about -1..1, nextPM(offset) with phase modulation in cycles, reset(phase = 0), setTable(table).
 - new Dsp.WavetableSlot(fallbackTable, frameSize = 2048) [very low per block]: wavetable from a // @sample slot. In process(): const table = this.slot.update(this.samples.wavetable), then osc.setTable(table) per voice. Returns the fallback until a sample is loaded; detects sample swaps and rebuilds once. setFallback(table) switches the built-in table.`,
     source: String.raw`
@@ -109,7 +109,7 @@ Dsp.Wavetable = class Wavetable {
         table.source = source
         table.frameSize = size
         table.gain = peak > 1e-9 ? 1 / peak : 1
-        return table
+        return table.prepare()
     }
     static fromFunction(frames, generator, oversample = 4) {
         const table = new Wavetable(frames)
@@ -135,7 +135,7 @@ Dsp.Wavetable = class Wavetable {
             table.ready[frame] = 1
         }
         table.gain = peak > 1e-9 ? 1 / peak : 1
-        return table
+        return table.prepare()
     }
     static fromSpectrum(frames, fill) {
         const table = new Wavetable(frames)
@@ -159,7 +159,7 @@ Dsp.Wavetable = class Wavetable {
             table.gain = 1 / peak
             table.built.fill(0)
         }
-        return table
+        return table.prepare()
     }
     frameData(frame, level) {
         if (this.built[frame * LEVELS + level] === 0) {this.#build(frame, level)}
@@ -169,6 +169,7 @@ Dsp.Wavetable = class Wavetable {
         for (let frame = 0; frame < this.frames; frame++) {
             for (let level = 0; level < LEVELS; level++) {this.frameData(frame, level)}
         }
+        return this
     }
     #spectrum(frame) {
         if (this.ready[frame] === 1) {return}

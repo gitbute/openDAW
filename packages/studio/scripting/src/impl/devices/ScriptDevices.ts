@@ -1,7 +1,7 @@
 import {Box, Field, PointerTypes, StringField} from "@opendaw/lib-box"
 import {AudioFileBox, WerkstattParameterBox, WerkstattSampleBox} from "@opendaw/studio-boxes"
 import {Pointers} from "@opendaw/studio-enums"
-import {ParamDeclaration, SampleDeclaration, ScriptDeclaration} from "@opendaw/studio-adapters"
+import {ParamDeclaration, SampleDeclaration, ScriptDeclaration, ScriptDsp} from "@opendaw/studio-adapters"
 import {asInstanceOf, float, int, isDefined, isNull, Nullable, panic, UUID} from "@opendaw/lib-std"
 import {Sample, ScriptParameter, ScriptSample} from "../../Api"
 import {Context} from "../Context"
@@ -69,7 +69,7 @@ export class ScriptSupport {
     get code(): string {return this.#parse(this.#box.code.getValue()).userCode}
 
     set code(source: string) {
-        const userCode = this.#parse(Guard.string(source, "code")).userCode
+        const userCode = ScriptDsp.linkIfUsed(this.#parse(Guard.string(source, "code")).userCode)
         const params = ScriptDeclaration.parseParams(userCode)
         const samples = ScriptDeclaration.parseSamples(userCode)
         const order = ScriptDeclaration.parseDeclarationOrder(userCode)

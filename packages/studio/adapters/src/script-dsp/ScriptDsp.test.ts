@@ -95,7 +95,10 @@ describe("ScriptDsp linking", () => {
     })
     it("collapses the library to one line for reading", () => {
         const collapsed = ScriptDsp.collapse(ScriptDsp.link("const f = new Dsp.Svf()"))
-        expect(collapsed).toBe("// openDAW DSP library v1: core, svf (collapsed, added by Dsp.link)\nconst f = new Dsp.Svf()")
+        expect(collapsed).toBe("// openDAW DSP library v1: core, svf (collapsed here, linked automatically when assigned to device.code)\nconst f = new Dsp.Svf()")
+        expect(ScriptDsp.link(collapsed)).toBe(ScriptDsp.link("const f = new Dsp.Svf()"))
+        expect(ScriptDsp.usedBlocks("// Dsp.Reverb in a comment\n/* Dsp.Chorus */ Dsp.link(code)")).toEqual([])
+        expect(ScriptDsp.linkIfUsed("class Processor {}")).toBe("class Processor {}")
     })
     it("reports unknown blocks and members with the available names", () => {
         expect(() => ScriptDsp.include(["reverb"])).toThrow(/Unknown DSP block 'reverb'. Available: core/)
