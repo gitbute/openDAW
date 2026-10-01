@@ -58,6 +58,17 @@ Work directly on `agent/v2` (normal commits, push to `origin`). History of runs 
 - Subagents are only spawned when the user prompt asks for them.
 - Goal: genre-correct results WITHOUT long per-genre user prompts.
 
+## New, not yet tested live (2026-10-01)
+
+- Resampling: `project.mixdown({units, from, to, tail})` renders units (post-FX, pre-fader) over an exact range;
+  `openDAW.addSample(audio, name, bpm)`; audio regions with `loopDuration` chop in musical time. Agent samples that
+  end up unused are deleted after each run (ledger), no "Keep Sample?" dialog. Guide chapter 06 "Resampling".
+- DSP library for script devices: `device.code = Dsp.link(code)` inlines the referenced blocks (BLEP oscillators,
+  unison, mip-mapped wavetables incl. Serum-format `@sample` tables and generated tables, SVF, ladder, comb, formant,
+  oversampled shapers, crusher, ADSR, LFO with tempo lock, voices). Reference in `device_reference` Apparat/Werkstatt
+  (~2.8k tokens), examples: DSP Growl Bass, DSP Supersaw Lead, DSP Reese Bass. Source: `studio/adapters/src/script-dsp/`.
+- Benchmark for both: the dubstep/Skrillex prompt (sound-design bound).
+
 ## Next levers
 
 1. Eval harness: fixed prompt suite, identical runs, results side by side. Every prompt change gets an A/B, and anything
@@ -86,6 +97,10 @@ Work directly on `agent/v2` (normal commits, push to `origin`). History of runs 
    report percentiles / consecutive overruns.
 6. browse samples: filter one-shot vs loop, transient/tonal descriptors.
 7. Neural Amp's model selector is not exposed through the scripting API/tools.
+8. `apparat-starter-prompt.txt` (part of the Apparat card) still recommends hand-written PolyBLEP; align it with the DSP library.
+9. Scripts cannot read the audio of existing library samples (only their own renders), so stock samples cannot be resampled.
+10. DSP library gaps: wavetable warp modes, mip-level crossfade, through-zero FM, chorus/delay/reverb blocks, Werkstatt
+    editor example.
 
 Not bugs (keep in mind): a script @param value resets only when its default in the code changes (same as the editor);
 "Keep Sample?" is upstream's guard before deleting an orphaned user sample.
@@ -94,7 +109,7 @@ Not bugs (keep in mind): a script @param value resets only when its default in t
 
 1. Perceptual, loudness-matched audition/A-B (descriptions of distortion texture, transient impact, bass articulation).
 2. Oversampled distortion + mastering with meters (multiband saturation, clipper, true-peak limiter, GR traces).
-3. Resampling as a first-class workflow.
+3. Resampling as a first-class workflow ("if you implement only one creative capability next").
 4. Efficient DSP library for Apparat/Werkstatt (band-limited oscillators, tables, formant filters, oversampled nonlinearities).
 5. Unified inspection + targeted patching that preserves parameter state.
 
