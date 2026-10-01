@@ -143,16 +143,16 @@ const mixerJson = (context: Context, adapter: AudioUnitBoxAdapter): JsonObject =
     const {volume, panning, mute, solo} = adapter.namedParameter
     const sends = adapter.auxSends.adapters().map(send => ({
         to: send.optTargetBus.mapOr(bus => InspectUnits.labelOf(context.entries, bus.audioUnitBoxAdapter()), "none"),
-        levelDb: round(send.sendGain.getValue(), 1),
-        routing: send.routingField.getValue() === AudioSendRouting.Pre ? "pre" : "post"
+        amount: round(send.sendGain.getValue(), 1),
+        mode: send.routingField.getValue() === AudioSendRouting.Pre ? "pre" : "post"
     }))
     return {
-        volumeDb: round(volume.getValue(), 1),
-        pan: round(panning.getValue(), 2),
+        volume: round(volume.getValue(), 1),
+        panning: round(panning.getValue(), 2),
         ...when(mute.getValue(), {mute: true}),
         ...when(solo.getValue(), {solo: true}),
         ...adapter.output.adapter.mapOr<JsonObject>(bus => when(!bus.audioUnitBoxAdapter().isOutput,
-            {out: InspectUnits.labelOf(context.entries, bus.audioUnitBoxAdapter())}), {}),
+            {output: InspectUnits.labelOf(context.entries, bus.audioUnitBoxAdapter())}), {}),
         ...when(sends.length > 0, {sends})
     }
 }
@@ -238,8 +238,9 @@ export const createInspectProjectTool = (project: Provider<Project>): AgentTool 
     name: "inspect_project",
     description: "Compact JSON snapshot of the open project: tempo, signature, loop area, markers, length and all " +
         "audio units in mixer order (instrument, MIDI/audio effect chains, mixer, sends, tracks and regions). " +
-        "Positions are 1-based bar.beat[.16th], lengths are bars.beats. Fields at default values are omitted " +
-        "(enabled:true, mute:false, out:master output). Unit labels are unique ('Bass', 'Bass #2') and are the handles other tools use. " +
+        "Positions are 1-based bar.beat[.16th], lengths are bars.beats. Mixer fields use the scripting API names " +
+        "(volume in dB, panning, output, sends with amount in dB and mode). Fields at default values are omitted " +
+        "(enabled:true, mute:false, output:master). Unit labels are unique ('Bass', 'Bass #2') and are the handles other tools use. " +
         "Pass focus=<unit label> to get only that unit with every region and device parameter value. " +
         "Large projects are summarized (regions per track: count, span, labels) to stay compact.",
     inputSchema: {

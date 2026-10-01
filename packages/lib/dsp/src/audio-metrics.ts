@@ -17,6 +17,8 @@ export namespace AudioMetrics {
         durationSeconds: number
         /** BS.1770-4 gated integrated loudness (absolute -70 LUFS, relative -10 LU; 400 ms blocks, 75% overlap). */
         integratedLufs: number
+        /** Share of 100 ms blocks above the -70 LUFS absolute gate (integratedLufs only measures these). */
+        activeFraction: number
         /** EBU Tech 3342 LRA over 3 s short-term values (10 Hz), P95 - P10 after -20 LU relative gate. */
         loudnessRangeLu: number
         maxMomentaryLufs: number
@@ -131,7 +133,7 @@ export namespace AudioMetrics {
     }
 
     const silentLoudness = (durationSeconds: number): Loudness => ({
-        silent: true, durationSeconds, integratedLufs: SILENCE_DB, loudnessRangeLu: 0.0, maxMomentaryLufs: SILENCE_DB,
+        silent: true, durationSeconds, integratedLufs: SILENCE_DB, activeFraction: 0.0, loudnessRangeLu: 0.0, maxMomentaryLufs: SILENCE_DB,
         maxShortTermLufs: SILENCE_DB, truePeakDbtp: SILENCE_DB, samplePeakDbfs: SILENCE_DB, rmsDbfs: SILENCE_DB, crestDb: 0.0
     })
 
@@ -163,13 +165,15 @@ export namespace AudioMetrics {
         const count = Math.max(1, numSub)
         const momentary = windowMeans(subEnergy, count, 4)
         const shortTerm = windowMeans(subEnergy, count, 30)
-        const absMean = gatedMean(momentary, KWeightingFilter.meanSquareOf(ABSOLUTE_GATE_LUFS))
+        const absoluteGate = KWeightingFilter.meanSquareOf(ABSOLUTE_GATE_LUFS)
+        const absMean = gatedMean(momentary, absoluteGate)
+        const activeFraction = subEnergy.slice(0, count).filter(energy => energy >= absoluteGate).length / count
         const durationSeconds = numFrames / sampleRate
         const samplePeakDbfs = amplitudeDb(peak)
         const rmsDbfs = amplitudeDb(Math.sqrt(sumSquares / (numFrames * channels.length)))
         const truePeakDbtp = peak > 1e-6 ? amplitudeDb(Math.max(peak, TruePeak.measure(channels))) : SILENCE_DB
         const base = {
-            durationSeconds, truePeakDbtp, samplePeakDbfs, rmsDbfs, crestDb: samplePeakDbfs - rmsDbfs,
+            durationSeconds, activeFraction, truePeakDbtp, samplePeakDbfs, rmsDbfs, crestDb: samplePeakDbfs - rmsDbfs,
             maxMomentaryLufs: maxLoudness(momentary), maxShortTermLufs: maxLoudness(shortTerm)
         }
         if (absMean <= 0.0) {return {...base, silent: true, integratedLufs: SILENCE_DB, loudnessRangeLu: 0.0}}

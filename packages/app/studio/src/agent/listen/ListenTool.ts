@@ -44,6 +44,7 @@ export namespace ListenTool {
         "warnings such as script device errors), the estimated real-time CPU load of script devices and, if requested, images: 'spectrogram' (log-frequency STFT of the mix",
         "plus one row per stem when at most 6 stems, bar numbers on top) and 'loudness' (RMS curves of mix and stems).",
         `Bars are 1-based and inclusive; at most ${MaxBars} bars per call. Stems are addressed by audio unit label.`,
+        "Stem lufs is gated: it only measures where the stem plays (activeFraction), so a stem playing briefly reads louder than it sits in the mix.",
         StemSource, "No need to solo units to hear them alone.", CodeCellImageHint
     ].join(" ")
 

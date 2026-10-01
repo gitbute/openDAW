@@ -101,7 +101,7 @@ describe("inspect_project", () => {
         expect(bass).toMatchObject({
             instrument: {type: "Vaporisateur"},
             audioFx: [{type: "Delay"}],
-            mixer: {volumeDb: 0, pan: 0, mute: true, sends: [{to: "Reverb", levelDb: -6, routing: "pre"}]},
+            mixer: {volume: 0, panning: 0, mute: true, sends: [{to: "Reverb", amount: -6, mode: "pre"}]},
             tracks: [{type: "notes", regions: [{at: "1.1", len: "2.0", label: "Riff", notes: 3, loop: "1.0"}]}]
         })
         expect(bass2).toMatchObject({audioFx: [{type: "Compressor", sidechain: ["Drums"]}]})

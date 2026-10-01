@@ -1,7 +1,7 @@
 # Agent v2: handoff notes
 
 Codex-driven "producer agent" for openDAW, rebuilt on upstream main (fork `gitbute/openDAW`, branch `agent/v2`).
-Work directly on `agent/v2` (normal commits, push to `origin`). The old v1 branch `codex/slice-1-control-api` is reference only.
+Work directly on `agent/v2` (normal commits, push to `origin`). History of runs and fixes: git log.
 
 ## Architecture
 
@@ -33,12 +33,12 @@ Work directly on `agent/v2` (normal commits, push to `origin`). The old v1 branc
 
 - Drive via Playwright MCP (shared browser; bring the tab to front before clicking; radio tabs need `label:has-text(...)`).
 - Codex rollouts: `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`. Main thread has `"source":"vscode"`, subagents
-  `{"subagent":{"thread_spawn":...}}`. Turn end = `"type":"task_complete"`. Tool calls = `item_completed` with `item.tool`.
+  `{"subagent":{"thread_spawn":...}}`. Turn end = `"type":"task_complete"`. Tool calls = `item.type == "DynamicToolCall"`,
+  web searches = `item.type == "Extension"` with kind `web.search`.
 - The agent calls tools from code cells: tool results arrive as ONE string (JSON, then one `data:image` URL per line).
-- Standard test (user wants identical prompts for comparison):
-  - Starter: `make sick dubstep / brostep, trivecta style, 8 bars. use subagents to work in parallel where it helps (e.g. research, designing the different bass/growl sounds at the same time), but keep one of you in charge of the project edits.`
+- Standard test (identical prompts for comparison), fresh project, GPT-6.1-Sol low (medium as second opinion):
+  - Starter: `make a sick psytrance loop, 8 bars, main loop, vibe tribe style`
   - Feedback: `nice work! before we continue: we are building and improving this openDAW toolset for you. please give us honest, concrete feedback as the agent who actually used it: which tools worked well, which were clumsy or confusing, what errors or friction you hit (api naming, types, docs, listen results, device_reference, browse, subagents), what information you were missing to make better decisions, and what tools or capabilities you wish you had to make music that is louder, dirtier and more creative. rank your top 5 wishes. don't change the project for this answer.`
-  - Model GPT-6.1-Sol, effort low (baseline) or medium.
 
 ## User preferences
 
@@ -47,94 +47,59 @@ Work directly on `agent/v2` (normal commits, push to `origin`). The old v1 branc
 - Subagents: no hard rules, only coordination (agree on ownership).
 - Commits only on work branches; push only to `origin` (the fork), never upstream.
 
-## Test log (GPT-6.1-Sol, identical dubstep prompt, 2026-09-30)
+## Where we stand (2026-10-01)
 
-| Run | Effort | Tool calls | Failed scripts | Notes |
-|---|---|---|---|---|
-| 1 (pre-fixes, killed by HMR reload) | low | ~24 | 3 | `throw Error()` typing, @param automation broken |
-| 2 | low | 36 | 1 | PPQN docs wrong (8 bars → 4), unit.output crash, Maximizer +3.1 dBTP, live CPU stutter |
-| 3 | low | 27 | 2 | loop assignment, @param by label; images still unusable in code cells |
-| 4 | medium | 32 | 0 | used audition, images reached the model; user: "fine, not slap-in-your-face" |
+- Tooling, routing, buses/sidechain and mixing are fine (user likes the mix architecture).
+- The gap is genre vocabulary at note and sound level. Unguided runs write generic parts. The research swarm finds
+  the right facts ("octave-jumping bass", "chord-changing bass") but doses them down ("keep jumps selective").
+- With an exact spec in the user prompt (rolling bass following the chords, a jump note in every beat forming a
+  counter-melody), the agent executes it perfectly. User verdict: still only "ok", so sound and production quality is
+  the next gap after the notes.
+- Subagents are only spawned when the user prompt asks for them.
+- Goal: genre-correct results WITHOUT long per-genre user prompts.
 
-| 5 (follow-up in run 4 project, directive "make it SLAP" prompt) | medium | 34 | 0 | Waveshaper ×8, Fold ×2, Crusher, FrequencySplit, Composite, 7 compressors; −6.4 LUFS / −1.3 dBTP, script load 4% |
+## Next levers
 
-User verdict across runs: steadily better, sound still clean/flat ("bass sounds like mids"), not aggressive enough.
-Run 5 (explicitly told to use distortion/multiband/movement): finally aggressive, but "more like chaos" — aggression without
-enough musical coherence. Next lever: balance density/variation with groove and a clear focal voice, not more processing.
+1. Eval harness: fixed prompt suite, identical runs, results side by side. Every prompt change gets an A/B, and anything
+   without an effect is removed. Include an A/B against a minimal prompt (ours may be hurting).
+2. References: the user drops MIDI, screenshots (image paste works) or audio; the agent analyses rhythm, intervals,
+   density, spectrum and loudness and compares its own render against them (reference-track A/B in listen).
+3. Research that returns concrete note-level patterns per defining part instead of adjectives.
 
-| 6 (fresh, melodic full-on "Vibe Tribe / Eskimo / Phanatic", coherence-first prompt) | medium | 28 | 0 | Apparat ×5, Vaporisateur ×2, Revamp ×10, Werkstatt ×2; audition ×2; −12.5 LUFS; NO MIDI effects |
+## Prompt sections under test (remove what shows no effect)
 
-Run 6 verdict (user): bassline OK; leads/melodies "chaos, not psytrancy at all ... children's carousel MIDI notes", "garbage
-arrangements" — no chopped/gated trance-style lead writing, never used Arpeggio/Spielwerk although available.
-=> MELODIC WRITING IS THE WEAKEST SKILL. Sound design, routing, mixing and tooling are now mostly fine.
-Levers (general, no genre recipes):
-- research step should also cover how parts are WRITTEN (rhythm of leads, phrase structure, gating/chops, call/response),
-  not only tempo and sound design;
-- prompt: consider MIDI effects (Arpeggio, Spielwerk, Velocity, Pitch, Zeitgeist) as writing tools, not only hand-placed notes;
-- self-check melody: inspect_notes grid + piano roll against the researched writing idioms before moving on;
-- future: reference MIDI import/analysis (user drops a MIDI or audio reference; agent analyses rhythm, intervals, density).
+| Section | Verify by | Result so far |
+|---|---|---|
+| Finishing bar (identity, phrases) | agent judges identity before finishing | no visible effect → remove unless an A/B shows one |
+| Research as a real step | several searches, sources opened, findings applied | thin without the swarm; findings dosed down |
+| Part brief per defining part | brief visible; parts follow the research | unverified |
+| Sample library for drums | browse called for drums | low: no; medium and swarm: yes |
 
-Bugs found by run 5:
-- Waveshaper `equation` was typed `string` ("preset name or custom equation") and unvalidated; the agent set "tanh(x)", the
-  Waveshaper display crashed ("Unhandled tanh(x)"). Fixed: API union type + `Guard.oneOf`, display falls back to hardclip.
-  Upstream's own Devices test used "tanh(x)" as valid → worth reporting upstream.
-- Neural Amp's model selector is not exposed through the scripting API/tools, so the agent cannot use it.
+## Open issues
 
-## Prompt change log (verify each, remove what shows no effect)
-
-| Date | Change | Verify by | Result |
-|---|---|---|---|
-| 2026-10-01 | Device palette from manual intros + example uses; device_reference always appends the manual | agent uses specialised devices (Tidal, Cubed, Arpeggio) | Tidal used; Cubed read but not used (manual was truncated) |
-| 2026-10-01 | WRITING PARTS section; no Apparat-first default | leads not hand-coded by default; parts checked together | Vaporisateur leads; multi-part inspect_notes used |
-| 2026-10-01 | Finishing bar (identity, phrases) | agent judges identity before finishing | no visible effect yet |
-| 2026-10-01 | Research as a real step (several searches, open sources, how parts are written) | more than one search, sources opened, findings cited | pending |
-| 2026-10-01 | Part brief per defining part before writing notes | brief visible in output; bass/lead follow the research | pending |
-| 2026-10-01 | Sample library for drums and one-shots | browse called for drums | low: no effect; medium and swarm runs: samples used |
-| 2026-10-01 | Producer base instead of Codex coding base (`thread/start` baseInstructions, 5.4k tokens of PR/plugin/skill text) | writing/sound changes by ear | user: "didn't change much" → reverted |
-
-Findings 2026-10-01 (melodic full-on test series): the bass writing is the gap. Explicit research swarm (user prompt) found
-"octave-jumping bass" and "chord-changing bass" for Vibe Tribe; the agent applied root changes but dosed octave jumps down
-("keep selective"). The idiom (jump notes forming a counter-melody, see user's FL screenshot) is described only vaguely
-in text; references (MIDI, screenshots) or note-level research output are the next levers. Subagents are only spawned
-when the user asks for them.
-
-## Open issues (next)
-
-1. Masking still pairs a unit with its group bus in live projects (`lead.output = MELODY` → pair "Crystal hook"/"MELODY"),
-   although `AgentRenderer.feedsOf` + test cover output routing. Reproduce with a real scripted project and explicit stem list
-   `["Crystal hook","BASS","MELODY",...]`; check label/uuid mapping of feeds vs selected stems.
+1. Masking was seen pairing a unit with its own group bus (`lead.output = MELODY`). `AgentRenderer.feedsOf` + test cover
+   output routing and the code looks right; possibly observed before that fix. Verify live on the next run.
 2. Sound artifacts: audition → save as user preset (openDAW preset system), apply by id in run_script, list via browse.
-3. Loop API: `p.loop = {...}` fails (read-only); add a hint or setter.
-4. Gain-reduction traces for compressors/limiter; automation curve readback.
-5. Maximizer has no true-peak limiting (engine, Rust).
-6. Replacing script device code resets matching @param values (e.g. `bite` 0.95 → 0.70): preserve values for params whose
-   label survives, or report resets in the run_script change summary.
-7. inspect_project compact mode hides non-default output destinations (group routing) — always show them.
-8. inspect_notes pitch names: state the octave convention (MIDI 41 shown as F1) and include MIDI numbers.
-9. listen loudness: expose gating/active duration; short stems read louder than the mix (gated LUFS) and confuse the agent.
-10. CPU load: a worst block >100% was reported without a warning, readings unstable; separate warm-up/JIT outliers,
-    report percentiles / consecutive overruns.
-11. browse samples: filter one-shot vs loop, transient/tonal descriptors.
-12. Naming consistency across API, snapshots and references (`volume` vs `volumeDb`, `panning` vs `pan`).
-13. Images in code cells still need manual parsing; a helper in the result (or structured blocks) would remove friction.
+3. Gain-reduction traces for compressors/limiter; automation curve readback.
+4. Maximizer has no true-peak limiting (engine, Rust). The agent sometimes stacks two Maximizers on the output.
+5. CPU load: a worst block >100% was reported without a warning, readings unstable; separate warm-up/JIT outliers,
+   report percentiles / consecutive overruns.
+6. browse samples: filter one-shot vs loop, transient/tonal descriptors.
+7. Neural Amp's model selector is not exposed through the scripting API/tools.
 
-## Agent's own top wishes (latest, medium run)
+Not bugs (keep in mind): a script @param value resets only when its default in the code changes (same as the editor);
+"Keep Sample?" is upstream's guard before deleting an orphaned user sample.
+
+## Agent's own top wishes
 
 1. Perceptual, loudness-matched audition/A-B (descriptions of distortion texture, transient impact, bass articulation).
 2. Oversampled distortion + mastering with meters (multiband saturation, clipper, true-peak limiter, GR traces).
-3. Resampling as a first-class workflow ("if you implement only one creative capability next").
+3. Resampling as a first-class workflow.
 4. Efficient DSP library for Apparat/Werkstatt (band-limited oscillators, tables, formant filters, oversampled nonlinearities).
 5. Unified inspection + targeted patching that preserves parameter state.
 
-Note: most "missing" effects already exist (Fold, Waveshaper, Crusher, Frequency Split, Revamp, Neural Amp); the device palette
-in the prompt (added before run 4) should surface them — check whether run 4+ actually uses them.
-Run 4 devices: Apparat ×5, Playfield ×3, Vaporisateur ×1; effects Revamp ×5, StereoTool ×2, Compressor, Reverb, Delay.
-It used NO distortion (Fold/Waveshaper/Crusher/Neural Amp) and no saturation in its scripts → most likely cause of the
-"clean, flat, not in-your-face" verdict. First lead next session: find out why it doesn't reach for distortion when the style
-demands aggression (without adding genre recipes), e.g. make the sound-design loop compare its growl against the intent.
-
 ## Parked roadmap
 
-Resampling API, reference-track A/B in listen, eval harness (fixed prompt suite, scored), audio input once models accept it
-(`inputAudio` plumbing exists), DSP library for Apparat (CPU-safe oscillators/filters/distortion), agent in live rooms,
-upstreaming generic fixes (PPQN docs, marker clamp, output getter, asInstanceOf messages, Maximizer docs).
+Resampling API, audio input once models accept it (`inputAudio` plumbing exists), DSP library for Apparat (CPU-safe
+oscillators/filters/distortion), agent in live rooms, upstreaming generic fixes (PPQN docs, marker clamp, output getter,
+asInstanceOf messages, Maximizer docs, Waveshaper `equation` validation: upstream's Devices test uses "tanh(x)" as valid).

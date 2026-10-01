@@ -87,6 +87,11 @@ describe("AudioMetrics.loudness (EBU Tech 3341 / 3342 cases)", () => {
         Object.values(result).forEach(value => {if (typeof value === "number") {expect(Number.isFinite(value)).toBe(true)}})
         expect(AudioMetrics.loudness([], SR).silent).toBe(true)
     })
+    it("activeFraction is the share of time above the absolute gate", () => {
+        const result = AudioMetrics.loudness(stereo(concat(sine(997, -20.0, 2.0), new Float32Array(SR * 6))), SR)
+        expect(result.activeFraction).toBeCloseTo(0.25, 1)
+        expect(Math.abs(result.integratedLufs + 20.0)).toBeLessThan(0.5)
+    })
     it("very short input still measures", () => {
         const result = AudioMetrics.loudness(stereo(sine(997, -23.0, 0.05)), SR)
         expect(Math.abs(result.integratedLufs + 23.0)).toBeLessThan(0.5)

@@ -45,6 +45,7 @@ describe("ListenAnalysis", () => {
         expect(text.length).toBeLessThan(6000)
         expect(JSON.parse(text).mix.lufsPerBar).toHaveLength(4)
         expect(JSON.parse(text).stems[2]).toEqual({label: "Lead", silent: true})
+        expect(JSON.parse(text).stems[1].activeFraction).toBe(1)
         expect(JSON.parse(text).masking[0].pair).toEqual(["Kick", "Bass"])
         expect(JSON.parse(text).warnings).toContain("stem 'Lead' is silent")
         expect(JSON.parse(text).mix.spectrumRegionsDb.sub).toBeGreaterThan(JSON.parse(text).mix.spectrumRegionsDb.high)

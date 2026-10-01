@@ -78,6 +78,7 @@ export namespace ListenAnalysis {
             stems: stemAnalyses.map(({stem, analysis}): JsonObject => isDefined(analysis) ? {
                 label: stem.label,
                 ...loudness(analysis.loudness),
+                activeFraction: round(analysis.loudness.activeFraction, 2),
                 lufsPerBar: perBar(stem.channels, sampleRate, barStartFrames),
                 spectrumRegionsDb: regions(analysis.spectrum),
                 timing: timing(analysis.onsets, stepSeconds)
