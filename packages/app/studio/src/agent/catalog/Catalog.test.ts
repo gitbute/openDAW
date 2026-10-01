@@ -3,6 +3,7 @@ import {Option, UUID} from "@opendaw/lib-std"
 import {validateCodexToolboxes} from "@opendaw/studio-codex"
 import type {PresetEntry} from "@opendaw/studio-core"
 import type {Sample, Soundfont} from "@opendaw/studio-adapters"
+import {ScriptDsp} from "@opendaw/studio-adapters"
 import declarations from "@opendaw/studio-scripting/api.declaration?raw"
 import guide01 from "@opendaw/studio-scripting/guide/01-getting-started.md?raw"
 import guide02 from "@opendaw/studio-scripting/guide/02-time-and-units.md?raw"
@@ -280,6 +281,21 @@ describe("DeviceCatalog", () => {
         expect(card).toContain("code: string")
         expect(devices.example(entry, "simple sine").unwrap()).toContain(simpleSine.slice(0, 40))
         expect(devices.example(entry, "nope").isEmpty()).toBe(true)
+    })
+
+    it("shows the DSP library reference and collapses the linked library in examples", () => {
+        const linked = ScriptDsp.link("class Processor { constructor() { this.filter = new Dsp.Svf() } process() {} }")
+        const catalog = new DeviceCatalog(reference.declarations,
+            {Apparat: {guide: ScriptDsp.reference("Apparat"), examples: [{name: "DSP Filter", code: linked}]}}, () => Option.None)
+        const entry = catalog.find("Apparat").unwrap()
+        const example = catalog.example(entry, "dsp filter").unwrap()
+        expect(example).toContain("// openDAW DSP library v1: core, svf (collapsed, added by Dsp.link)")
+        expect(example).toContain("this.filter = new Dsp.Svf()")
+        expect(example).not.toContain("Dsp.Svf = class")
+        const card = catalog.card(entry)
+        expect(card).toContain("## DSP library")
+        expect(card).toContain("new Dsp.WavetableOsc(table)")
+        expect(card).toContain("DSP Growl Bass")
     })
 
     it("appends the declarations of part types a device exposes", () => {

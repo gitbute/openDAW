@@ -1,4 +1,5 @@
 import {Func, isDefined, Option} from "@opendaw/lib-std"
+import {ScriptDsp} from "@opendaw/studio-adapters"
 import type {CodeEditorExample} from "@/ui/code-editor/CodeEditorState"
 import {Declaration, DeclarationIndex, DeclarationMember, Declarations} from "./Declarations"
 import {DeviceCategory, DeviceProbe, ProbedField} from "./DeviceProbe"
@@ -120,7 +121,7 @@ export class DeviceCatalog {
         const lower = name.trim().toLowerCase()
         const found = docs.examples.find(example => example.name.toLowerCase() === lower)
             ?? docs.examples.find(example => example.name.toLowerCase().includes(lower))
-        return Option.wrap(found).map(example => `// ${entry.key} example: ${example.name}\n${example.code}`)
+        return Option.wrap(found).map(example => `// ${entry.key} example: ${example.name}\n${ScriptDsp.collapse(example.code)}`)
     }
 
     manual(entry: DeviceEntry): Option<string> {

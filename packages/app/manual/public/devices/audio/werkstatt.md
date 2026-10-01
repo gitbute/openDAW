@@ -15,6 +15,7 @@ _Werkstatt_ is a scriptable audio effect device. You write a `Processor` class i
 Example uses:
 
 - Custom distortion or waveshaping
+- Filters, formant and comb effects, oversampled distortion from the built-in DSP library (Dsp.*)
 - Experimental stereo effects
 - Granular or glitch processing
 - Ring modulation

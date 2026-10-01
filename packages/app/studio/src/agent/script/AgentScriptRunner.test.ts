@@ -3,9 +3,9 @@ import {existsSync, readFileSync} from "node:fs"
 import {fileURLToPath} from "node:url"
 import ts from "typescript"
 import {BoxEditing} from "@opendaw/lib-box"
-import {Option, panic, UUID} from "@opendaw/lib-std"
+import {asInstanceOf, Option, panic, UUID} from "@opendaw/lib-std"
 import {ProjectSkeleton} from "@opendaw/studio-adapters"
-import {ProjectMetaBox, SelectionBox} from "@opendaw/studio-boxes"
+import {ApparatDeviceBox, ProjectMetaBox, SelectionBox} from "@opendaw/studio-boxes"
 import {AgentScriptExecutor, ScriptHostProtocol} from "@opendaw/studio-scripting"
 import {ScriptCompilation, ScriptCompiler} from "@/script/ScriptCompiler"
 import {ScriptDiagnostics} from "@/script/ScriptDiagnostics"
@@ -163,6 +163,24 @@ describe("AgentScriptRunner", () => {
         expect(result.applied).toBe(false)
         expect(live.bpm()).toBe(before)
         expect(live.editing.canUndo()).toBe(false)
+    })
+
+    it.skipIf(declarations === null)("links DSP library code into an Apparat from a type-checked script", async () => {
+        const live = createLive()
+        const result = await new AgentScriptRunner(live.environment({compile: typecheck})).run({
+            code: [
+                "const project = await openDAW.getProject()",
+                "const synth = project.addInstrumentUnit(\"Apparat\", {label: \"Growl\"}).instrument",
+                "synth.code = Dsp.link(`// @param cutoff 2000 80 18000 exp Hz",
+                "class Processor { constructor() { this.filter = new Dsp.Svf(Dsp.LP) } process() {} }`)",
+                "return [Dsp.isLinked(synth.code), synth.parameters.map(parameter => parameter.label).join()]"
+            ].join("\n"),
+            apply: true
+        })
+        expect(result.diagnostics).toEqual([])
+        expect(result).toMatchObject({ok: true, applied: true, returned: [true, "cutoff"]})
+        const apparat = live.boxGraph.boxes().find(box => box instanceof ApparatDeviceBox)
+        expect(asInstanceOf(apparat, ApparatDeviceBox).code.getValue()).toContain("Dsp.Svf = class Svf")
     })
 
     it("applies a completed script as exactly one undo step", async () => {
