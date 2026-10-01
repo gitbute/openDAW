@@ -2932,3 +2932,61 @@ export interface Api {
      */
     loadTubularVoice(target: Tubular, cartridge: string, voice: int | string): Promise<void>
 }
+
+/**
+ * Block names of the {@link DspLibrary}, for {@link DspLibrary.include}
+ */
+export type DspBlock = "core" | "smoother" | "adsr" | "lfo" | "dc" | "noise" | "fm" | "voices" | "osc" | "unison"
+    | "fft" | "wavetable" | "tables" | "svf" | "ladder" | "comb" | "formant" | "halfband" | "shaper" | "crusher"
+
+/**
+ * DSP building blocks for Apparat and Werkstatt code (the global `Dsp` in scripts): band-limited and wavetable oscillators
+ * (Serum/Vital WAVs via `// @sample`, built-in procedural tables), ZDF SVF and ladder filters, formant and comb filters,
+ * oversampled waveshapers, envelopes, LFOs, smoothers and a voice manager. Device code uses them as `Dsp.Name`
+ * (`new Dsp.WavetableOsc(Dsp.Tables.fm())`, `new Dsp.Svf(Dsp.LP)`); the block reference is in the Apparat and Werkstatt
+ * device cards. The library source is prepended to the device code, so projects stay self-contained and the code
+ * runs identically when a user pastes it into the editor.
+ * @example
+ * ```ts
+ * const filter = unit.addAudioEffect("Werkstatt")
+ * filter.code = Dsp.link(`
+ * // @param cutoff 2000 80 18000 exp Hz
+ * class Processor {
+ *     constructor() {
+ *         this.left = new Dsp.Svf(Dsp.LP)
+ *         this.right = new Dsp.Svf(Dsp.LP)
+ *     }
+ *     paramChanged(name, value) {
+ *         this.left.setParams(value, 0.9)
+ *         this.right.setParams(value, 0.9)
+ *     }
+ *     process({src, out}, {s0, s1}) {
+ *         for (let i = s0; i < s1; i++) {
+ *             out[0][i] = this.left.process(src[0][i])
+ *             out[1][i] = this.right.process(src[1][i])
+ *         }
+ *     }
+ * }`)
+ * ```
+ */
+export interface DspLibrary {
+    /**
+     * Returns the code with exactly the library blocks it references as `Dsp.Name` prepended (dependencies resolved).
+     * An already linked code is re-linked (its old library is replaced), so `Dsp.link(Dsp.strip(device.code) + edits)`
+     * and `Dsp.link(device.code)` both work. Throws for an unknown `Dsp.Name`, listing the available names
+     */
+    link(code: string): string
+    /** The library source of the given blocks and their dependencies, to prepend manually */
+    include(...blocks: ReadonlyArray<DspBlock>): string
+    /** Removes a linked library from device code, returning the user part */
+    strip(code: string): string
+    /** True when the code contains a linked library */
+    isLinked(code: string): boolean
+    /** All block names */
+    readonly blocks: ReadonlyArray<DspBlock>
+    /** Library version, written into the linked header */
+    readonly version: int
+}
+
+/** The DSP library helper for Apparat and Werkstatt code, see {@link DspLibrary} */
+export declare const Dsp: DspLibrary

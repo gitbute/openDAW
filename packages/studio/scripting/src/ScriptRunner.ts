@@ -16,13 +16,14 @@ import {ScriptHostProtocol} from "./ScriptHostProtocol"
 import {ScriptExecutionContext} from "./ScriptExecutionProtocol"
 import {Api} from "./Api"
 import {ApiImpl} from "./impl/ApiImpl"
+import {DspLibraryImpl} from "./impl/DspLibraryImpl"
 
 export namespace ScriptGlobals {
     export const create = (api: Api, context: ScriptExecutionContext): Record<string, unknown> => ({
         ...context,
         openDAW: api,
         AudioData, WavFile, midiToHz, PPQN, FFT, Chord, Interpolation, dbToGain, gainToDb,
-        ClassicWaveform, VoicingMode, Mixing, TransientPlayMode, AudioSendRouting
+        ClassicWaveform, VoicingMode, Mixing, TransientPlayMode, AudioSendRouting, Dsp: DspLibraryImpl
     })
 }
 
