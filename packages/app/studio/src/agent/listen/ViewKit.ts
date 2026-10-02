@@ -1,4 +1,8 @@
 import {int, isDefined, panic} from "@opendaw/lib-std"
+import type {SoundNote} from "@/agent/analysis/SoundTarget"
+import type {AgentRender} from "./AgentRender"
+import type {BarRange} from "./RenderTimeline"
+import type {ViewRequest} from "./ListenViews"
 
 export type ViewRect = { readonly x: number, readonly y: number, readonly width: number, readonly height: number }
 
@@ -28,13 +32,47 @@ export namespace ViewKit {
         "#ff9ecd", "#8c9eff", "#ffd8a8", "#63e6be"
     ]
 
+    export const NoteColor = "rgba(245,197,66,0.75)"
+    export const LeftColor = Series[0]
+    export const RightColor = Series[1]
+
     export const Font = "12px sans-serif"
     export const SmallFont = "10px sans-serif"
+
+    export const CompactSize = {width: 512, height: 200} as const
 
     export const seriesColor = (index: int): string => Series[index % Series.length]
 
     export const clampSize = (width: int, height: int): [int, int] =>
         [Math.max(64, Math.min(MaxWidth, Math.round(width))), Math.max(64, Math.min(MaxHeight, Math.round(height)))]
+
+    export const viewSize = (compact: boolean, fullHeight: int): [int, int] =>
+        compact ? clampSize(CompactSize.width, CompactSize.height) : clampSize(MaxWidth, fullHeight)
+
+    export const barRange = ({from, to}: BarRange): string => from === to ? `bar ${from}` : `bars ${from}-${to}`
+
+    export const niceStep = (raw: number): number => {
+        const magnitude = Math.pow(10, Math.floor(Math.log10(raw)))
+        const normalized = raw / magnitude
+        return (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude
+    }
+
+    export const timeTicks = (durationSeconds: number, plotWidth: number, minSpacing: number): ReadonlyArray<number> => {
+        if (durationSeconds <= 0 || plotWidth <= 0) {return []}
+        const step = niceStep(durationSeconds * minSpacing / plotWidth)
+        const ticks: Array<number> = []
+        for (let index = 0; index * step <= durationSeconds + step * 1e-6; index++) {ticks.push(index * step)}
+        return ticks
+    }
+
+    export const formatSeconds = (seconds: number, step: number): string => {
+        if (step < 0.01) {return `${Number((seconds * 1000).toFixed(step < 0.001 ? 1 : 0))}ms`}
+        const digits = step >= 1 ? 0 : step >= 0.1 ? 1 : 2
+        return `${seconds.toFixed(digits)}s`
+    }
+
+    /** Tick label with the unit on the topmost tick only. */
+    export const axisLabel = (value: string, unit: string, top: boolean): string => top ? `${value} ${unit}` : value
 
     export const labelStride = (count: int, spacing: number, minSpacing: number): int => {
         let stride = 1
@@ -166,6 +204,113 @@ export namespace ViewKit {
             if (startX >= rect.x + rect.width - 1) {return}
             context.fillStyle = Colors.tail
             context.fillRect(startX, rect.y, rect.x + rect.width - startX, rect.height)
+        })
+    }
+
+    /** Bar lines (numbered from bars.from), the musical end and the shaded tail across the rects. */
+    export const drawBars = (context: ViewContext, {mix, barStartFrames, bars, sampleRate, tailSeconds}: AgentRender,
+                             rects: ReadonlyArray<ViewRect>, labelY: number): void => {
+        const totalFrames = mix.length === 0 ? 0 : mix[0].length
+        const musicalEnd = frameToX(totalFrames - Math.round(tailSeconds * sampleRate), totalFrames, rects[0])
+        drawBarGrid(context, barTicks(barStartFrames, bars.from, totalFrames, rects[0]), rects, labelY, musicalEnd)
+        drawTail(context, musicalEnd, rects)
+    }
+
+    export const plot = (context: ViewContext, rect: ViewRect): void => {
+        context.fillStyle = Colors.plot
+        context.fillRect(rect.x, rect.y, rect.width, rect.height)
+    }
+
+    export const dashed = (context: ViewContext, fromX: number, fromY: number, toX: number, toY: number,
+                           color: string, dash: ReadonlyArray<number> = [3, 3]): void => {
+        context.strokeStyle = color
+        context.lineWidth = 1
+        context.setLineDash([...dash])
+        context.beginPath()
+        context.moveTo(fromX, fromY)
+        context.lineTo(toX, toY)
+        context.stroke()
+        context.setLineDash([])
+    }
+
+    /** A polyline through the finite values, broken at NaN. */
+    export const strokeCurve = (context: ViewContext, values: ArrayLike<number>, toX: (index: int) => number,
+                                toY: (value: number) => number, color: string, lineWidth: number): void => {
+        context.strokeStyle = color
+        context.lineWidth = lineWidth
+        context.beginPath()
+        let drawing = false
+        for (let index = 0; index < values.length; index++) {
+            const value = values[index]
+            if (!Number.isFinite(value)) {
+                drawing = false
+                continue
+            }
+            if (drawing) {context.lineTo(toX(index), toY(value))} else {context.moveTo(toX(index), toY(value))}
+            drawing = true
+        }
+        context.stroke()
+    }
+
+    /** Label boxes placed right to left, ending at rightX. */
+    export const labelBoxes = (context: ViewContext, entries: ReadonlyArray<LegendEntry>, rightX: number, y: number): void => {
+        context.font = SmallFont
+        let cursor = rightX
+        entries.forEach(({label, color}) => {
+            cursor -= context.measureText(label).width + 8
+            labelBox(context, label, cursor, y, color)
+            cursor -= 4
+        })
+    }
+
+    export const header = (context: ViewContext, name: string, {render, compact, title}: ViewRequest, x: number): void => {
+        const {bars, bpm, durationSeconds} = render
+        const span = `${durationSeconds.toFixed(durationSeconds < 1 ? 3 : 2)} s`
+        const value = compact
+            ? `${title ?? "Sound"} - ${name}`
+            : `${name} - ${barRange(bars)} - ${span} - ${Math.round(bpm * 100) / 100} BPM`
+        text(context, value, x, compact ? 11 : 14, "left", "middle")
+    }
+
+    /** Seconds below the plot (offset by the crop), bar numbers above it when the render has bars. */
+    export const drawTimeAxis = (context: ViewContext, render: AgentRender, rect: ViewRect, compact: boolean,
+                                 rects: ReadonlyArray<ViewRect> = [rect]): void => {
+        const {durationSeconds, barStartFrames} = render
+        const offset = render.offsetSeconds ?? 0
+        const spaced = timeTicks(durationSeconds, rect.width, compact ? 56 : 72)
+        const step = spaced.length > 1 ? spaced[1] : durationSeconds
+        const first = step > 0 ? Math.ceil(offset / step - 1e-9) * step : offset
+        const ticks = spaced.map((_tick, index) => first + index * step).filter(value => value - offset <= durationSeconds + 1e-9)
+        ticks.forEach(seconds => {
+            const x = rect.x + (seconds - offset) / durationSeconds * rect.width
+            rects.forEach(target => verticalLine(context, x, target.y, target.y + target.height, Colors.grid))
+            const align: CanvasTextAlign = x - rect.x < 12 ? "left" : rect.x + rect.width - x < 12 ? "right" : "center"
+            text(context, formatSeconds(seconds, step), x, rect.y + rect.height + 3, align, "top", Colors.textDim, SmallFont)
+        })
+        if (compact || barStartFrames.length === 0) {return}
+        drawBars(context, render, rects, rects[0].y - 2)
+    }
+
+    export const drawNoteMarkers = (context: ViewContext, notes: ReadonlyArray<SoundNote>, totalFrames: int,
+                                    rect: ViewRect, withOff: boolean, labels: boolean = true): void => {
+        if (notes.length === 0 || totalFrames <= 0) {return}
+        const dense = notes.length * 5 > rect.width
+        let lastLabel = -Infinity
+        notes.forEach(({index, startFrame, offFrame}) => {
+            const x = frameToX(startFrame, totalFrames, rect)
+            if (dense) {
+                verticalLine(context, x, rect.y + rect.height - 5, rect.y + rect.height, NoteColor)
+                return
+            }
+            if (startFrame > 0) {verticalLine(context, x, rect.y, rect.y + rect.height, NoteColor)}
+            if (withOff && isDefined(offFrame) && offFrame > startFrame && offFrame < totalFrames) {
+                const offX = Math.round(frameToX(offFrame, totalFrames, rect)) + 0.5
+                dashed(context, offX, rect.y + 12, offX, rect.y + rect.height, "rgba(245,197,66,0.45)", [2, 3])
+            }
+            if (labels && x - lastLabel >= 22 && rect.x + rect.width - x > 14) {
+                text(context, `n${index}`, x + 2, rect.y + 2, "left", "top", NoteColor, SmallFont)
+                lastLabel = x
+            }
         })
     }
 

@@ -10,8 +10,11 @@ Work directly on `agent/v2` (normal commits, push to `origin`). History of runs 
 - `packages/app/studio/src/agent/`: the `daw` toolbox (`AgentToolboxes.ts`), prompt (`AgentInstructions.ts`, palette appended at
   session start from `DeviceCatalog.palette()`).
   - `script/`: `run_script`, type-checked TS against the upstream scripting API, one undo step per applied run.
-  - `listen/` + `analysis/`: exact offline render (mix + stems), AudioMetrics, masking, per-script-device CPU load, PNG views.
-  - `audition/`: sandbox renders of a sound (+effects, variations) in throwaway projects.
+  - `listen/` + `analysis/`: one `listen` tool with two sources: the project (exact offline render, mix + stems) or
+    `sound` (instrument + effects + variations in throwaway sandbox projects, `audition/SoundSource.ts`; sound calls run
+    concurrently via the per-call `concurrent` predicate). `focus` zooms views and descriptors into seconds or one note.
+    Registries: sound descriptors (`analysis/SoundDescriptors.ts`, families in `analysis/descriptors/`) and views
+    (`listen/ListenViews.ts`). AudioMetrics, masking, per-script-device CPU load.
   - `inspect/`: `inspect_project`, `inspect_notes`. `catalog/`: `browse`, `device_reference`, `api_reference`.
 - `packages/app/studio/src/codex/` + `ui/browse/CodexAgentPanel.tsx`: controller + panel, per-project transcript
   (`projects/v1/<uuid>/codex.json` in OPFS), thread resume, subagent labels, queued messages.
@@ -44,7 +47,10 @@ Work directly on `agent/v2` (normal commits, push to `origin`). History of runs 
 
 - No genre/style recipes in the prompt; the model knows music, researches named artists itself.
 - Apparat is the primary tool for signature sounds; stock devices stay available (full palette).
-- Subagents: no hard rules, only coordination (agree on ownership).
+- Subagents: fan out by default, research AND implementation (one per research angle, one per defining sound/part),
+  for depth and speed; coordination via briefs and unit ownership.
+- Prompt stays general: no detail prompting for one sound, synth or genre; better research is how the agent finds
+  out what a sound needs (e.g. bass tutorials) and whether a device can make it.
 - Commits only on work branches; push only to `origin` (the fork), never upstream.
 
 ## Where we stand (2026-10-01)
@@ -55,7 +61,6 @@ Work directly on `agent/v2` (normal commits, push to `origin`). History of runs 
 - With an exact spec in the user prompt (rolling bass following the chords, a jump note in every beat forming a
   counter-melody), the agent executes it perfectly. User verdict: still only "ok", so sound and production quality is
   the next gap after the notes.
-- Subagents are only spawned when the user prompt asks for them.
 - Goal: genre-correct results WITHOUT long per-genre user prompts.
 
 ## New, not yet tested live (2026-10-01)
@@ -82,8 +87,57 @@ Skrillex runs (Sol low, `make a sick brostep drop, 8 bars, skrillex style`, fres
   Next experiment: hide the examples from device_reference (keep them in the editor and tests), word the library as
   optional parts, same prompt again. Then: sound brief from research (how the defining sounds are made), a sound-design
   subagent per signature sound, one generic prompt line on resampling.
-- CLAP feasibility (perception proxy): rank real growls vs. the agent's renders vs. contrast clips against text and a
-  reference clip with a CLAP model (transformers.js, CPU). Build into audition/listen only if it separates them.
+- CLAP feasibility (2026-10-01, parked): transformers.js on CPU, 1-7 s per 10 s clip. 20 clips: 7 stock bass loops
+  (Skyence, Polarity, ModeAudio), 7 contrast clips (sub, acid pluck, house bass, drone, pad, drums, toy piano), 6 agent
+  renders (DSP growl x3, reese, supersaw, run-1 FM growl, same riff, rendered in Node).
+  `Xenova/clap-htsat-unfused`: categories separate well (pad -> "ambient pad", drums -> "drum loop", sub -> "sine sub");
+  audio-to-reference similarity clusters the stock loops (0.64-0.78) above the agent renders (0.32-0.49). But
+  "aggressive dubstep growl bass" scores the agent's raw synths (0.48-0.55) above the stock loops (0.28-0.31), and the
+  stock library has no real growls to serve as positives. `Xenova/larger_clap_music_and_speech` is worse (pad 0.36 on
+  "growl"). Verdict: coarse category check and reference similarity, not a quality judge; a text score in audition
+  would likely be chased without better sound. Revisit only together with real reference clips.
+
+## Analysis package (2026-10-02, built, smoke-tested live)
+
+`listen` and `audition` merged into one `listen` (project or `sound`, `soundBars`), `focus` (seconds or one note),
+sound descriptors per stem/variation (notes, envelope, pitch, timbre, movement, space, dynamics; project: only when
+stems are listed or focus is set, within 240 stem-seconds), new views scope/spectrum/movement/stereo, new tool `probe`
+(test signals through an effect chain: frequency, harmonics per level, transfer, IMD, compressor timing, impulse/RT60).
+Shared DSP in `analysis/descriptors/dsp/` (MeasureMath, FftCache, PitchYin, HarmonicSpectrum, StereoBands,
+SpectralFrames, ModulationRate, DecayTime); views and probe use it. Sizes: ~1.3 KB descriptors per stem unfocused,
+~3.7 KB focused; probe ~2 KB per chain.
+- Live smoke test (Sol low, real engine): all calls work, images arrive. Found and fixed: octave error read as -1217 cent
+  glide. Observed: Vaporisateur's default resonance (q 0.1) overdamps the filter, so filterOrder 4 sounds very dark
+  even at 4 kHz cutoff; the descriptors showed it (harmonics falling fast, centroid 74 Hz).
+- Open: probe's steady-state tests (harmonics, dynamics, transfer) are skewed by reverb/delay tails; EDT reads 0 with a
+  dominant dry path; uneven silence floors (-113/-120) in spectrumRegionsDb; Timbre runs its own pitch probe.
+- Skrillex run 3 (Sol low, new toolset, ~4 min): researched, loaded the DSP Growl example again, auditioned 2 growl
+  variations with `listen` + `sound` (descriptors), built drums/growls/metal replies/sub/laser hook with buses and returns,
+  listened with stems listed, replaced a Vaporisateur sub that peaked at -37 dB with its own Apparat sub, final mix
+  -10 LUFS / -1.4 dBTP. Did not use focus, the new views or probe. Found: pitch locked on the 5th harmonic of the growl
+  (sub removed, weak fundamental) -> fixed (harmonic lock corrected when the played pitch is known); one listen printed
+  the default spectrogram data URL via text() (56k tokens) — agent error, but the project default view makes it costly.
+  User verdict by ear: pending.
+
+## Ears: local audio LLMs tested and dropped (2026-10-02)
+
+Goal was a judge that hears 10-20 s clips and says exactly how they sound. No cloud audio API is available (no Gemini
+or OpenAI API key; Codex models accept text and images only), so only local models were options.
+
+- Tested on the 20 CLAP clips (describe the sound; "is this a brostep growl"; rate 1-10; A/B pairs in both orders):
+  MOSS-Music-8B-Instruct via HOT-Step CPP `ace-caption` (GGUF Q4_K_M and q8_0, ~2-3 s per clip on the 3090) and
+  MOSS-Audio-4B-Instruct via CrispASR (Q4_K). Note: the plain transformers path drops MOSS's time markers and is worse.
+- MOSS-Music: "heavily distorted synthesizer bass" template for nearly everything (supersaw lead included).
+  MOSS-Audio: better coarse classes (lead vs bass vs drum vs bell, distorted vs clean consistent), but template text,
+  wrong pitch claims (110 Hz for a 44 Hz riff), acid pluck = sub word for word.
+- Both: every clip rated the same (8 resp. 5), every clip "not a growl", A/B answered by position (always B resp.
+  mostly A). No judging, no comparing.
+- Verdict: dropped. Coarse class/distortion info duplicates listen metrics and comes with confident errors the agent
+  would chase. Better lever without ML: producer-style descriptors per clip in audition (distortion/harmonic density,
+  modulation rate and depth, formant/vowel movement, brightness over time, attack/decay).
+
+Also pending: the examples experiment (hide complete DSP instruments from device_reference, library as optional parts),
+and a timeout for read-only tools (see open issue 12).
 
 ## Next levers
 
@@ -101,6 +155,8 @@ Skrillex runs (Sol low, `make a sick brostep drop, 8 bars, skrillex style`, fres
 | Research as a real step | several searches, sources opened, findings applied | thin without the swarm; findings dosed down |
 | Part brief per defining part | brief visible; parts follow the research | unverified |
 | Sample library for drums | browse called for drums | low: no; medium and swarm: yes |
+| Measured sound design (2026-10-02): listen bullet names what each view answers; SOUND SOURCES ends with "make it measurably match" (listen 'sound', descriptors, focus + scope/spectrum/movement, probe for chains); WORKING LOOP shapes each defining sound in isolation and lists defining stems | psy run uses 'sound', focus, the new views, probe | before (Sol low): only listen with stems + spectrogram/loudness, no 'sound'/focus/new views/probe. After (Sol low, "psy-vibe-tribe-prompt-v2"): 3x listen 'sound' (bass, arp lead, acid; one without variations), probe impulse on the Delay, stems listed, 7 listens in total; but views: [] everywhere (it printed results with text(), so it avoided images) and no focus. Fix: restored "request the views ... and look at them", code-cell snippet in prompt and every image hint. Run v3 ("psy-vibe-tribe-prompt-v3"): 8 images seen, scope+spectrum with 2 variations, but Vaporisateur bass again, research = 2 searches on "Vibe Tribe" only, no subagents; 2 failed listen calls (null for -Infinity in params, now accepted). User: v3 "not bad", bass lacking |
+| Research and parallel work (2026-10-02): RESEARCH asks the era/albums question when ambiguous, then fans out research per angle (genre and era, comparable artists, how parts and sounds are made, producer sources); SUBAGENTS: research in parallel, then sound design and parts in parallel, one subagent per defining sound or part | run 4: era question, subagents for research and implementation, deeper sources, faster | Sol overloaded ("model at capacity"), Luna xhigh: asked era but slept in-turn waiting (deadlock with queued panel message), 21 min, 0 subagents, 10 of 16 listen calls failed on interface friction (focus with both fields, stems "none" with sound, MIDI velocity, PPQN positions; all fixed), sounded bad. Fixes: questions end the turn, viewOf (any view on any mixer channel), lenient parsing. Run 5 (Sol low, "psy-vibe-tribe-run5-viewof"): clean era question, 3 searches, 2 Apparat sounds shaped with sound + focus + scope/spectrum, probe, 14 images, 0 failed calls, 0 subagents. User: "the best we ever had". Codex has 4 concurrency slots (3 subagents + root); spawn_agent only as a direct tool call, not from code cells. The agent did not spawn even with spawn_agent named in RESEARCH, so fan-out moved to the user prompt (worked on 2026-10-01); RESEARCH stays a general chain incl. synth tutorials. Run 6 (user prompt asks for fan-out, "psy-vibe-tribe-run6-fanout"): 3 research agents spawned, but after ~90 s the root turned them into builders via followup_task (no wait_agent, no synthesis); a fresh build agent failed with "agent thread limit reached" (Codex counts finished agents until close_agent, openai/codex#22779). User: worse than run 5. Codex docs: automatic delegation only at Ultra, otherwise explicit request or AGENTS.md/skills; intended pattern spawn -> wait -> synthesize -> close. Fixes: SUBAGENTS = coordinator workflow (research agents, wait_agent all, synthesize, gap research, close_agent, fresh build agents with summary + brief + owned units, root owns arrangement and mix); focus.note works in the project (first viewOf channel / listed stem / mix); sound notes in PPQN are detected and converted. Codex multi-agent v2 has no close_agent (v1 had it): agents persist and keep their slot, so ~/.codex/config.toml now has [agents] max_concurrent_threads_per_session = 8 (9 slots incl. root, picked up without restart). Run 8 ("psy-vibe-tribe-run8-slots"): correct coordinator flow (3 research agents, wait_agent, then 5 fresh builders: drums, bass, hook, response, fx; follow-ups from root), heavy token use. Bass: user "3 octaves too high"; the bass builder saw hz 107 / G#1 / vsRequestedCents -55 on every check and ignored it (detuned half a semitone, register 55-110 Hz) -> measurements exist, the agent does not act on them. Steer button on the queued message (turn/steer); first version misread the response ({turnId}, not {turn}) and re-queued, fixed and tested against the real response shape. Note names for the agent switched to scientific pitch (C4 = MIDI 60, name/MIDI everywhere: pitch descriptor, inspect_notes, views), since "G#1" in openDAW naming (107 Hz) reads as ~52 Hz in tutorial naming. Solo run (Sol low, no subagents, prompt names the research sources: isratrance, "mother of all basslines", production threads, synth tutorials; "modern full-on psytrance, lots of bass note movement"; "fullon-solo-research"): user: "the best run ever". Takeaway so far: explicit research sources in the request beat subagent fan-out for quality and cost |
 
 ## Open issues
 
@@ -119,6 +175,11 @@ Skrillex runs (Sol low, `make a sick brostep drop, 8 bars, skrillex style`, fres
     editor example.
 11. Script device worst-block spikes (Growl 504%, a plain Dsp sine Sub 126%) in a few blocks per render: warm-up/JIT
     or a wavetable built when a parameter switches tables. Separate warm-up in the load meter, check table switching.
+12. Agent hung on `browse({kind:"samples"})` (2026-10-01): the app's OPFS worker (`lib/fusion/src/opfs/OpfsWorker.ts`,
+    per-path lock map) held a lock on one cached stock sample's `meta.json` (EO_DubTcno_126_Kick_Loop_01) that was never
+    released, so `SampleStorage.list` never resolved. Files were intact; a tab reload (new worker) fixed it. Root cause
+    unknown (enable the worker's DEBUG logging to catch the hanging operation; upstream candidate). Our fix to build:
+    timeout for read-only tools (clear error after ~30 s) and browse samples falling back to stock when local listing hangs.
 
 Not bugs (keep in mind): a script @param value resets only when its default in the code changes (same as the editor);
 "Keep Sample?" is upstream's guard before deleting an orphaned user sample.

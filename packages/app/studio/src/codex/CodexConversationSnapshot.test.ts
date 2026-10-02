@@ -46,6 +46,6 @@ describe("CodexConversationSnapshot", () => {
         expect(CodexConversationSnapshot.decode(JSON.stringify({version: 99, entries: []})).isEmpty()).toBe(true)
         const decoded = CodexConversationSnapshot.decode(JSON.stringify({version: 1, threadId: 5,
             entries: [{type: "user", id: "u", text: "ok"}, {type: "user", text: "no id"}, {type: "bogus"}]})).unwrap()
-        expect(decoded).toEqual({threadId: null, entries: [{type: "user", id: "u", text: "ok"}]})
+        expect(decoded).toEqual({threadId: null, entries: [{type: "user", id: "u", text: "ok"}], forkPending: false})
     })
 })

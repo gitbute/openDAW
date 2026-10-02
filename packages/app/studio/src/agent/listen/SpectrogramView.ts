@@ -1,6 +1,7 @@
 import {int, TimeSpan} from "@opendaw/lib-std"
-import {FFT, Window} from "@opendaw/lib-dsp"
+import {Window} from "@opendaw/lib-dsp"
 import {Wait} from "@opendaw/lib-runtime"
+import {FftCache} from "@/agent/analysis/descriptors/dsp/FftCache"
 import {AgentRender} from "./AgentRender"
 import {ViewContext, ViewKit, ViewRect} from "./ViewKit"
 
@@ -52,12 +53,13 @@ export namespace Spectrogram {
         const result = new Float32Array(columns * rows).fill(-Infinity)
         const length = channels.length === 0 ? 0 : channels[0].length
         if (length === 0 || columns === 0 || rows === 0) {return result}
-        const fft = new FFT(fftSize)
-        const window = Window.create(Window.Type.Hanning, fftSize)
+        const fft = FftCache.fft(fftSize)
+        const window = FftCache.window(Window.Type.Hanning, fftSize)
         const reference = window.reduce((sum, value) => sum + value, 0) / 2
         const real = new Float32Array(fftSize)
         const imag = new Float32Array(fftSize)
-        const power = new Float32Array(fftSize / 2)
+        const half = fftSize >> 1, mask = fftSize - 1
+        const slots = [new Float32Array(half), new Float32Array(half)]
         const binHz = sampleRate / fftSize
         const top = Math.min(maxFrequency, sampleRate / 2)
         const bands = Array.from({length: rows}, (_band, row) => {
@@ -67,26 +69,20 @@ export namespace Spectrogram {
         })
         const hop = length / columns
         const perColumn = Math.max(1, Math.min(2, Math.round(hop / fftSize)))
+        const frames = columns * perColumn
         const scale = 1.0 / channels.length
-        for (let column = 0; column < columns; column++) {
-            power.fill(0)
-            const center = (column + 0.5) * hop
-            for (let frame = 0; frame < perColumn; frame++) {
-                const offset = Math.round(center + (frame - (perColumn - 1) / 2) * hop / perColumn - fftSize / 2)
-                for (let index = 0; index < fftSize; index++) {
-                    const position = offset + index
-                    let sum = 0.0
-                    if (position >= 0 && position < length) {
-                        for (const channel of channels) {sum += channel[position]}
-                    }
-                    real[index] = sum * scale * window[index]
-                    imag[index] = 0.0
-                }
-                fft.process(real, imag)
-                for (let bin = 0; bin < fftSize / 2; bin++) {
-                    power[bin] += (real[bin] * real[bin] + imag[bin] * imag[bin]) / perColumn
-                }
+        const load = (target: Float32Array, frame: int): void => {
+            const center = (Math.floor(frame / perColumn) + 0.5) * hop
+            const offset = Math.round(center + (frame % perColumn - (perColumn - 1) / 2) * hop / perColumn - fftSize / 2)
+            const from = Math.max(0, -offset), to = Math.min(fftSize, length - offset)
+            target.fill(0.0)
+            for (const channel of channels) {
+                for (let index = from; index < to; index++) {target[index] += channel[offset + index]}
             }
+            for (let index = from; index < to; index++) {target[index] *= scale * window[index]}
+        }
+        const finish = (column: int): void => {
+            const power = slots[column & 1]
             for (let row = 0; row < rows; row++) {
                 const [low, high] = bands[row]
                 let value: number
@@ -102,6 +98,23 @@ export namespace Spectrogram {
                 }
                 result[column * rows + row] = 10 * Math.log10(value / (reference * reference) + 1e-20)
             }
+            power.fill(0.0)
+        }
+        for (let frame = 0; frame < frames; frame += 2) {
+            const paired = frame + 1 < frames
+            load(real, frame)
+            if (paired) {load(imag, frame + 1)} else {imag.fill(0.0)}
+            fft.process(real, imag)
+            const first = slots[Math.floor(frame / perColumn) & 1], second = slots[Math.floor((frame + 1) / perColumn) & 1]
+            const weight = 0.25 / perColumn
+            for (let bin = 0; bin < half; bin++) {
+                const mirror = (fftSize - bin) & mask
+                const re = real[bin], im = imag[bin], mirrorRe = real[mirror], mirrorIm = imag[mirror]
+                first[bin] += ((re + mirrorRe) ** 2 + (im - mirrorIm) ** 2) * weight
+                if (paired) {second[bin] += ((im + mirrorIm) ** 2 + (mirrorRe - re) ** 2) * weight}
+            }
+            if ((frame + 1) % perColumn === 0) {finish(Math.floor(frame / perColumn))}
+            if (paired && (frame + 2) % perColumn === 0) {finish(Math.floor((frame + 1) / perColumn))}
         }
         return result
     }
@@ -168,14 +181,11 @@ export namespace Spectrogram {
         const minDb = options?.minDb ?? -96.0
         const maxDb = options?.maxDb ?? 0.0
         const stems = (options?.stems ?? true) && render.stems.length <= MaxStemRows ? render.stems : []
-        const {sampleRate, mix, bars, bpm, signature: [nominator, denominator], barStartFrames} = render
+        const {sampleRate, mix, bars, bpm, signature: [nominator, denominator]} = render
         const maxFrequency = Math.min(MaxFrequency, sampleRate / 2)
         const plots = layout(width, height, stems.length)
-        const rects = [plots.mix, ...plots.stems]
-        const totalFrames = mix.length === 0 ? 0 : mix[0].length
         ViewKit.fillBackground(context, width, height)
-        const range = bars.from === bars.to ? `bar ${bars.from}` : `bars ${bars.from}-${bars.to}`
-        ViewKit.text(context, `${options?.title ?? "Spectrogram"} (log frequency) - ${range} - ${Math.round(bpm * 100) / 100} BPM - ${nominator}/${denominator}`,
+        ViewKit.text(context, `${options?.title ?? "Spectrogram"} (log frequency) - ${ViewKit.barRange(bars)} -${Math.round(bpm * 100) / 100} BPM - ${nominator}/${denominator}`,
             Margin.left, 14, "left", "middle")
         drawPlot(context, mix, sampleRate, plots.mix, minDb, maxDb, maxFrequency, FftSize)
         for (const [index, stem] of stems.entries()) {
@@ -184,10 +194,7 @@ export namespace Spectrogram {
         }
         drawFrequencyAxis(context, plots.mix, MinFrequency, maxFrequency, true)
         plots.stems.forEach(rect => drawFrequencyAxis(context, rect, MinFrequency, maxFrequency, false))
-        const ticks = ViewKit.barTicks(barStartFrames, bars.from, totalFrames, plots.mix)
-        const musicalEnd = ViewKit.frameToX(totalFrames - Math.round(render.tailSeconds * sampleRate), totalFrames, plots.mix)
-        ViewKit.drawBarGrid(context, ticks, rects, plots.mix.y - 2, musicalEnd)
-        ViewKit.drawTail(context, musicalEnd, rects)
+        ViewKit.drawBars(context, render, [plots.mix, ...plots.stems], plots.mix.y - 2)
         ViewKit.labelBox(context, "Mix", plots.mix.x + 4, plots.mix.y + 4, ViewKit.Colors.mix)
         stems.forEach((stem, index) => {
             const rect = plots.stems[index]

@@ -1,8 +1,8 @@
-import {int, isDefined} from "@opendaw/lib-std"
+import {int, isDefined, Optional} from "@opendaw/lib-std"
 import {AudioMetrics} from "@opendaw/lib-dsp"
 import type {JsonObject, JsonValue} from "@opendaw/studio-codex"
-import {AgentRender, AgentRenderStem} from "@/agent/listen/AgentRender"
-
+import {AgentRender, AgentRenderStem, FrameWindow} from "@/agent/listen/AgentRender"
+import {SoundDescriptors} from "./SoundDescriptors"
 
 const REGIONS: ReadonlyArray<readonly [string, number, number]> = [
     ["sub", 20, 60], ["low", 60, 250], ["lowMid", 250, 2000], ["highMid", 2000, 6000], ["high", 6000, 20000]]
@@ -51,9 +51,32 @@ const warnings = (mix: AudioMetrics.Analysis, stems: ReadonlyArray<AgentRenderSt
     ]
 }
 
+const sound = (label: string, channels: AudioMetrics.Channels, analysis: AudioMetrics.Analysis,
+               {sampleRate, stepSeconds, bpm}: AgentRender, window: Optional<FrameWindow>): JsonObject => {
+    if (isDefined(window)) {
+        const cut = channels.map(channel => channel.subarray(window.startFrame, window.endFrame))
+        return SoundDescriptors.describe({
+            label, channels: cut, sampleRate, notes: SoundDescriptors.detectNotes(cut, sampleRate, stepSeconds),
+            bpm, stepSeconds, focused: true, offsetSeconds: window.startFrame / sampleRate, loudness: undefined
+        })
+    }
+    return SoundDescriptors.describe({
+        label, channels, sampleRate, notes: SoundDescriptors.detectNotes(channels, sampleRate, stepSeconds, analysis.onsets),
+        bpm, stepSeconds, focused: false, offsetSeconds: 0, loudness: analysis.loudness
+    })
+}
+
 export namespace ListenAnalysis {
-    export const analyze = ({sampleRate, mix, stems, barStartFrames, stepSeconds}: AgentRender): JsonObject => {
-        const options = {minIntervalSeconds: Math.max(0.03, 0.6 * stepSeconds)}
+    export const loudnessOf = loudness
+
+    export const regionsOf = regions
+
+    export const perBarOf = perBar
+
+    /** With describe: sound descriptors (over the window when zoomed in) per stem, or for the mix when no stems rendered. */
+    export const analyze = (render: AgentRender, window?: FrameWindow, describe: boolean = false): JsonObject => {
+        const {sampleRate, mix, stems, barStartFrames, stepSeconds} = render
+        const options = SoundDescriptors.onsetOptions(stepSeconds)
         const mixAnalysis = AudioMetrics.analyse(mix, sampleRate, options)
         const stemAnalyses = stems.map(stem => ({stem, analysis: stem.silent ? null : AudioMetrics.analyse(stem.channels, sampleRate, options)}))
         const masking = stemAnalyses.flatMap((first, index) => stemAnalyses.slice(index + 1).map(second => ({first, second})))
@@ -73,7 +96,8 @@ export namespace ListenAnalysis {
                 spectrumRegionsDb: regions(mixAnalysis.spectrum),
                 thirdOctaveDb: mixAnalysis.spectrum.map(band => [band.centerHz, round(band.db)]),
                 stereoBands: stereo(mixAnalysis.stereoBands),
-                timing: timing(mixAnalysis.onsets, stepSeconds)
+                timing: timing(mixAnalysis.onsets, stepSeconds),
+                ...(describe && stems.length === 0 ? {sound: sound("mix", mix, mixAnalysis, render, window)} : {})
             },
             stems: stemAnalyses.map(({stem, analysis}): JsonObject => isDefined(analysis) ? {
                 label: stem.label,
@@ -81,7 +105,8 @@ export namespace ListenAnalysis {
                 activeFraction: round(analysis.loudness.activeFraction, 2),
                 lufsPerBar: perBar(stem.channels, sampleRate, barStartFrames),
                 spectrumRegionsDb: regions(analysis.spectrum),
-                timing: timing(analysis.onsets, stepSeconds)
+                timing: timing(analysis.onsets, stepSeconds),
+                ...(describe ? {sound: sound(stem.label, stem.channels, analysis, render, window)} : {})
             } : {label: stem.label, silent: true}),
             masking,
             warnings: warnings(mixAnalysis, stems)

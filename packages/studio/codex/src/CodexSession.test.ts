@@ -176,6 +176,14 @@ const installServer = (transport: FakeTransport): void => {
                 transport.emit(response(message, {turn: {id}}))
                 break
             }
+            case "thread/fork":
+                transport.emit(response(message, {thread: {id: "thread-fork", sessionId: "session-fork"}}))
+                break
+            case "turn/steer": {
+                const params = message.params as JsonObject
+                transport.emit(response(message, {turnId: String(params.expectedTurnId)}))
+                break
+            }
             case "turn/interrupt":
             case "thread/unsubscribe":
                 transport.emit(response(message, {}))
@@ -429,6 +437,41 @@ describe("CodexSession", () => {
             await tick()
             expect(order.slice(3)).toEqual(["audition:end", "mutate:end", "inspect:start"])
             expect(replyTo(transport, 73)).toMatchObject({result: {success: true}})
+        } finally {
+            await session.disconnect()
+        }
+    })
+
+    it("asks a tool with a concurrency predicate per call", async () => {
+        const transport = new FakeTransport()
+        installServer(transport)
+        const order: Array<string> = []
+        const mutate = deferred<AgentToolResult>()
+        const session = new CodexSession({
+            rpc: new CodexRpcClient(transport),
+            toolboxes: [toolbox("daw", [
+                agentTool("mutate", () => {
+                    order.push("mutate:start")
+                    return mutate.promise
+                }),
+                {...agentTool("listen", async args => {
+                    order.push(`listen:${JSON.stringify(args)}`)
+                    return AgentToolResult.text("heard")
+                }), concurrent: (args: JsonObject) => typeof args.sound === "object"}
+            ])]
+        })
+        try {
+            await session.connect()
+            transport.emit(toolCall(91, "daw", "mutate"))
+            transport.emit(toolCall(92, "daw", "listen", {bars: {from: 1, to: 2}}))
+            transport.emit(toolCall(93, "daw", "listen", {sound: {device: "Nano"}}))
+            await tick()
+            await tick()
+            expect([...order].sort(), "the sound call runs at once, the project call waits").toEqual([`listen:{"sound":{"device":"Nano"}}`, "mutate:start"])
+            mutate.resolve(AgentToolResult.text("mutated"))
+            await tick()
+            await tick()
+            expect(order).toHaveLength(3)
         } finally {
             await session.disconnect()
         }
@@ -819,10 +862,18 @@ describe("CodexSession", () => {
             expect(trace.some(event => event.layer === "tool" && event.phase === "tool-start")).toBe(true)
 
             await session.startTurn("One more change.")
+            expect(await session.steerTurn("make it darker")).toBe("turn-3")
+            expect(requestWithMethod(transport, "turn/steer").params).toEqual({
+                threadId: "thread-1", expectedTurnId: "turn-3", input: [{type: "text", text: "make it darker", text_elements: []}]
+            })
             await session.interruptTurn()
             expect(requestWithMethod(transport, "turn/interrupt").params).toEqual({
                 threadId: "thread-1", turnId: "turn-3"
             })
+            await session.closeThread()
+            expect(await session.forkThread("thread-1")).toEqual({threadId: "thread-fork", sessionId: "session-fork"})
+            expect(requestWithMethod(transport, "thread/fork").params).toEqual({threadId: "thread-1"})
+            expect(session.threadId).toBe("thread-fork")
 
             await session.startTurn("Connection loss test.")
             expect(session.activeTurnId).toBe("turn-4")

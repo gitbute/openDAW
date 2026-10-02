@@ -1,6 +1,7 @@
 import {CodeCellImageHint} from "@/agent/CodeCellImages"
 import {Attempt, Attempts, int, isDefined, Option, Optional, Provider} from "@opendaw/lib-std"
-import {LoopableRegion, MidiKeys, PPQN, ppqn} from "@opendaw/lib-dsp"
+import {LoopableRegion, PPQN, ppqn} from "@opendaw/lib-dsp"
+import {NoteNames} from "@/agent/NoteNames"
 import {AgentTool, AgentToolResult, CodexJson, JsonObject, JsonValue} from "@opendaw/studio-codex"
 import {AudioUnitBoxAdapter, NoteRegionBoxAdapter, TrackType} from "@opendaw/studio-adapters"
 import {Project} from "@opendaw/studio-core"
@@ -65,7 +66,7 @@ const onsetSymbol = (velocity: number): string =>
 
 const LabelWidth = 8
 
-const pitchLabel = (pitch: int): string => `${MidiKeys.toFullString(pitch)}/${pitch}`.padEnd(LabelWidth)
+const pitchLabel = (pitch: int): string => `${NoteNames.ofMidi(pitch)}/${pitch}`.padEnd(LabelWidth)
 
 const renderBar = (clock: BarClock, bar: int, notes: ReadonlyArray<ResolvedNote>): ReadonlyArray<string> => {
     const barStart = clock.barStart(bar)
@@ -141,7 +142,7 @@ const renderList = (clock: BarClock, notes: ReadonlyArray<ResolvedNote>): Readon
     const lines = notes.slice(0, ListLimit).map(({position, duration, pitch, velocity}) => {
         const {bar, beat} = clock.locate(position)
         const beatStart = clock.barStart(bar) + beat * PPQN.fromSignature(1, clock.segmentAtBar(bar).denominator)
-        return `${bar + 1}.${beat + 1}.${Math.round(position - beatStart)} ${pitch}(${MidiKeys.toFullString(pitch)}) ${Math.round(duration)} ${velocity.toFixed(2)}`
+        return `${bar + 1}.${beat + 1}.${Math.round(position - beatStart)} ${pitch}(${NoteNames.ofMidi(pitch)}) ${Math.round(duration)} ${velocity.toFixed(2)}`
     })
     return notes.length > ListLimit ? [...lines, `(${notes.length - ListLimit} more notes omitted)`] : lines
 }
@@ -175,7 +176,7 @@ export const inspectNotes = async (project: Project, unitLabels: ReadonlyArray<s
     const parts: ReadonlyArray<UnitNotes> = units.map(unit => ({label: unit.label, notes: resolveNotes(unit.adapter, range)}))
     const notes = parts.flatMap(part => part.notes)
     const legend = format === "grid"
-        ? "rows: name/MIDI (C3 = 60); 16th grid: x=full velocity, 1-9=velocity tenths, -=sustain, .=rest"
+        ? "rows: name/MIDI (C4 = MIDI 60, A4 = 440 Hz); 16th grid: x=full velocity, 1-9=velocity tenths, -=sustain, .=rest"
         + (parts.length > 1 ? "; all = which part starts a note on that 16th (+ = several)" : "")
         : "bar.beat.tick pitch(name) len vel; ticks: 960 per quarter"
     const header = `${label} · bars ${span.from + 1}-${span.to + 1} · ${clock.signatureAtBar(span.from)} · ${notes.length} notes · ${legend}`

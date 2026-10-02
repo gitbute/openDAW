@@ -1,23 +1,31 @@
-import {CodeCellImageHint} from "@/agent/CodeCellImages"
-import {int, isDefined, Nullable, Option, Optional, Provider, tryCatch} from "@opendaw/lib-std"
+import {Attempt, Attempts, int, isDefined, Nullable, Option, Optional, Provider, tryCatch} from "@opendaw/lib-std"
 import {AudioMetrics, dbToGain} from "@opendaw/lib-dsp"
 import {Promises} from "@opendaw/lib-runtime"
-import type {AgentTool, JsonObject, JsonValue} from "@opendaw/studio-codex"
+import type {JsonObject, JsonValue} from "@opendaw/studio-codex"
 import {AgentToolResult} from "@opendaw/studio-codex"
 import type {ScriptHostProtocol} from "@opendaw/studio-scripting"
 import type {ProjectEnv} from "@opendaw/studio-core"
-import {AgentRender} from "@/agent/listen/AgentRender"
+import {AgentRender, FrameWindow} from "@/agent/listen/AgentRender"
 import {AgentRenderEngine, AgentRenderer} from "@/agent/listen/AgentRenderer"
-import {renderSpectrogramPng} from "@/agent/listen/SpectrogramView"
+import {ListenFocus} from "@/agent/listen/ListenFocus"
+import type {ListenView} from "@/agent/listen/ListenViews"
+import {SoundDescriptors} from "@/agent/analysis/SoundDescriptors"
+import {ListenAnalysis} from "@/agent/analysis/ListenAnalysis"
+import type {SoundNote} from "@/agent/analysis/SoundTarget"
 import {AuditionSandbox} from "./AuditionSandbox"
-import {AuditionRequest, AuditionSpec, AuditionVariation} from "./AuditionSpec"
+import {AuditionNote, AuditionRequest, AuditionVariation} from "./AuditionSpec"
 
-export type AuditionToolDeps = {
+/** What listen needs to render sounds in throwaway sandbox projects. */
+export type SoundSourceDeps = {
     readonly host: ScriptHostProtocol
     readonly env: Provider<ProjectEnv>
-    readonly supportsImages?: Provider<boolean>
     readonly engine?: AgentRenderEngine
-    readonly renderView?: (render: AgentRender, title: string) => Promise<string>
+}
+
+export type SoundListenOptions = {
+    readonly views: ReadonlyArray<ListenView>
+    readonly focus: Optional<ListenFocus>
+    readonly supportsImages: boolean
 }
 
 export type AuditionOutcome = {
@@ -36,23 +44,25 @@ type Measured = {
     readonly silent: boolean
 }
 
-const Regions: ReadonlyArray<readonly [string, number, number]> = [
-    ["sub", 20, 60], ["low", 60, 250], ["lowMid", 250, 2000], ["highMid", 2000, 6000], ["high", 6000, 20000]]
-
-export namespace AuditionTool {
-    export const Name = "audition"
+export namespace SoundSource {
     export const TailSeconds = 1.0
-    export const ViewSize = {width: 512, height: 200} as const
 
-    export const Description = [
-        "Audition a sound in a throwaway sandbox project (the open project is never touched): one instrument (any instrument,",
-        "Apparat with code, or a preset) plus optional effects plays a built-in pattern or your notes, rendered offline and analysed.",
-        `Compare up to ${AuditionSpec.MaxVariations} variations (params/code/preset/device overrides) in one call: per variation`,
-        "integrated LUFS and the gain that matches it to the quietest one, peaks, crest, spectrum regions, centroid, onsets,",
-        "silence, NaN, and script errors (Apparat/Werkstatt silence themselves after a throw or NaN output).",
-        "Safe to run in parallel with other tools and subagents.",
-        "Images (views ['spectrogram'], one per variation). " + CodeCellImageHint
-    ].join(" ")
+    /** The requested notes in frames: one note per distinct start (a chord is one note, its lowest pitch), running to the next start. */
+    export const notesOf = (notes: ReadonlyArray<AuditionNote>, bpm: number, sampleRate: number, totalFrames: int): ReadonlyArray<SoundNote> => {
+        const stepFrames = 60.0 / bpm / 4.0 * sampleRate
+        const sorted = [...notes].sort((first, second) => first.position - second.position || first.pitch - second.pitch)
+        const starts = sorted.filter((note, index) => index === 0 || note.position !== sorted[index - 1].position)
+        return starts.map((note, index) => {
+            const startFrame = Math.min(totalFrames, Math.round(note.position * stepFrames))
+            const next = index + 1 < starts.length ? Math.round(starts[index + 1].position * stepFrames) : totalFrames
+            const held = sorted.filter(other => other.position === note.position)
+                .reduce((longest, other) => Math.max(longest, other.duration), 0)
+            return {
+                index: index + 1, startFrame, endFrame: Math.max(startFrame + 1, Math.min(totalFrames, next)),
+                offFrame: Math.min(totalFrames, Math.round((note.position + held) * stepFrames)), pitch: note.pitch
+            }
+        })
+    }
 
     export const round = (value: number, digits: int = 1): Nullable<number> => {
         if (!Number.isFinite(value)) {return null}
@@ -63,23 +73,11 @@ export namespace AuditionTool {
     export const countNonFinite = (channels: ReadonlyArray<Float32Array>): int =>
         channels.reduce((count, channel) => count + channel.reduce((sum, sample) => Number.isFinite(sample) ? sum : sum + 1, 0), 0)
 
-    const sanitize = (channels: ReadonlyArray<Float32Array>): ReadonlyArray<Float32Array> =>
+    export const sanitize = (channels: ReadonlyArray<Float32Array>): ReadonlyArray<Float32Array> =>
         channels.map(channel => channel.map(sample => Number.isFinite(sample) ? sample : 0.0))
 
     export const scale = (channels: ReadonlyArray<Float32Array>, gain: number): ReadonlyArray<Float32Array> =>
         channels.map(channel => channel.map(sample => sample * gain))
-
-    const bandPower = (bands: ReadonlyArray<AudioMetrics.Band>, fromHz: number, toHz: number): Nullable<number> => {
-        const power = bands.filter(band => band.centerHz >= fromHz && band.centerHz < toHz)
-            .reduce((sum, band) => sum + 10 ** (band.db / 10), 0)
-        return power > 1e-12 ? round(10 * Math.log10(power)) : null
-    }
-
-    const centroid = (bands: ReadonlyArray<AudioMetrics.Band>): Nullable<number> => {
-        const weights = bands.map(band => ({hz: band.centerHz, power: 10 ** (band.db / 10)}))
-        const total = weights.reduce((sum, {power}) => sum + power, 0)
-        return total > 1e-12 ? Math.round(weights.reduce((sum, {hz, power}) => sum + hz * power, 0) / total) : null
-    }
 
     const tailRmsDb = ({mix, sampleRate, tailSeconds}: AgentRender): Nullable<number> => {
         const frames = Math.round(tailSeconds * sampleRate)
@@ -118,23 +116,16 @@ export namespace AuditionTool {
         : reference.mapOr(({analysis}) => round(analysis.loudness.integratedLufs - entry.analysis.loudness.integratedLufs), null)
 
     export const summarize = (entry: Measured, reference: Option<Measured>): JsonObject => {
-        const {outcome: {label, deviceErrors, warnings}, render, analysis: {loudness, spectrum, onsets}, nonFinite, silent} = entry
+        const {outcome: {label, deviceErrors, warnings}, render, analysis: {loudness, spectrum}, nonFinite, silent} = entry
         return {
             label,
             silent,
-            lufs: silent ? null : round(loudness.integratedLufs),
+            ...ListenAnalysis.loudnessOf(loudness),
+            ...(silent ? {lufs: null} : {}),
             gainToMatchDb: gainToMatch(entry, reference),
-            truePeakDbtp: round(loudness.truePeakDbtp),
-            samplePeakDbfs: round(loudness.samplePeakDbfs),
-            rmsDbfs: round(loudness.rmsDbfs),
-            crestDb: round(loudness.crestDb),
-            lra: round(loudness.loudnessRangeLu),
-            lufsPerBar: AudioMetrics.loudnessPerSegment(render.mix, render.sampleRate, render.barStartFrames)
-                .map(segment => segment.silent ? null : round(segment.lufs)),
+            lufsPerBar: ListenAnalysis.perBarOf(render.mix, render.sampleRate, render.barStartFrames),
             tailRmsDb: tailRmsDb(render),
-            regionsDb: Object.fromEntries(Regions.map(([name, fromHz, toHz]) => [name, bandPower(spectrum, fromHz, toHz)])),
-            centroidHz: centroid(spectrum),
-            onsets: onsets.length,
+            spectrumRegionsDb: ListenAnalysis.regionsOf(spectrum),
             ...(nonFinite > 0 ? {nonFiniteSamples: nonFinite} : {}),
             ...(deviceErrors.length > 0 ? {deviceErrors: [...deviceErrors]} : {}),
             ...(warnings.length > 0 ? {warnings: [...warnings]} : {})
@@ -144,16 +135,8 @@ export namespace AuditionTool {
     export const failed = ({label, error, deviceErrors}: AuditionOutcome): JsonObject =>
         ({label, error: error ?? "not rendered", ...(deviceErrors.length > 0 ? {deviceErrors: [...deviceErrors]} : {})})
 
-    export const defaultRenderView = (render: AgentRender, title: string): Promise<string> =>
-        renderSpectrogramPng(render, {...ViewSize, stems: false, title})
-}
-
-export const createAuditionTool = (deps: AuditionToolDeps): AgentTool => {
-    const {host, env} = deps
-    const supportsImages = deps.supportsImages ?? (() => true)
-    const engine = deps.engine ?? AgentRenderer.offlineEngine
-    const renderView = deps.renderView ?? AuditionTool.defaultRenderView
-    const renderVariation = async ({label, sound}: AuditionVariation, request: AuditionRequest): Promise<AuditionOutcome> => {
+    const renderVariation = async ({host, env, engine}: SoundSourceDeps, {label, sound}: AuditionVariation,
+                                   request: AuditionRequest): Promise<AuditionOutcome> => {
         const {effects, notes, bpm, bars} = request
         const failure = (error: string, deviceErrors: ReadonlyArray<string> = []): AuditionOutcome =>
             ({label, render: undefined, error, deviceErrors, warnings: []})
@@ -166,71 +149,92 @@ export const createAuditionTool = (deps: AuditionToolDeps): AgentTool => {
             return failure(scriptErrors.join("; "))
         }
         const rendered = await Promises.tryCatch(AgentRenderer.render(project,
-            {bars: {from: 1, to: bars}, stems: "none", tailSeconds: AuditionTool.TailSeconds}, undefined, {engine}))
+            {bars: {from: 1, to: bars}, stems: "none", tailSeconds: TailSeconds}, undefined,
+            {engine: engine ?? AgentRenderer.offlineEngine}))
         project.terminate()
         if (rendered.status === "rejected") {return failure(`Render failed: ${AuditionSandbox.describeError(rendered.error)}`)}
-        return {label, render: rendered.value, error: undefined, ...AuditionTool.splitWarnings(rendered.value.warnings)}
+        return {label, render: rendered.value, error: undefined, ...splitWarnings(rendered.value.warnings)}
     }
-    const audition = async (request: AuditionRequest): Promise<AgentToolResult> => {
+
+    type Zoom = { readonly window: Optional<FrameWindow>, readonly notes: ReadonlyArray<SoundNote> }
+
+    const zoomOf = (render: AgentRender, notes: ReadonlyArray<SoundNote>, focus: Optional<ListenFocus>): Attempt<Zoom, string> => {
+        if (!isDefined(focus)) {return Attempts.ok({window: undefined, notes})}
+        return ListenFocus.window(focus, notes, AgentRender.frameCount(render), render.sampleRate)
+            .map(window => ({window, notes: ListenFocus.notesIn(notes, window)}))
+    }
+
+    /** Renders every variation in its own sandbox (concurrently) and returns the listen result for them. */
+    export const listen = async (deps: SoundSourceDeps, request: AuditionRequest,
+                                 {views, focus, supportsImages}: SoundListenOptions): Promise<AgentToolResult> => {
         const startTime = performance.now()
-        const outcomes = await Promise.all(request.variations.map(variation => renderVariation(variation, request)))
+        const outcomes = await Promise.all(request.variations.map(variation => renderVariation(deps, variation, request)))
         const renderSeconds = (performance.now() - startTime) / 1000
         const measured = outcomes.map(outcome => {
-            const attempt = tryCatch(() => AuditionTool.measure(outcome))
+            const attempt = tryCatch(() => measure(outcome))
             return attempt.status === "success" ? attempt.value : Option.None
         })
-        const reference = AuditionTool.referenceOf(measured.flatMap(entry => entry.mapOr(value => [value], [])))
+        const reference = referenceOf(measured.flatMap(entry => entry.mapOr(value => [value], [])))
         const images: Array<string> = []
         const notes: Array<string> = []
-        const wantsImages = request.views.length > 0
-        if (wantsImages && !supportsImages()) {notes.push("The current model does not accept images; views were skipped.")}
+        if (views.length > 0 && !supportsImages) {notes.push("The current model does not accept images; views were skipped.")}
         const variations: Array<JsonValue> = []
+        let focusInfo: Optional<JsonObject> = undefined
         for (const [index, outcome] of outcomes.entries()) {
             const optEntry = measured[index]
             if (optEntry.isEmpty()) {
-                variations.push(AuditionTool.failed(outcome))
+                variations.push(failed(outcome))
                 continue
             }
             const entry = optEntry.unwrap()
-            const summary = AuditionTool.summarize(entry, reference)
-            if (!wantsImages || !supportsImages() || entry.silent) {
+            const {render} = entry
+            const allNotes = notesOf(request.notes, request.bpm, render.sampleRate, AgentRender.frameCount(render))
+            const zoom = zoomOf(render, allNotes, focus)
+            if (zoom.isFailure()) {return AgentToolResult.failure(zoom.failureReason())}
+            const {window, notes: zoomedNotes} = zoom.result()
+            const zoomed = isDefined(window) ? AgentRender.crop(render, window) : render
+            if (isDefined(window) && isDefined(focus)) {focusInfo = ListenFocus.describe(focus, window, render.sampleRate)}
+            const sound = SoundDescriptors.describe({
+                label: outcome.label, channels: zoomed.mix, sampleRate: render.sampleRate, notes: zoomedNotes,
+                bpm: request.bpm, stepSeconds: render.stepSeconds, focused: isDefined(window),
+                offsetSeconds: isDefined(window) ? window.startFrame / render.sampleRate : 0,
+                loudness: isDefined(window) ? undefined : entry.analysis.loudness
+            })
+            const summary = {...summarize(entry, reference), sound}
+            if (views.length === 0 || !supportsImages || entry.silent) {
                 variations.push(summary)
                 continue
             }
-            const gain = AuditionTool.gainToMatch(entry, reference) ?? 0.0
-            const matched: AgentRender = {...entry.render, mix: AuditionTool.scale(entry.render.mix, dbToGain(gain))}
-            const image = await Promises.tryCatch(renderView(matched, `${outcome.label} (${gain.toFixed(1)} dB)`))
-            if (image.status === "resolved") {
-                variations.push({...summary, image: images.length})
-                images.push(image.value)
-            } else {
-                variations.push(summary)
-                notes.push(`Spectrogram of '${outcome.label}' failed: ${AuditionSandbox.describeError(image.error)}`)
+            const gain = gainToMatch(entry, reference) ?? 0.0
+            const matched: AgentRender = {...zoomed, mix: scale(zoomed.mix, dbToGain(gain))}
+            const indices: Array<int> = []
+            for (const view of views) {
+                const image = await Promises.tryCatch(view.render({
+                    render: matched, notes: zoomedNotes, compact: true, title: `${outcome.label} (${gain.toFixed(1)} dB)`
+                }))
+                if (image.status === "resolved") {
+                    indices.push(images.length)
+                    images.push(image.value)
+                } else {
+                    notes.push(`View '${view.key}' of '${outcome.label}' failed: ${AuditionSandbox.describeError(image.error)}`)
+                }
             }
+            variations.push(indices.length > 0 ? {...summary, images: indices} : summary)
         }
         const payload: JsonObject = {
             setup: {
-                bpm: request.bpm, bars: request.bars, tailSeconds: AuditionTool.TailSeconds,
+                bpm: request.bpm, bars: request.bars, tailSeconds: TailSeconds,
                 notes: request.notes.length, ...(isDefined(request.pattern) ? {pattern: request.pattern} : {})
             },
+            ...(isDefined(focusInfo) ? {focus: focusInfo} : {}),
             loudnessMatch: reference.mapOr(({outcome: {label}, analysis: {loudness}}) => ({
-                reference: label, referenceLufs: AuditionTool.round(loudness.integratedLufs),
-                note: "gainToMatchDb brings each variation to the quietest one; spectrograms are drawn at matched loudness"
+                reference: label, referenceLufs: round(loudness.integratedLufs),
+                note: "gainToMatchDb brings each variation to the quietest one; views are drawn at matched loudness"
             }), null),
             variations,
             renderSeconds: Math.round(renderSeconds * 100) / 100,
             ...(notes.length > 0 ? {notes} : {})
         }
         return AgentToolResult.withImages(AgentToolResult.json(payload), images)
-    }
-    return {
-        name: AuditionTool.Name,
-        description: AuditionTool.Description,
-        inputSchema: AuditionSpec.InputSchema,
-        concurrent: true,
-        execute: (args: JsonObject): Promise<AgentToolResult> => AuditionSpec.parseArguments(args).match({
-            err: (message: string) => Promise.resolve(AgentToolResult.failure(message)),
-            ok: (request: AuditionRequest) => audition(request)
-        })
     }
 }

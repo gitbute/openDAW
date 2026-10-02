@@ -11,7 +11,7 @@ import {CatalogToolbox} from "@/agent/catalog/CatalogToolbox"
 import {AgentScriptStudio} from "@/agent/script/AgentScriptStudio"
 import type {AgentScriptRunner} from "@/agent/script/AgentScriptRunner"
 import {createRunScriptTool} from "@/agent/script/RunScriptTool"
-import {createAuditionTool} from "@/agent/audition/AuditionTool"
+import {createProbeTool} from "@/agent/probe/ProbeTool"
 import {StudioScriptHost} from "@/script/StudioScriptHost"
 
 export namespace AgentToolboxes {
@@ -37,16 +37,19 @@ ${CatalogToolbox.devices().palette()}`
             {startPpqn: from, endPpqn: to, ppqnPerBar: clock.barDuration(bar)}, {firstBar: bar + 1})
     }
 
-    export const create = (service: StudioService, project: Project): ReadonlyArray<AgentToolbox> => [{
-        namespace: "daw",
-        description: "Produce music in the open openDAW project: inspect, script, listen, audition, browse.",
-        tools: [
-            concurrent(createInspectProjectTool(() => project)),
-            createRunScriptTool(runnerFor(service)),
-            concurrent(createInspectNotesTool(() => project, pianoRoll(project))),
-            createListenTool({project: () => project, analyze: ListenAnalysis.analyze, supportsImages: () => true}),
-            createAuditionTool({host: StudioScriptHost.createHeadless(service), env: () => service, supportsImages: () => true}),
-            ...CatalogToolbox.create(service).tools.map(concurrent)
-        ]
-    }]
+    export const create = (service: StudioService, project: Project): ReadonlyArray<AgentToolbox> => {
+        const sandbox = {host: StudioScriptHost.createHeadless(service), env: () => service}
+        return [{
+            namespace: "daw",
+            description: "Produce music in the open openDAW project: inspect, script, listen, probe, browse.",
+            tools: [
+                concurrent(createInspectProjectTool(() => project)),
+                createRunScriptTool(runnerFor(service)),
+                concurrent(createInspectNotesTool(() => project, pianoRoll(project))),
+                createListenTool({project: () => project, analyze: ListenAnalysis.analyze, supportsImages: () => true, sandbox}),
+                createProbeTool({...sandbox, supportsImages: () => true}),
+                ...CatalogToolbox.create(service).tools.map(concurrent)
+            ]
+        }]
+    }
 }

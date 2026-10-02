@@ -211,7 +211,7 @@ describe("PianoRoll", () => {
     it("draws tracks in the legend and pitch names", () => {
         const {context, texts} = createRecorder()
         PianoRoll.draw(context, notes, range, 1024, 512)
-        expect(texts).toEqual(expect.arrayContaining(["Bass", "Keys", "Lead", "C1", "C3", "1", "4"]))
+        expect(texts).toEqual(expect.arrayContaining(["Bass", "Keys", "Lead", "C2", "C4", "1", "4"]))
         expect(texts.some(text => text.includes("3 notes"))).toBe(true)
     })
 })

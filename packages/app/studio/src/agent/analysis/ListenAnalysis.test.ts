@@ -51,6 +51,19 @@ describe("ListenAnalysis", () => {
         expect(JSON.parse(text).mix.spectrumRegionsDb.sub).toBeGreaterThan(JSON.parse(text).mix.spectrumRegionsDb.high)
     })
 
+    it("adds the sound descriptors per stem only when asked, within a compact budget", () => {
+        const plain = JSON.parse(JSON.stringify(ListenAnalysis.analyze(render())))
+        expect(plain.stems[0].sound).toBeUndefined()
+        const described = JSON.parse(JSON.stringify(ListenAnalysis.analyze(render(), undefined, true)))
+        const bass = described.stems[1].sound
+        expect(Object.keys(bass)).toEqual(["notes", "envelope", "pitch", "timbre", "movement", "space", "dynamics"])
+        expect(bass.pitch.range).toBe("A1/33")
+        expect(JSON.stringify(bass).length, JSON.stringify(bass)).toBeLessThan(2000)
+        expect(described.mix.sound).toBeUndefined()
+        const mixOnly = JSON.parse(JSON.stringify(ListenAnalysis.analyze({...render(), stems: []}, undefined, true)))
+        expect(mixOnly.mix.sound.notes).toBeDefined()
+    })
+
     it("counts a hit with a secondary transient inside it once (onset interval follows the 16th grid)", () => {
         const source = render()
         const hits = new Float32Array(sampleRate * seconds)

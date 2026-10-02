@@ -445,9 +445,10 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
     )
     const hint: HTMLElement = <div className="composer-hint"/>
     const queuedText: HTMLElement = <span className="queued-text"/>
+    const queuedSteer: HTMLButtonElement = <button className="queued-steer" type="button" title="Send it into the running turn now">Steer</button>
     const queuedCancel: HTMLButtonElement = <button className="queued-cancel" type="button" title="Cancel queued message">×</button>
     const queued: HTMLElement = (
-        <div className="queued hidden"><span className="queued-label">Queued</span>{queuedText}{queuedCancel}</div>
+        <div className="queued hidden"><span className="queued-label">Queued</span>{queuedText}{queuedSteer}{queuedCancel}</div>
     )
     const attachments: HTMLElement = <div className="attachments hidden"/>
     const element: HTMLElement = (
@@ -647,6 +648,7 @@ export const CodexAgentPanel = ({lifecycle, service}: Construct) => {
     commandCopy.onclick = () => void Promises.tryCatch(Clipboard.writeText(AppServerCommand))
     gateSecondary.onclick = () => controller.cancelLogin()
     sendButton.onclick = () => void submit(false)
+    queuedSteer.onclick = () => void controller.steerQueued()
     queuedCancel.onclick = () => {
         const images = controller.queuedImages.getValue()
         const text = controller.cancelQueued()

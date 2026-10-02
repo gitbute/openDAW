@@ -88,9 +88,11 @@ export type CodexAgentSession = {
     logout(): Promise<void>
     startThread(options?: CodexStartThreadOptions): Promise<CodexThreadInfo>
     resumeThread(threadId: string): Promise<CodexThreadInfo>
+    forkThread(threadId: string): Promise<CodexThreadInfo>
     closeThread(): Promise<void>
     startTurn(text: string, options?: CodexStartTurnOptions): Promise<string>
     interruptTurn(turnId?: string): Promise<void>
+    steerTurn(text: string, images?: ReadonlyArray<string>, turnId?: string): Promise<string>
 }
 
 export type CodexAgentSessionFactory = (project: Project, traceSink: CodexTraceSink) => CodexAgentSession
@@ -200,6 +202,7 @@ export class CodexAgentController {
     #project: Nullable<Project> = null
     #store: Optional<CodexConversationStore>
     #restoring = false
+    #forkPending = false
     #touched = false
     #session: Optional<CodexAgentSession>
     #sessionSubscription: Unsubscribe = () => {}
@@ -261,7 +264,7 @@ export class CodexAgentController {
     persist(): Promise<void> {
         const store = this.#store
         if (!isDefined(store) || this.#restoring || !this.#touched) {return Promise.resolve()}
-        const snapshot = CodexConversationSnapshot.create(this.#lastThreadId ?? null, this.conversation.getValue())
+        const snapshot = CodexConversationSnapshot.create(this.#lastThreadId ?? null, this.conversation.getValue(), this.#forkPending)
         return Promises.tryCatch(store.save(snapshot)).then(saved => {
             if (saved.status === "rejected") {console.warn("Could not save the agent conversation", saved.error)}
         })
@@ -275,6 +278,7 @@ export class CodexAgentController {
         const threadId = session?.threadId ?? this.#lastThreadId
         if (isDefined(threadId)) {this.#retiredThreads.add(threadId)}
         this.#lastThreadId = undefined
+        this.#forkPending = false
         this.#subagents.clear()
         this.turnRunning.setValue(false)
         this.activeTurnId.clear()
@@ -405,6 +409,22 @@ export class CodexAgentController {
         this.activeTurnId.clear()
     }
 
+    // sends the queued message into the running turn now
+    async steerQueued(): Promise<boolean> {
+        const session = this.#session
+        const turnId = this.activeTurnId.unwrapOrUndefined() ?? session?.activeTurnId
+        const text = this.queuedMessage.unwrapOrNull()
+        if (!isDefined(session) || !isDefined(turnId) || !isDefined(text) || !this.turnRunning.getValue()) {return false}
+        const images = this.queuedImages.getValue()
+        this.queuedMessage.clear()
+        this.queuedImages.setValue([])
+        this.#appendConversation({type: "user", id: `user-${++this.#messageNumber}`, text, ...(images.length > 0 ? {images} : {})})
+        const generation = this.#generation
+        const steered = await Promises.tryCatch(session.steerTurn(text, images, turnId))
+        if (steered.status === "rejected" && this.#isCurrent(generation, session)) {this.#setError("turn", steered.error)}
+        return steered.status === "resolved"
+    }
+
     cancelQueued(): Optional<string> {
         const text = this.queuedMessage.unwrapOrUndefined()
         this.queuedMessage.clear()
@@ -438,9 +458,10 @@ export class CodexAgentController {
         })
     }
 
-    #applySnapshot({threadId, entries}: CodexConversationSnapshot): void {
+    #applySnapshot({threadId, entries, forkPending}: CodexConversationSnapshot): void {
         if (this.conversation.getValue().length > 0 || this.turnRunning.getValue() || isDefined(this.#lastThreadId)) {return}
         this.#lastThreadId = threadId ?? undefined
+        this.#forkPending = forkPending
         this.#messageNumber = entries.reduce((max, entry) => {
             const match = entry.type === "user" || entry.type === "notice" ? /-(\d+)$/.exec(entry.id) : null
             return isDefined(match) ? Math.max(max, Number(match[1])) : max
@@ -502,7 +523,9 @@ export class CodexAgentController {
     async #openThread(generation: number, session: CodexAgentSession, userId: string, model: string): Promise<void> {
         const previous = this.#lastThreadId
         if (isDefined(previous)) {
-            const resumed = await Promises.tryCatch(session.resumeThread(previous))
+            const fork = this.#forkPending
+            const resumed = await Promises.tryCatch(fork ? session.forkThread(previous) : session.resumeThread(previous))
+            if (resumed.status === "resolved" && fork) {this.#forkPending = false}
             if (resumed.status === "resolved" || !this.#isCurrent(generation, session)) {return}
             this.#insertNoticeBefore(userId, "Previous context was lost. This is a new conversation.")
         }
@@ -825,6 +848,7 @@ export class CodexAgentController {
         this.#lastThreadId = undefined
         this.#subagents.clear()
         this.#retiredThreads.clear()
+        this.#forkPending = false
         this.#restoring = false
         this.#touched = false
         this.#accountLoaded = false

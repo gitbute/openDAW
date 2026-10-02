@@ -12,7 +12,7 @@ export interface AgentTool {
     readonly description: string
     readonly inputSchema: JsonObject
     // true: touches no live state, so the session runs it immediately instead of queueing it behind other calls
-    readonly concurrent?: boolean
+    readonly concurrent?: boolean | ((args: JsonObject) => boolean)
     execute(args: JsonObject): Promise<AgentToolResult>
 }
 

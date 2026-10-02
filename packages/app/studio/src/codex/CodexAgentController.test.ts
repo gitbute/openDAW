@@ -78,6 +78,8 @@ const tick = async (): Promise<void> => {
 class FakeSession implements CodexAgentSession {
     readonly events = new Set<(event: CodexSessionEvent) => void>()
     readonly startedTurns: Array<{text: string, options: CodexStartTurnOptions | undefined}> = []
+    readonly steered: Array<{text: string, turnId: string | undefined}> = []
+    steerFails = false
     readonly startedThreads: Array<CodexStartThreadOptions | undefined> = []
     readonly resumedThreads: Array<string> = []
     resumeFails = false
@@ -134,6 +136,16 @@ class FakeSession implements CodexAgentSession {
         return thread
     }
 
+    readonly forkedThreads: Array<string> = []
+
+    async forkThread(threadId: string): Promise<CodexThreadInfo> {
+        this.forkedThreads.push(threadId)
+        const thread = {threadId: `${threadId}-fork`, sessionId: "session-1"}
+        this.threadId = thread.threadId
+        this.emit({type: "threadStarted", thread})
+        return thread
+    }
+
     async resumeThread(threadId: string): Promise<CodexThreadInfo> {
         this.resumedThreads.push(threadId)
         if (this.resumeFails) {throw new Error("thread not found")}
@@ -156,6 +168,12 @@ class FakeSession implements CodexAgentSession {
         this.activeTurnId = "turn-1"
         this.emit({type: "turnStarted", threadId: this.threadId ?? "thread-1", turnId: this.activeTurnId})
         return this.activeTurnId
+    }
+
+    async steerTurn(text: string, _images?: ReadonlyArray<string>, turnId?: string): Promise<string> {
+        if (this.steerFails) {throw new Error("no active turn")}
+        this.steered.push({text, turnId})
+        return turnId ?? "turn-1"
     }
 
     async interruptTurn(turnId?: string): Promise<void> {
@@ -232,9 +250,28 @@ describe("CodexAgentController persistence", () => {
         reopened.dispose()
     })
 
+    it("continues a project copied with Save As in a fork of its thread", async () => {
+        const store = new MemoryStore()
+        store.snapshot = Option.wrap({threadId: "thread-7", entries: [{type: "user", id: "user-1", text: "Old"}], forkPending: true})
+        const session = new FakeSession()
+        const controller = newController(session)
+        controller.bindProject(project(), store)
+        await tick()
+        await controller.ensureConnected()
+        await controller.send("Go on")
+        await tick()
+        expect(session.forkedThreads).toEqual(["thread-7"])
+        expect(session.resumedThreads).toEqual([])
+        expect(controller.conversation.getValue().map(entry => entry.type)).toEqual(["user", "user"])
+        session.emit({type: "turnCompleted", threadId: "thread-7-fork", turnId: "turn-1", status: "completed", error: null})
+        await tick()
+        expect(store.snapshot.unwrap()).toMatchObject({threadId: "thread-7-fork", forkPending: false})
+        controller.dispose()
+    })
+
     it("starts fresh with a notice when the saved thread cannot be resumed", async () => {
         const store = new MemoryStore()
-        store.snapshot = Option.wrap({threadId: "gone", entries: [{type: "user", id: "user-1", text: "Old"}]})
+        store.snapshot = Option.wrap({threadId: "gone", entries: [{type: "user", id: "user-1", text: "Old"}], forkPending: false})
         const session = new FakeSession()
         session.resumeFails = true
         const controller = newController(session)
@@ -266,7 +303,7 @@ describe("CodexAgentController persistence", () => {
         expect(controller.conversation.getValue()).toEqual([])
         expect(session.closedThreads).toBe(1)
         expect(session.startedTurns.map(({text}) => text)).toEqual(["First"])
-        expect(store.snapshot.unwrap()).toEqual({threadId: null, entries: []})
+        expect(store.snapshot.unwrap()).toEqual({threadId: null, entries: [], forkPending: false})
         session.emit({type: "itemStarted", threadId: "thread-1", turnId: "turn-1",
             item: {type: "dynamicToolCall", id: "late", tool: "listen", arguments: {}}})
         expect(controller.conversation.getValue()).toEqual([])
@@ -279,7 +316,7 @@ describe("CodexAgentController persistence", () => {
 
     it("does not overwrite the saved conversation while it is still loading", async () => {
         const store = new MemoryStore()
-        store.snapshot = Option.wrap({threadId: "thread-9", entries: [{type: "user", id: "user-1", text: "Keep"}]})
+        store.snapshot = Option.wrap({threadId: "thread-9", entries: [{type: "user", id: "user-1", text: "Keep"}], forkPending: false})
         const controller = newController(new FakeSession())
         controller.bindProject(project(), store)
         controller.bindProject(project())
@@ -717,6 +754,25 @@ describe("CodexAgentController", () => {
         expect(controller.queuedMessage.isEmpty()).toBe(true)
         expect(session.startedTurns.map(({text}) => text)).toEqual(["Make a beat", "Then add a bassline\n\nand drums"])
         expect(controller.turnRunning.getValue()).toBe(true)
+        controller.dispose()
+    })
+
+    it("steers the queued message into the running turn and reports a failed steer", async () => {
+        const {controller, session} = controllerWithSession()
+        await controller.ensureConnected()
+        await controller.send("Make a beat")
+        await tick()
+        await controller.send("make the bass darker")
+        expect(await controller.steerQueued()).toBe(true)
+        expect(session.steered).toEqual([{text: "make the bass darker", turnId: "turn-1"}])
+        expect(controller.queuedMessage.isEmpty()).toBe(true)
+        expect(controller.conversation.getValue().filter(entry => entry.type === "user")).toHaveLength(2)
+        expect(session.startedTurns).toHaveLength(1)
+        await controller.send("and louder")
+        session.steerFails = true
+        expect(await controller.steerQueued()).toBe(false)
+        expect(controller.queuedMessage.isEmpty()).toBe(true)
+        expect(controller.error.nonEmpty()).toBe(true)
         controller.dispose()
     })
 

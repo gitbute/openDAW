@@ -1,5 +1,6 @@
 import {int} from "@opendaw/lib-std"
 import {MidiKeys, ppqn, PPQN} from "@opendaw/lib-dsp"
+import {NoteNames} from "@/agent/NoteNames"
 import {LegendEntry, ViewContext, ViewKit, ViewRect} from "./ViewKit"
 
 export type PianoRollNote = {
@@ -90,7 +91,7 @@ export namespace PianoRoll {
             }
             if (pitch % 12 === 0) {ViewKit.horizontalLine(context, y + rowHeight, rect.x, rect.x + rect.width, ViewKit.Colors.grid)}
             if (labeledPitch(pitch, rowHeight)) {
-                ViewKit.text(context, MidiKeys.toFullString(pitch), rect.x - 4, y + rowHeight / 2, "right", "middle",
+                ViewKit.text(context, NoteNames.ofMidi(pitch), rect.x - 4, y + rowHeight / 2, "right", "middle",
                     pitch % 12 === 0 ? ViewKit.Colors.text : ViewKit.Colors.textDim, ViewKit.SmallFont)
             }
         }

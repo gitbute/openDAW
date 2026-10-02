@@ -34,10 +34,38 @@ export type AgentRender = {
     readonly signature: [int, int]
     readonly warnings: ReadonlyArray<string>
     readonly deviceLoad?: ReadonlyArray<DeviceLoadEntry>
+    /** Seconds from the start of the uncropped render to this one's first frame (set by crop). */
+    readonly offsetSeconds?: seconds
 }
+
+/** Frames of a render, endFrame exclusive. */
+export type FrameWindow = { readonly startFrame: int, readonly endFrame: int }
 
 export namespace AgentRender {
     export const SilenceThresholdDb = -90.0
+
+    export const frameCount = ({mix}: AgentRender): int => mix.length === 0 ? 0 : mix[0].length
+
+    /** The render limited to the window: bar starts inside it stay (bars.from is the first of them), the times follow the cut. */
+    export const crop = (render: AgentRender, {startFrame, endFrame}: FrameWindow): AgentRender => {
+        const {sampleRate, mix, stems, bars, barStartFrames, startSeconds, tailSeconds, offsetSeconds} = render
+        const before = barStartFrames.filter(frame => frame < startFrame).length
+        const inside = barStartFrames.filter(frame => frame >= startFrame && frame < endFrame).length
+        const from = bars.from + (inside > 0 ? before : Math.max(0, before - 1))
+        const musicalEnd = frameCount(render) - Math.round(tailSeconds * sampleRate)
+        const slice = (channels: ReadonlyArray<Float32Array>) => channels.map(channel => channel.subarray(startFrame, endFrame))
+        return {
+            ...render,
+            mix: slice(mix),
+            stems: stems.map(stem => ({...stem, channels: slice(stem.channels)})),
+            bars: {from, to: Math.max(from, bars.from + before + inside - 1)},
+            startSeconds: startSeconds + startFrame / sampleRate,
+            offsetSeconds: (offsetSeconds ?? 0) + startFrame / sampleRate,
+            durationSeconds: (endFrame - startFrame) / sampleRate,
+            tailSeconds: Math.max(0, endFrame - Math.max(startFrame, musicalEnd)) / sampleRate,
+            barStartFrames: barStartFrames.filter(frame => frame >= startFrame && frame < endFrame).map(frame => frame - startFrame)
+        }
+    }
 
     export const peak = (channels: ReadonlyArray<Float32Array>): number => {
         let max = 0.0

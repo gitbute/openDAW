@@ -65,7 +65,7 @@ export namespace AuditionSandbox {
         })
     }
 
-    const addEffect = (unit: InstrumentAudioUnit, {device, code, params}: EffectSpec, index: int): void => {
+    export const addEffect = (unit: InstrumentAudioUnit, {device, code, params}: EffectSpec, index: int): void => {
         const effect = unit.addAudioEffect(device as keyof AudioEffects)
         const subject = `effects[${index}] (${device})`
         if (isDefined(code)) {

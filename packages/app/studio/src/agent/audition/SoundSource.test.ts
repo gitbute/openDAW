@@ -6,6 +6,7 @@ import {ApparatDeviceBox, NoteEventBox, ReverbDeviceBox, VaporisateurDeviceBox} 
 import type {ScriptHostProtocol} from "@opendaw/studio-scripting"
 import type {Project, ProjectEnv} from "@opendaw/studio-core"
 import type {AgentRenderEngine} from "@/agent/listen/AgentRenderer"
+import type {ListenView} from "@/agent/listen/ListenViews"
 import {AuditionSpec} from "./AuditionSpec"
 
 // The real offline engine needs a Worker + wasm (browser only): these tests inject a fake engine that derives its
@@ -64,7 +65,8 @@ const fakeEngine = (captured: Array<Captured>): AgentRenderEngine =>
     }
 
 // studio-core extends AudioWorkletNode at module load, so the tool is imported after the stub above
-const {createAuditionTool, AuditionTool} = await import("./AuditionTool")
+const {createListenTool} = await import("@/agent/listen/ListenTool")
+const {SoundSource} = await import("./SoundSource")
 
 const textOf = (result: AgentToolResult): string =>
     result.content.map(item => item.type === "inputText" ? item.text : "").join("")
@@ -86,23 +88,27 @@ const ValidApparat = [
     "}"
 ].join("\n")
 
-const createTool = (captured: Array<Captured>, renderView?: (title: string) => Promise<string>, supportsImages = true) =>
-    createAuditionTool({
-        host, env: createEnv, engine: fakeEngine(captured), supportsImages: () => supportsImages,
-        renderView: isDefined(renderView) ? (_render, title) => renderView(title) : undefined
+const createTool = (captured: Array<Captured>, renderView?: (title: string) => Promise<string>, supportsImages = true,
+                    engine: AgentRenderEngine = fakeEngine(captured)) => {
+    const views: ReadonlyArray<ListenView> = isDefined(renderView)
+        ? [{key: "spectrogram", summary: "test", render: ({title}) => renderView(title ?? "")}] : []
+    return createListenTool({
+        project: () => {throw new Error("no project in sound tests")}, analyze: () => ({}),
+        supportsImages: () => supportsImages, sandbox: {host, env: createEnv, engine}, ...(views.length > 0 ? {views} : {})
     })
+}
 
 describe("audition schema and arguments", () => {
-    it("passes the Codex schema rules, runs concurrently and explains images from code cells", () => {
+    it("passes the Codex schema rules, runs sound calls concurrently and explains images from code cells", () => {
         const tool = createTool([])
         expect(() => validateCodexToolboxes([{namespace: "daw", description: "test", tools: [tool]}])).not.toThrow()
-        expect(tool.concurrent).toBe(true)
+        expect(typeof tool.concurrent === "function" && tool.concurrent({sound: {device: "Nano"}})).toBe(true)
         expect(tool.description).toContain("image(line)")
     })
     it("fills defaults: the base sound alone, 2 bars of quarters at 120 bpm", () => {
         const parsed = AuditionSpec.parseArguments({sound: {device: "Nano"}}).result()
         expect(parsed.variations).toEqual([{label: "base", sound: {device: "Nano", preset: undefined, code: undefined, params: []}}])
-        expect([parsed.bpm, parsed.bars, parsed.pattern, parsed.views]).toEqual([120, 2, "quarters", []])
+        expect([parsed.bpm, parsed.bars, parsed.pattern]).toEqual([120, 2, "quarters"])
         expect(parsed.notes.map(note => note.position)).toEqual([0, 4, 8, 12, 16, 20, 24, 28])
         expect(parsed.notes.every(note => note.pitch === 48)).toBe(true)
     })
@@ -122,7 +128,7 @@ describe("audition schema and arguments", () => {
         expect(vapo.sound).toEqual({device: "Vaporisateur", preset: undefined, code: undefined, params: [{path: "cutoff", value: 900}]})
     })
     it("converts notes in 16th steps and builds the patterns inside the rendered bars", () => {
-        const parsed = AuditionSpec.parseArguments({sound: {device: "Nano"}, bars: 1, notes: [{pitch: 36, position: 2.5, duration: 1}]}).result()
+        const parsed = AuditionSpec.parseArguments({sound: {device: "Nano"}, soundBars: 1, notes: [{pitch: 36, position: 2.5, duration: 1}]}).result()
         expect(parsed.notes).toEqual([{pitch: 36, position: 2.5, duration: 1, velocity: 0.8}])
         expect(parsed.pattern).toBeUndefined()
         const sustain = AuditionSpec.patternNotes("sustain", 36, 2)
@@ -132,19 +138,65 @@ describe("audition schema and arguments", () => {
         AuditionSpec.Patterns.forEach(pattern => AuditionSpec.patternNotes(pattern, 60, 4)
             .forEach(note => expect(note.position + note.duration, pattern).toBeLessThanOrEqual(64)))
     })
+    it("reads notes written in PPQN as PPQN when they do not fit the 16th steps", () => {
+        const parsed = AuditionSpec.parseArguments({sound: {device: "Nano"}, soundBars: 1,
+            notes: [{pitch: 36, position: 0, duration: 240}, {pitch: 36, position: 960, duration: 480}]}).result()
+        expect(parsed.notes.map(note => [note.position, note.duration])).toEqual([[0, 1], [4, 2]])
+        const steps = AuditionSpec.parseArguments({sound: {device: "Nano"}, soundBars: 1, notes: [{pitch: 36, position: 3, duration: 1}]}).result()
+        expect(steps.notes[0].position).toBe(3)
+    })
+    it("reads MIDI velocities and points out PPQN positions", () => {
+        const parsed = AuditionSpec.parseArguments({sound: {device: "Nano"}, notes: [{pitch: 36, position: 0, duration: 1, velocity: 100}]}).result()
+        expect(parsed.notes[0].velocity).toBeCloseTo(100 / 127, 6)
+        expect(AuditionSpec.parseArguments({sound: {device: "Nano"}, notes: [{pitch: 36, position: 240, duration: 1}]}).failureReason())
+            .toMatch(/looks like PPQN/)
+        expect(AuditionSpec.parseArguments({sound: {device: "Nano"}, soundBars: 1, notes: [{pitch: 36, position: 7200, duration: 240}]}).failureReason())
+            .toMatch(/looks like PPQN/)
+    })
     it("rejects invalid requests with a helpful message", () => {
         const failure = (args: JsonObject): string => AuditionSpec.parseArguments(args).failureReason()
         expect(failure({})).toMatch(/'sound' is required/)
         expect(failure({sound: {}})).toMatch(/neither a 'device' nor a 'preset'/)
-        expect(failure({sound: {device: "Tape"}})).toMatch(/cannot be auditioned/)
-        expect(failure({sound: {device: "Nano"}, bars: 5})).toMatch(/'bars' must be an integer 1..4/)
+        expect(failure({sound: {device: "Tape"}})).toMatch(/cannot play a sound/)
+        expect(failure({sound: {device: "Nano"}, soundBars: 5})).toMatch(/'soundBars' must be an integer 1..4/)
         expect(failure({sound: {device: "Nano"}, pattern: "16ths", notes: [{pitch: 60, position: 0, duration: 1}]})).toMatch(/either 'notes' or 'pattern'/)
         expect(failure({sound: {device: "Nano"}, pattern: "polka"})).toMatch(/'pattern' must be one of/)
-        expect(failure({sound: {device: "Nano"}, bars: 1, notes: [{pitch: 60, position: 16, duration: 1}]})).toMatch(/after the 1 rendered bar/)
+        expect(failure({sound: {device: "Nano"}, soundBars: 1, notes: [{pitch: 60, position: 16, duration: 1}]})).toMatch(/after the 1 rendered bar/)
         expect(failure({sound: {device: "Nano"}, variations: [{label: "a"}, {label: "a"}]})).toMatch(/Duplicate variation label 'a'/)
         expect(failure({sound: {device: "Nano"}, variations: Array.from({length: 5}, (_value, index) => ({label: `v${index}`}))}))
             .toMatch(/at most 4/)
-        expect(failure({sound: {device: "Nano", params: [{path: "release", value: {}}]}})).toMatch(/number, boolean or string 'value'/)
+        expect(failure({sound: {device: "Nano", params: [{path: "release", value: {}}]}})).toMatch(/number, boolean, string or null/)
+        expect(failure({sound: {device: "Nano", params: [{path: "release"}]}})).toMatch(/number, boolean, string or null/)
+        expect(AuditionSpec.parseArguments({sound: {device: "Vaporisateur", params: [{path: "noise.volume", value: null}]}})
+            .result().variations[0].sound.params).toEqual([{path: "noise.volume", value: -Infinity}])
+    })
+})
+
+describe("sound notes and focus", () => {
+    it("turns the requested notes into frames, one per start, chords by their lowest pitch", () => {
+        const notes = SoundSource.notesOf([
+            {pitch: 52, position: 4, duration: 2, velocity: 0.8}, {pitch: 48, position: 4, duration: 3, velocity: 0.8},
+            {pitch: 36, position: 0, duration: 1, velocity: 0.8}
+        ], 120, 48_000, 96_000)
+        expect(notes).toEqual([
+            {index: 1, startFrame: 0, endFrame: 24_000, offFrame: 6_000, pitch: 36},
+            {index: 2, startFrame: 24_000, endFrame: 96_000, offFrame: 42_000, pitch: 48}
+        ])
+    })
+    it("describes each variation's sound and zooms into one note", async () => {
+        const titles: Array<string> = []
+        const result = await createTool([], async title => {
+            titles.push(title)
+            return "data:image/png;base64,x"
+        }).execute({sound: {device: "Nano"}, pattern: "quarters", soundBars: 1, focus: {note: 2}, views: ["spectrogram"]})
+        expect(result.ok).toBe(true)
+        expect(payloadOf(result).focus).toEqual({note: 2, fromSeconds: 0.5, toSeconds: 1})
+        const [base] = variationsOf(result)
+        expect(base.sound).toMatchObject({notes: {count: 1, list: [{note: 2, startSeconds: 0.5, pitch: 48}]}})
+        expect(titles).toHaveLength(1)
+        const missing = await createTool([]).execute({sound: {device: "Nano"}, pattern: "quarters", soundBars: 1, focus: {note: 9}})
+        expect(missing.ok).toBe(false)
+        expect(textOf(missing)).toMatch(/focus.note 9 does not exist; the sound has 4 note/)
     })
 })
 
@@ -154,7 +206,7 @@ describe("audition rendering", () => {
         const result = await createTool(captured).execute({
             sound: {device: "Vaporisateur", params: [{path: "cutoff", value: 2000}]},
             effects: [{device: "Reverb", params: [{path: "decay", value: 0.4}]}],
-            pattern: "8ths", bars: 2, bpm: 120,
+            pattern: "8ths", soundBars: 2, bpm: 120,
             variations: [{label: "dark", params: [{path: "cutoff", value: 1000}]}, {label: "mid"}, {label: "bright", params: [{path: "cutoff", value: 4000}]}]
         })
         expect(result.ok).toBe(true)
@@ -230,7 +282,7 @@ describe("audition rendering", () => {
         expect(images).toHaveLength(2)
         expect(titles[0]).toBe("quiet (0.0 dB)")
         expect(titles[1]).toMatch(/^loud \(-6\.\d dB\)$/)
-        expect(variationsOf(result).map(entry => entry.image)).toEqual([0, 1, undefined])
+        expect(variationsOf(result).map(entry => entry.images)).toEqual([[0], [1], undefined])
         const withoutImages = await createTool([], renderView, false).execute({sound: {device: "Nano"}, views: ["spectrogram"]})
         expect(withoutImages.content.filter(item => item.type === "inputImage")).toHaveLength(0)
         expect(payloadOf(withoutImages).notes).toEqual(["The current model does not accept images; views were skipped."])
@@ -245,11 +297,11 @@ describe("audition rendering", () => {
             running--
             return fakeEngine([])(source, configuration, startPpqn, frames, sampleRate, abort, onMessage)
         }
-        const tool = createAuditionTool({host, env: createEnv, engine})
+        const tool = createTool([], undefined, true, engine)
         const result = await tool.execute({sound: {device: "Nano"}, variations: [{label: "a"}, {label: "b"}, {label: "c"}]})
         expect(result.ok).toBe(true)
         expect(maxRunning).toBe(3)
-        expect(AuditionTool.countNonFinite([Float32Array.of(0, NaN, Infinity)])).toBe(2)
+        expect(SoundSource.countNonFinite([Float32Array.of(0, NaN, Infinity)])).toBe(2)
         expect(PPQN.SemiQuaver * 16).toBe(PPQN.Bar)
     })
 })

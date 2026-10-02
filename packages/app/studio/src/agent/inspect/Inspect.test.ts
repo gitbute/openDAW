@@ -176,8 +176,8 @@ describe("inspect_notes", () => {
         expect(lines[0]).toContain("Bass · bars 1-2 · 4/4 · 6 notes")
         expect(lines.slice(1)).toEqual([
             "bars 1-2:",
-            "G1/43   ........8.......",
-            "C1/36   x...5--........."
+            "G2/43   ........8.......",
+            "C2/36   x...5--........."
         ])
     })
 
@@ -185,13 +185,13 @@ describe("inspect_notes", () => {
         const {project, createInspectNotesTool} = await setup()
         const tool = createInspectNotesTool(() => project)
         const list = textOf(await tool.execute({unit: "Drums", format: "list"})).split("\n")
-        expect(list.slice(1)).toEqual(["5.1.0 36(C1) 240 1.00", "5.1.490 42(F#1) 240 1.00"])
+        expect(list.slice(1)).toEqual(["5.1.0 36(C2) 240 1.00", "5.1.490 42(F#2) 240 1.00"])
         const grid = textOf(await tool.execute({unit: "Drums", bars: {from: 4, to: 5}})).split("\n")
         expect(grid.slice(1)).toEqual([
             "bar 4: rest",
             "bar 5:",
-            "F#1/42  ..x-............",
-            "C1/36   x...............",
+            "F#2/42  ..x-............",
+            "C2/36   x...............",
             "(1 onsets off the 16th grid)"
         ])
     })
@@ -205,16 +205,16 @@ describe("inspect_notes", () => {
         expect(lines.slice(1)).toEqual([
             "bars 1-2:",
             "[1 Bass]",
-            "G1/43   ........8.......",
-            "C1/36   x...5--.........",
+            "G2/43   ........8.......",
+            "C2/36   x...5--.........",
             "[2 Drums] rest",
             "all     1...1...1.......",
             "bars 3-4: rest",
             "bar 5:",
             "[1 Bass] rest",
             "[2 Drums]",
-            "F#1/42  ..x-............",
-            "C1/36   x...............",
+            "F#2/42  ..x-............",
+            "C2/36   x...............",
             "(1 onsets off the 16th grid)",
             "all     2.2............."
         ])

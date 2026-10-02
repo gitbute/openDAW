@@ -258,6 +258,24 @@ describe("AudioMetrics.masking", () => {
     })
 })
 
+describe("AudioMetrics.noteSpans", () => {
+    it("ends a note at its release or at the next onset", () => {
+        // 0.2 s tone, 0.3 s silence, then a 0.5 s tone that runs into a third onset at 0.8 s
+        const signal = new Float32Array(SR)
+        signal.set(sine(220, -6.0, 0.2), 0)
+        signal.set(sine(220, -6.0, 0.5), Math.round(0.5 * SR))
+        const spans = AudioMetrics.noteSpans([signal], SR, [0.0, 0.5, 0.8])
+        expect(spans).toHaveLength(3)
+        expect(spans[0].startFrame).toBe(0)
+        expect(spans[0].endFrame / SR).toBeCloseTo(0.2, 2)
+        expect(spans[1].endFrame).toBe(Math.round(0.8 * SR))
+        expect(spans[2].endFrame).toBe(SR)
+    })
+    it("returns nothing without onsets", () => {
+        expect(AudioMetrics.noteSpans([sine(220, -6.0, 0.5)], SR, [])).toEqual([])
+    })
+})
+
 describe("AudioMetrics.loudnessPerSegment", () => {
     it("measures two halves at different levels", () => {
         const signal = new Float32Array(10 * SR)

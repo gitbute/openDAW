@@ -1,6 +1,7 @@
 import {
     DefaultObservableValue,
     Errors,
+    isDefined,
     MutableObservableOption,
     Notifier,
     Observer,
@@ -11,6 +12,7 @@ import {
     UUID
 } from "@opendaw/lib-std"
 import {ProjectDialogs} from "@/project/ProjectDialogs"
+import {CodexProjectConversationStore} from "@/codex/CodexProjectConversationStore"
 import {Dialogs} from "@/ui/components/dialogs"
 import {Promises} from "@opendaw/lib-runtime"
 import {Files} from "@opendaw/lib-dom"
@@ -112,6 +114,11 @@ export class ProjectProfileService {
                     icon: "Warning"
                 })
                 return
+            }
+            const copied = optProfile.unwrapOrNull()
+            if (isDefined(copied)) {
+                const conversation = await Promises.tryCatch(CodexProjectConversationStore.copyToCopy(profile, copied))
+                if (conversation.status === "rejected") {console.warn("Could not copy the agent conversation", conversation.error)}
             }
             optProfile.ifSome(profile => this.#profile.wrap(profile))
             this.#saved.notify(optProfile.unwrapOrElse(profile))

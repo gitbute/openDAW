@@ -51,6 +51,9 @@ export namespace AudioMetrics {
         swingEstimate: Optional<number>
     }
 
+    /** A sounding event in frames, endFrame exclusive. */
+    export type NoteSpan = {startFrame: int, endFrame: int}
+
     export type MaskingBand = {centerHz: number, overlapDb: number, score: number}
     export type Masking = {bands: ReadonlyArray<MaskingBand>, score: number}
 
@@ -400,6 +403,48 @@ export namespace AudioMetrics {
             lastFrame = frame
         }
         return result
+    }
+
+    /**
+     * One span per onset: it ends at the next onset or where the 5 ms RMS of the mono mix falls releaseDb (default 40)
+     * below the span's own peak, whichever comes first.
+     */
+    export const noteSpans = (channels: Channels, sampleRate: number, onsetSeconds: ReadonlyArray<number>,
+                              releaseDb: number = 40.0): ReadonlyArray<NoteSpan> => {
+        const numFrames = frameCount(channels)
+        const hop = Math.max(1, Math.round(sampleRate * 0.005))
+        const numHops = Math.ceil(numFrames / hop)
+        const rms = new Float64Array(numHops)
+        for (let h = 0; h < numHops; h++) {
+            let energy = 0.0
+            const end = Math.min(numFrames, (h + 1) * hop)
+            for (const samples of channels) {
+                for (let i = h * hop; i < end; i++) {
+                    const value = samples[i]
+                    energy += value * value
+                }
+            }
+            rms[h] = Math.sqrt(energy / Math.max(1, (end - h * hop) * channels.length))
+        }
+        const starts = onsetSeconds.map(seconds => clamp(Math.round(seconds * sampleRate), 0, numFrames))
+            .filter(frame => frame < numFrames)
+        const release = Math.pow(10.0, -releaseDb / 20.0)
+        return starts.map((startFrame, index) => {
+            const limitFrame = index + 1 < starts.length ? starts[index + 1] : numFrames
+            const firstHop = Math.floor(startFrame / hop)
+            const lastHop = Math.max(firstHop + 1, Math.ceil(limitFrame / hop))
+            let peakHop = firstHop
+            for (let h = firstHop; h < lastHop; h++) {if (rms[h] > rms[peakHop]) {peakHop = h}}
+            const threshold = rms[peakHop] * release
+            let endFrame = limitFrame
+            for (let h = peakHop + 1; h < lastHop; h++) {
+                if (rms[h] < threshold) {
+                    endFrame = Math.min(limitFrame, h * hop)
+                    break
+                }
+            }
+            return {startFrame, endFrame: Math.max(startFrame + 1, endFrame)}
+        })
     }
 
     /** Deviation of onsets from the grid offsetSeconds + k * secondsPerStep. On grid: within toleranceMs (default 10). */

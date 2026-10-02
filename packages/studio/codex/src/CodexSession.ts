@@ -310,6 +310,14 @@ export class CodexSession {
         return info
     }
 
+    // a new thread with the history of threadId, which itself stays untouched
+    async forkThread(threadId: string): Promise<CodexThreadInfo> {
+        const info = threadInfo(await this.#rpc.request("thread/fork", {threadId}), "thread/fork response")
+        this.#setThread(info)
+        this.#emit({type: "threadStarted", thread: info})
+        return info
+    }
+
     async closeThread(): Promise<void> {
         const threadId = this.#threadId
         this.#releaseThread()
@@ -334,6 +342,21 @@ export class CodexSession {
         const id = turnId(result, "turn/start response")
         this.#activeTurnId = id
         return id
+    }
+
+    // adds input to the running turn instead of waiting for it to end
+    async steerTurn(text: string, images: ReadonlyArray<string> = [], expectedTurnId: string = this.#activeTurnId ?? ""): Promise<string> {
+        const threadId = this.#requireThread()
+        if (expectedTurnId.length === 0) {throw new Error("An active turn id is required to steer a turn")}
+        const result = await this.#rpc.request("turn/steer", {
+            threadId,
+            expectedTurnId,
+            input: [
+                ...(text.length > 0 || images.length === 0 ? [{type: "text", text, text_elements: []}] : []),
+                ...images.map(url => ({type: "image", url}))
+            ]
+        })
+        return stringAt(asRecord(result, "turn/steer response"), "turnId", "turn/steer response")
     }
 
     async interruptTurn(turnId: string = this.#activeTurnId ?? ""): Promise<void> {
@@ -380,9 +403,12 @@ export class CodexSession {
 
     #isConcurrent({params}: RpcRequest): boolean {
         if (!CodexJson.isJsonObject(params)) {return false}
-        const {namespace, tool} = params
-        return typeof namespace === "string" && typeof tool === "string"
-            && this.#findTool(namespace, tool)?.concurrent === true
+        const {namespace, tool, arguments: args} = params
+        if (typeof namespace !== "string" || typeof tool !== "string") {return false}
+        const concurrent = this.#findTool(namespace, tool)?.concurrent
+        return typeof concurrent === "function"
+            ? CodexJson.isJsonObject(args) && concurrent(args)
+            : concurrent === true
     }
 
     #findTool(namespace: string, name: string): Optional<AgentTool> {

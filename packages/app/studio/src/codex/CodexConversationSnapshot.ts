@@ -6,6 +6,8 @@ import type {CodexConversationEntry} from "./CodexAgentController"
 export type CodexConversationSnapshot = {
     readonly threadId: Nullable<string>
     readonly entries: ReadonlyArray<CodexConversationEntry>
+    /** The project is a copy (Save As): continue in a fork of threadId instead of the thread itself. */
+    readonly forkPending: boolean
 }
 
 export type CodexConversationStore = {
@@ -62,12 +64,12 @@ export namespace CodexConversationSnapshot {
         }
     }
 
-    export const create = (threadId: Nullable<string>,
-                           entries: ReadonlyArray<CodexConversationEntry>): CodexConversationSnapshot => {
+    export const create = (threadId: Nullable<string>, entries: ReadonlyArray<CodexConversationEntry>,
+                           forkPending: boolean = false): CodexConversationSnapshot => {
         const kept = entries.slice(-MaxEntries).map(entry => settle(entry))
         const trimmed = entries.length > MaxEntries && kept.at(0)?.type !== "notice"
         const notice: CodexConversationEntry = {type: "notice", id: "notice-trimmed", text: TrimmedNotice}
-        return {threadId, entries: trimmed ? [notice, ...kept.slice(1)] : kept}
+        return {threadId, entries: trimmed ? [notice, ...kept.slice(1)] : kept, forkPending}
     }
 
     const isString = (value: Optional<JsonValue>): value is string => typeof value === "string"
@@ -95,8 +97,8 @@ export namespace CodexConversationSnapshot {
         }
     }
 
-    export const encode = ({threadId, entries}: CodexConversationSnapshot): string =>
-        JSON.stringify({version: Version, threadId, entries})
+    export const encode = ({threadId, entries, forkPending}: CodexConversationSnapshot): string =>
+        JSON.stringify({version: Version, threadId, entries, ...(forkPending ? {forkPending} : {})})
 
     export const decode = (text: string): Option<CodexConversationSnapshot> => {
         const parsed = tryCatch((): JsonValue => JSON.parse(text))
@@ -105,6 +107,6 @@ export namespace CodexConversationSnapshot {
         if (!isJsonObject(json) || json.version !== Version || !Array.isArray(json.entries)) {return Option.None}
         const threadId = isString(json.threadId) ? json.threadId : null
         const entries = json.entries.filter(entry => isEntry(entry))
-        return Option.wrap({threadId, entries})
+        return Option.wrap({threadId, entries, forkPending: json.forkPending === true})
     }
 }

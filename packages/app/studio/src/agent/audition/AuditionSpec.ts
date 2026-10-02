@@ -18,8 +18,6 @@ export type AuditionNote = { readonly pitch: int, readonly position: number, rea
 
 export type AuditionPattern = "sustain" | "quarters" | "8ths" | "16ths" | "offbeats" | "chord-stabs" | "chords" | "arp"
 
-export type AuditionView = "spectrogram"
-
 export type AuditionVariation = { readonly label: string, readonly sound: SoundSpec }
 
 export type AuditionRequest = {
@@ -29,7 +27,6 @@ export type AuditionRequest = {
     readonly bpm: number
     readonly bars: int
     readonly variations: ReadonlyArray<AuditionVariation>
-    readonly views: ReadonlyArray<AuditionView>
 }
 
 export namespace AuditionSpec {
@@ -54,7 +51,7 @@ export namespace AuditionSpec {
             additionalProperties: false,
             properties: {
                 path: {type: "string"},
-                value: {anyOf: [{type: "number"}, {type: "boolean"}, {type: "string"}]}
+                value: {anyOf: [{type: "number"}, {type: "boolean"}, {type: "string"}, {type: "null"}], description: "null means -Infinity (e.g. a volume switched off), which JSON cannot carry"}
             },
             required: ["path", "value"]
         }
@@ -67,76 +64,68 @@ export namespace AuditionSpec {
         params: paramsSchema(subject)
     })
 
-    export const InputSchema: JsonObject = {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-            sound: {
+    /** Request properties as listen takes them next to its own (bars there doubles as the project bar range). */
+    export const Properties: JsonObject = {
+        sound: {
+            type: "object",
+            additionalProperties: false,
+            description: "Listen to this instrument instead of the project: it plays the pattern or notes in a throwaway sandbox project (the open project is never touched). Every variation starts from it.",
+            properties: soundProperties("Instrument")
+        },
+        effects: {
+            type: "array",
+            maxItems: MaxEffects,
+            description: "Audio effects after the instrument, in order (shared by all variations).",
+            items: {
                 type: "object",
                 additionalProperties: false,
-                description: "The instrument to audition. Every variation starts from it.",
-                properties: soundProperties("Instrument")
-            },
-            effects: {
-                type: "array",
-                maxItems: MaxEffects,
-                description: "Audio effects after the instrument, in order (shared by all variations).",
-                items: {
-                    type: "object",
-                    additionalProperties: false,
-                    properties: {
-                        device: {type: "string", description: "Audio effect key as device_reference lists it (e.g. 'Reverb', 'Werkstatt')."},
-                        code: {type: "string", description: "Werkstatt script source."},
-                        params: paramsSchema("Effect")
-                    },
-                    required: ["device"]
-                }
-            },
-            notes: {
-                type: "array",
-                maxItems: MaxNotes,
-                description: "Notes to play instead of a pattern. Positions and durations are in 16th steps from the start (4 per beat, 16 per 4/4 bar, fractions allowed).",
-                items: {
-                    type: "object",
-                    additionalProperties: false,
-                    properties: {
-                        pitch: {type: "integer", minimum: 0, maximum: 127, description: "MIDI pitch, 60 = middle C"},
-                        position: {type: "number", minimum: 0, description: "start in 16th steps"},
-                        duration: {type: "number", minimum: 0.01, description: "length in 16th steps"},
-                        velocity: {type: "number", minimum: 0, maximum: 1, description: "0..1, default 0.8"}
-                    },
-                    required: ["pitch", "position", "duration"]
-                }
-            },
-            pattern: {
-                type: "string",
-                enum: [...Patterns],
-                description: "Built-in note pattern when 'notes' is omitted (default 'quarters'): sustain (one held note, last half bar free for the release), quarters, 8ths, 16ths, offbeats (8th offbeats), chord-stabs (short minor triads on the offbeats), chords (held minor 7th chord per bar), arp (16th minor arpeggio)."
-            },
-            root: {type: "integer", minimum: 0, maximum: 127, description: "Root pitch of the pattern (default 48 = C one octave below middle C)."},
-            bpm: {type: "number", minimum: 30, maximum: 300, description: "Tempo (default 120), 4/4."},
-            bars: {type: "integer", minimum: 1, maximum: MaxBars, description: "Bars to render (default 2); a 1 s tail is added."},
-            variations: {
-                type: "array",
-                minItems: 1,
-                maxItems: MaxVariations,
-                description: "Alternatives to compare, each rendered separately. Each overrides the base sound: 'params' are merged over the base params, 'code'/'preset' replace them, a different 'device' starts from scratch. Omit to render the base sound alone.",
-                items: {
-                    type: "object",
-                    additionalProperties: false,
-                    properties: {label: {type: "string", description: "Short unique name"}, ...soundProperties("Instrument")},
-                    required: ["label"]
-                }
-            },
-            views: {
-                type: "array",
-                maxItems: 1,
-                description: "Images per variation (default none). 'spectrogram' is drawn at matched loudness.",
-                items: {type: "string", enum: ["spectrogram"]}
+                properties: {
+                    device: {type: "string", description: "Audio effect key as device_reference lists it (e.g. 'Reverb', 'Werkstatt')."},
+                    code: {type: "string", description: "Werkstatt script source."},
+                    params: paramsSchema("Effect")
+                },
+                required: ["device"]
             }
         },
-        required: ["sound"]
+        notes: {
+            type: "array",
+            maxItems: MaxNotes,
+            description: "Notes to play instead of a pattern. Positions and durations are in 16th steps from the start (4 per beat, 16 per 4/4 bar, fractions allowed).",
+            items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                    pitch: {type: "integer", minimum: 0, maximum: 127, description: "MIDI pitch, 60 = middle C"},
+                    position: {type: "number", minimum: 0, description: "start in 16th steps"},
+                    duration: {type: "number", minimum: 0.01, description: "length in 16th steps"},
+                    velocity: {type: "number", minimum: 0, maximum: 127, description: "0..1 (values above 1 are read as MIDI 1..127), default 0.8"}
+                },
+                required: ["pitch", "position", "duration"]
+            }
+        },
+        pattern: {
+            type: "string",
+            enum: [...Patterns],
+            description: "Built-in note pattern when 'notes' is omitted (default 'quarters'): sustain (one held note, last half bar free for the release), quarters, 8ths, 16ths, offbeats (8th offbeats), chord-stabs (short minor triads on the offbeats), chords (held minor 7th chord per bar), arp (16th minor arpeggio)."
+        },
+        root: {type: "integer", minimum: 0, maximum: 127, description: "Root pitch of the pattern (default 48 = C one octave below middle C)."},
+        bpm: {type: "number", minimum: 30, maximum: 300, description: "Tempo (default 120), 4/4."},
+        soundBars: {type: "integer", minimum: 1, maximum: MaxBars, description: `Bars the sound plays (default ${DefaultBars}); a 1 s tail is added.`},
+        variations: {
+            type: "array",
+            minItems: 1,
+            maxItems: MaxVariations,
+            description: "Alternatives to compare, each rendered separately. Each overrides the base sound: 'params' are merged over the base params, 'code'/'preset' replace them, a different 'device' starts from scratch. Omit to render the base sound alone.",
+            items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {label: {type: "string", description: "Short unique name"}, ...soundProperties("Instrument")},
+                required: ["label"]
+            }
+        }
     }
+
+
 
     const isObject = (value: Optional<JsonValue>): value is JsonObject =>
         isDefined(value) && typeof value === "object" && !Array.isArray(value)
@@ -159,8 +148,12 @@ export namespace AuditionSpec {
             if (!isObject(entry)) {return Attempts.err(`'${name}' entries must be objects {path, value}`)}
             const {path, value: setting} = entry
             if (typeof path !== "string" || path.trim().length === 0) {return Attempts.err(`'${name}' entries need a non-empty 'path'`)}
+            if (!isDefined(setting) && Object.hasOwn(entry, "value")) {
+                settings.push({path: path.trim(), value: -Infinity})
+                continue
+            }
             if (typeof setting !== "number" && typeof setting !== "boolean" && typeof setting !== "string") {
-                return Attempts.err(`'${name}' entry '${path}' needs a number, boolean or string 'value'`)
+                return Attempts.err(`'${name}' entry '${path}' needs a number, boolean, string or null (-Infinity) 'value'`)
             }
             if (typeof setting === "number" && !Number.isFinite(setting)) {return Attempts.err(`'${name}' entry '${path}' is not finite`)}
             settings.push({path: path.trim(), value: setting})
@@ -180,7 +173,7 @@ export namespace AuditionSpec {
         if (params.isFailure()) {return Attempts.err(params.failureReason())}
         const deviceName = device.result()
         if (isDefined(deviceName) && UnsupportedInstruments.includes(deviceName)) {
-            return Attempts.err(`'${name}.device' ${deviceName} cannot be auditioned (no note-driven audio)`)
+            return Attempts.err(`'${name}.device' ${deviceName} cannot play a sound (no note-driven audio)`)
         }
         return Attempts.ok({device: deviceName, preset: preset.result(), code: code.result(), params: params.result()})
     }
@@ -199,7 +192,7 @@ export namespace AuditionSpec {
     const parseVariations = (value: Optional<JsonValue>, base: SoundSpec): Attempt<ReadonlyArray<AuditionVariation>, string> => {
         if (!isDefined(value)) {return Attempts.ok([{label: "base", sound: base}])}
         if (!isArray(value) || value.length === 0) {return Attempts.err("'variations' must be a non-empty list")}
-        if (value.length > MaxVariations) {return Attempts.err(`${value.length} variations; audition renders at most ${MaxVariations} per call`)}
+        if (value.length > MaxVariations) {return Attempts.err(`${value.length} variations; listen renders at most ${MaxVariations} per call`)}
         const variations: Array<AuditionVariation> = []
         for (const [index, entry] of value.entries()) {
             if (!isObject(entry)) {return Attempts.err(`'variations[${index}]' must be an object`)}
@@ -213,7 +206,7 @@ export namespace AuditionSpec {
         return Attempts.ok(variations)
     }
 
-    const parseEffects = (value: Optional<JsonValue>): Attempt<ReadonlyArray<EffectSpec>, string> => {
+    export const parseEffects = (value: Optional<JsonValue>): Attempt<ReadonlyArray<EffectSpec>, string> => {
         if (!isDefined(value)) {return Attempts.ok([])}
         if (!isArray(value)) {return Attempts.err("'effects' must be a list of {device, params?}")}
         if (value.length > MaxEffects) {return Attempts.err(`${value.length} effects; at most ${MaxEffects}`)}
@@ -246,10 +239,11 @@ export namespace AuditionSpec {
             if (typeof duration !== "number" || !Number.isFinite(duration) || duration <= 0) {
                 return Attempts.err(`'notes[${index}].duration' must be a number > 0 (16th steps)`)
             }
-            if (isDefined(velocity) && (typeof velocity !== "number" || velocity < 0 || velocity > 1)) {
-                return Attempts.err(`'notes[${index}].velocity' must be a number 0..1`)
+            if (isDefined(velocity) && (typeof velocity !== "number" || velocity < 0 || velocity > 127)) {
+                return Attempts.err(`'notes[${index}].velocity' must be a number 0..1 (or MIDI 1..127)`)
             }
-            notes.push({pitch, position, duration, velocity: typeof velocity === "number" ? velocity : 0.8})
+            const level = typeof velocity === "number" ? (velocity > 1 ? velocity / 127 : velocity) : 0.8
+            notes.push({pitch, position, duration, velocity: level})
         }
         return Attempts.ok(notes)
     }
@@ -284,6 +278,17 @@ export namespace AuditionSpec {
         }
     }
 
+    export const StepPpqn = 240
+
+    /** Notes written in PPQN (as run_script positions are) do not fit the rendered 16th steps; read them as PPQN then. */
+    export const fromPpqnIfNeeded = (notes: ReadonlyArray<AuditionNote>, barSteps: number): ReadonlyArray<AuditionNote> => {
+        const outOfRange = notes.some(note => note.position >= barSteps)
+        const ppqnLike = notes.every(note => note.position % 15 === 0 && note.duration % 15 === 0)
+        const fits = notes.every(note => note.position / StepPpqn < barSteps)
+        return outOfRange && ppqnLike && fits
+            ? notes.map(note => ({...note, position: note.position / StepPpqn, duration: note.duration / StepPpqn})) : notes
+    }
+
     const numberIn = (value: Optional<JsonValue>, name: string, fallback: number, min: number, max: number,
                       integer: boolean): Attempt<number, string> => {
         if (!isDefined(value)) {return Attempts.ok(fallback)}
@@ -295,7 +300,7 @@ export namespace AuditionSpec {
 
     export const parseArguments = (args: JsonObject): Attempt<AuditionRequest, string> => {
         const {sound: soundValue, effects: effectsValue, notes: notesValue, pattern: patternValue, root: rootValue,
-            bpm: bpmValue, bars: barsValue, variations: variationsValue, views: viewsValue} = args
+            bpm: bpmValue, soundBars: barsValue, variations: variationsValue} = args
         if (!isObject(soundValue)) {return Attempts.err("'sound' is required: {device?, preset?, code?, params?}")}
         const base = parseSound(soundValue, "sound")
         if (base.isFailure()) {return Attempts.err(base.failureReason())}
@@ -307,7 +312,7 @@ export namespace AuditionSpec {
         if (effects.isFailure()) {return Attempts.err(effects.failureReason())}
         const bpm = numberIn(bpmValue, "bpm", DefaultBpm, 30, 300, false)
         if (bpm.isFailure()) {return Attempts.err(bpm.failureReason())}
-        const bars = numberIn(barsValue, "bars", DefaultBars, 1, MaxBars, true)
+        const bars = numberIn(barsValue, "soundBars", DefaultBars, 1, MaxBars, true)
         if (bars.isFailure()) {return Attempts.err(bars.failureReason())}
         const root = numberIn(rootValue, "root", DefaultRoot, 0, 127, true)
         if (root.isFailure()) {return Attempts.err(root.failureReason())}
@@ -315,17 +320,17 @@ export namespace AuditionSpec {
         if (isDefined(patternValue) && !isPattern(patternValue)) {return Attempts.err(`'pattern' must be one of ${Patterns.join(", ")}`)}
         const pattern: Optional<AuditionPattern> = isDefined(notesValue) ? undefined
             : isDefined(patternValue) && isPattern(patternValue) ? patternValue : DefaultPattern
-        const notes = isDefined(pattern) ? Attempts.ok(patternNotes(pattern, root.result(), bars.result())) : parseNotes(notesValue ?? null)
-        if (notes.isFailure()) {return Attempts.err(notes.failureReason())}
+        const parsedNotes = isDefined(pattern) ? Attempts.ok(patternNotes(pattern, root.result(), bars.result())) : parseNotes(notesValue ?? null)
+        if (parsedNotes.isFailure()) {return Attempts.err(parsedNotes.failureReason())}
+        const notes = Attempts.ok(fromPpqnIfNeeded(parsedNotes.result(), bars.result() * 16))
         const barSteps = bars.result() * 16
         const late = notes.result().findIndex(note => note.position >= barSteps)
-        if (late >= 0) {return Attempts.err(`Note ${late} starts at step ${notes.result()[late].position}, after the ${bars.result()} rendered bar(s) (${barSteps} steps)`)}
-        let views: ReadonlyArray<AuditionView> = []
-        if (isDefined(viewsValue)) {
-            if (!isArray(viewsValue) || !viewsValue.every(view => view === "spectrogram")) {return Attempts.err("'views' must be [] or ['spectrogram']")}
-            views = viewsValue.length > 0 ? ["spectrogram"] : []
+        if (late >= 0) {
+            const position = notes.result()[late].position
+            const ppqnHint = position >= 60 && position % 60 === 0 ? `; positions are 16th steps (1 = one 16th), ${position} looks like PPQN (divide by 240)` : ""
+            return Attempts.err(`Note ${late} starts at step ${position}, after the ${bars.result()} rendered bar(s) (${barSteps} steps)${ppqnHint}`)
         }
         return Attempts.ok({effects: effects.result(), notes: notes.result(), pattern, bpm: bpm.result(), bars: bars.result(),
-            variations: variations.result(), views})
+            variations: variations.result()})
     }
 }
